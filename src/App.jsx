@@ -1377,12 +1377,19 @@ const iStyle = (extra={}) => ({
 
 function PlayerModal({player, onSave, onDelete, onClose}){
   const isNew = !player.id;
+  // Safely normalise position to array regardless of storage format
+  const initPositions = (()=>{
+    const p = player.position;
+    if(Array.isArray(p) && p.length) return p;
+    if(typeof p === "string" && p)   return [p];
+    return ["CM"];
+  })();
   const [form,setForm] = useState({
-    id:      player.id      || `p${Date.now()}`,
-    name:     player.name || "",
-    number:   player.number ?? "",
-    positions: allPos(player).length ? allPos(player) : ["CM"],
-    captain: player.captain || false,
+    id:        player.id      || `p${Date.now()}`,
+    name:      player.name    || "",
+    number:    player.number  ?? "",
+    positions: initPositions,
+    captain:   player.captain || false,
   });
   const [err,setErr] = useState("");
 
