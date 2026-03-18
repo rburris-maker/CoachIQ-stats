@@ -1041,9 +1041,14 @@ function LiveTrackView({games,setGames}){
     setStats(init);setMin(0);setEvents([]);setSelPlayer(null);
   }
 
+  function syncPassAtt(s){
+    // always keep passesAttempted = completed + incomplete
+    return {...s, passesAttempted:(s.passesCompleted||0)+(s.passesIncomplete||0)};
+  }
   function inc(pid,key){
     setStats(prev=>{
-      const s={...prev[pid],[key]:(prev[pid][key]||0)+1};
+      let s={...prev[pid],[key]:(prev[pid][key]||0)+1};
+      if(key==="passesCompleted"||key==="passesIncomplete") s=syncPassAtt(s);
       if(key==="goals"){
         const pn=PLAYERS.find(x=>x.id===pid)?.name;
         setEvents(ev=>[{id:Date.now(),text:`⚽ GOAL — ${pn} (${min}')`},...ev]);
@@ -1055,13 +1060,14 @@ function LiveTrackView({games,setGames}){
   function dec(pid,key){
     setStats(prev=>{
       const cur=prev[pid][key]||0; if(cur<=0)return prev;
-      const s={...prev[pid],[key]:cur-1};
+      let s={...prev[pid],[key]:cur-1};
+      if(key==="passesCompleted"||key==="passesIncomplete") s=syncPassAtt(s);
       if(key==="goals")setLive(g=>({...g,ourScore:Math.max(0,g.ourScore-1)}));
       return {...prev,[pid]:s};
     });
   }
   function endGame(){
-    const sa=PLAYERS.map(p=>enrichStats({...stats[p.id],minutesPlayed:min}));
+    const sa=PLAYERS.map(p=>({...stats[p.id],minutesPlayed:min}));
     setGames(prev=>[{...live,status:"completed",stats:sa},...prev]);
     setLive(null);setEndConfirm(false);
   }
@@ -1125,7 +1131,7 @@ function LiveTrackView({games,setGames}){
   // ── Live game screen ────────────────────────────────────────────────────────
   const selectedPlayer = selPlayer ? PLAYERS.find(p=>p.id===selPlayer) : null;
   const selStats       = selPlayer ? (stats[selPlayer]||{}) : {};
-  const selRating      = selectedPlayer ? calcRating(enrichStats({...selStats,minutesPlayed:min}),primaryPos(selectedPlayer),live.theirScore===0) : null;
+  const selRating      = selectedPlayer ? calcRating({...selStats,minutesPlayed:min},primaryPos(selectedPlayer),live.theirScore===0) : null;
 
   return(
     <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -1201,7 +1207,7 @@ function LiveTrackView({games,setGames}){
           {PLAYERS.filter(p=>!benched.has(p.id)).map(player=>{
             const s    = stats[player.id]||{};
             const cs   = live.theirScore===0;
-            const {rating} = calcRating(enrichStats({...s,minutesPlayed:min}),primaryPos(player),cs);
+            const {rating} = calcRating({...s,minutesPlayed:min},primaryPos(player),cs);
             const rc   = rColor(rating);
             const isSel= selPlayer===player.id;
             const pc   = posColor(primaryPos(player));
