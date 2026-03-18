@@ -1401,7 +1401,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     onSave({...form, number:parseInt(form.number), position:form.positions});
   }
 
-  const posColor = POS_META[form.positions?.[0]]?.color || C.accent;
+  const primaryColor = POS_META[form.positions?.[0]]?.color || C.accent;
 
   return(
     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1417,9 +1417,9 @@ function PlayerModal({player, onSave, onDelete, onClose}){
 
         {/* Jersey preview */}
         <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-          <div style={{width:72,height:72,borderRadius:14,background:posColor+"22",border:`3px solid ${posColor}55`,
+          <div style={{width:72,height:72,borderRadius:14,background:primaryColor+"22",border:`3px solid ${primaryColor}55`,
             display:"flex",alignItems:"center",justifyContent:"center",
-            fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor,fontSize:32}}>
+            fontFamily:"'Oswald',sans-serif",fontWeight:900,color:primaryColor,fontSize:32}}>
             {form.number || "#"}
           </div>
         </div>
@@ -1465,7 +1465,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
               })}
             </div>
             <div style={{color:C.muted,fontSize:11,marginTop:6}}>
-              Primary: <span style={{color:posColor(form.positions[0]),fontWeight:700}}>{form.positions[0]}</span>
+              Primary: <span style={{color:primaryColor,fontWeight:700}}>{form.positions[0]}</span>
               {form.positions.length>1 && <span> · Can also play: {form.positions.slice(1).join(", ")}</span>}
             </div>
           </div>
