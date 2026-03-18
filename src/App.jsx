@@ -121,6 +121,16 @@ function parseRosterSpreadsheet(file){
 // mutable squad ref — updated by App when roster changes
 let PLAYERS = DEFAULT_PLAYERS;
 
+// Derive passesAttempted from passesCompleted + passesIncomplete (live entry mode)
+// Falls back to stored passesAttempted for imported/spreadsheet stats
+function enrichStats(s){
+  if(!s) return s;
+  if(typeof s.passesIncomplete === "number"){
+    return {...s, passesAttempted:(s.passesCompleted||0)+(s.passesIncomplete||0)};
+  }
+  return s;
+}
+
 // ─── STATS FACTORY ───────────────────────────────────────────────────────────
 // goals,assists,shots,shotsOT,passComp,passAtt,tackles,inter,fouls,saves,mins,
 // keyPasses,aerialWon,bigChancesMissed,dangerousTurnovers,goalsConceded
@@ -1003,8 +1013,8 @@ function LiveTrackView({games,setGames}){
       {k:"bigChancesMissed",label:"Big Miss",   emoji:"😬"},
     ]},
     { label:"Passing", color:"#ffb300", stats:[
-      {k:"passesCompleted", label:"Pass ✓",     emoji:"↗"},
-      {k:"passesAttempted", label:"Pass Total",  emoji:"↗↗"},
+      {k:"passesCompleted",  label:"Pass",       emoji:"↗"},
+      {k:"passesIncomplete", label:"Incomplete", emoji:"✗"},
       {k:"dangerousTurnovers",label:"Bad Turn",  emoji:"⚠️"},
     ]},
     { label:"Defence", color:"#42a5f5", stats:[
@@ -1026,7 +1036,7 @@ function LiveTrackView({games,setGames}){
   function startGame(){
     if(!form.opponent)return;
     const init={};
-    PLAYERS.forEach(p=>{init[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,bigChancesMissed:0,minutesPlayed:0};});
+    PLAYERS.forEach(p=>{init[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,bigChancesMissed:0,minutesPlayed:0};});
     setLive({id:`g${Date.now()}`,...form,ourScore:0,theirScore:0,status:"live"});
     setStats(init);setMin(0);setEvents([]);setSelPlayer(null);
   }
@@ -1051,7 +1061,7 @@ function LiveTrackView({games,setGames}){
     });
   }
   function endGame(){
-    const sa=PLAYERS.map(p=>({...stats[p.id],minutesPlayed:min}));
+    const sa=PLAYERS.map(p=>enrichStats({...stats[p.id],minutesPlayed:min}));
     setGames(prev=>[{...live,status:"completed",stats:sa},...prev]);
     setLive(null);setEndConfirm(false);
   }
@@ -1115,7 +1125,7 @@ function LiveTrackView({games,setGames}){
   // ── Live game screen ────────────────────────────────────────────────────────
   const selectedPlayer = selPlayer ? PLAYERS.find(p=>p.id===selPlayer) : null;
   const selStats       = selPlayer ? (stats[selPlayer]||{}) : {};
-  const selRating      = selectedPlayer ? calcRating({...selStats,minutesPlayed:min},primaryPos(selectedPlayer),live.theirScore===0) : null;
+  const selRating      = selectedPlayer ? calcRating(enrichStats({...selStats,minutesPlayed:min}),primaryPos(selectedPlayer),live.theirScore===0) : null;
 
   return(
     <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -1191,7 +1201,7 @@ function LiveTrackView({games,setGames}){
           {PLAYERS.filter(p=>!benched.has(p.id)).map(player=>{
             const s    = stats[player.id]||{};
             const cs   = live.theirScore===0;
-            const {rating} = calcRating({...s,minutesPlayed:min},primaryPos(player),cs);
+            const {rating} = calcRating(enrichStats({...s,minutesPlayed:min}),primaryPos(player),cs);
             const rc   = rColor(rating);
             const isSel= selPlayer===player.id;
             const pc   = posColor(primaryPos(player));
