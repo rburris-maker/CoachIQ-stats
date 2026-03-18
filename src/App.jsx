@@ -8,9 +8,26 @@ import {
   LayoutDashboard, Users, Trophy, Radio, BarChart2,
   Target, Award, MapPin, ChevronRight,
   Search, Calendar, AlertTriangle, RefreshCw, Cpu,
-  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save
+  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings
 } from "lucide-react";
 import * as XLSX from "xlsx";
+
+
+// ─── PERSISTENT STORAGE HOOK ─────────────────────────────────────────────────
+function useLocalStorage(key, initial) {
+  const [val, setVal] = useState(() => {
+    try {
+      const s = localStorage.getItem(key);
+      return s !== null ? JSON.parse(s) : initial;
+    } catch { return initial; }
+  });
+  function setValue(newVal) {
+    const resolved = typeof newVal === 'function' ? newVal(val) : newVal;
+    setVal(resolved);
+    try { localStorage.setItem(key, JSON.stringify(resolved)); } catch(e) { console.warn('localStorage error', e); }
+  }
+  return [val, setValue];
+}
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -540,7 +557,7 @@ function BreakdownBars({breakdown}){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function DashboardView({games,setView}){
+function DashboardView({games,setView,teamName}){
   const ts=teamSum(games);
   const done=games.filter(g=>g.status==="completed");
 
@@ -920,12 +937,12 @@ function GamesView({games,setGames}){
           const r=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
           const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
           return(
-            <div key={game.id} onClick={()=>setSel(game.id)}
-              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+            <div key={game.id}
+              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
               onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-              <div style={{width:40,height:40,borderRadius:10,background:rc+"22",border:`2px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:20,flexShrink:0}}>{r}</div>
-              <div style={{flex:1}}>
+              <div onClick={()=>setSel(game.id)} style={{width:40,height:40,borderRadius:10,background:rc+"22",border:`2px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:20,flexShrink:0,cursor:"pointer"}}>{r}</div>
+              <div onClick={()=>setSel(game.id)} style={{flex:1,cursor:"pointer"}}>
                 <div style={{color:C.text,fontWeight:700,fontSize:15}}>vs {game.opponent}</div>
                 <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{game.date}</span>
@@ -933,8 +950,17 @@ function GamesView({games,setGames}){
                   <span>{game.formation}</span>
                 </div>
               </div>
-              <div style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif"}}>{game.ourScore} – {game.theirScore}</div>
-              <ChevronRight size={16} color={C.muted}/>
+              <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
+              <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
+              <button
+                onClick={e=>{e.stopPropagation();if(window.confirm(`Delete game vs ${game.opponent}?`)){setGames(prev=>prev.filter(g=>g.id!==game.id));}}}
+                style={{padding:"6px 8px",background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:8,
+                  color:C.muted,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",transition:"all .15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.danger;e.currentTarget.style.color=C.danger;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}
+                title="Delete game">
+                <Trash2 size={14}/>
+              </button>
             </div>
           );
         })}
@@ -1469,7 +1495,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   );
 }
 
-function RosterView({players, setPlayers}){
+function RosterView({players, setPlayers, teamName}){
   const [msg,setMsg]             = useState(null);
   const [importing,setImporting] = useState(false);
   const [confirmClear,setConfirmClear] = useState(false);
@@ -1493,7 +1519,7 @@ function RosterView({players, setPlayers}){
   function resetToDefault(){
     setPlayers(DEFAULT_PLAYERS);
     setConfirmClear(false);
-    setMsg({type:"ok",text:"✓ Roster reset to default Marion FC squad"});
+    setMsg({type:"ok",text:`✓ Roster reset to default squad`});
   }
 
   function savePlayer(updated){
@@ -1671,12 +1697,168 @@ const NAV=[
   {id:"roster",   label:"Roster",   icon:ClipboardList},
 ];
 
+// ─── TEAM SWITCHER DROPDOWN ──────────────────────────────────────────────────
+function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}){
+  const [open,setOpen]     = useState(false);
+  const [adding,setAdding] = useState(false);
+  const [newName,setNewName]= useState("");
+  const [editing,setEditing]= useState(null); // {id,name}
+  const activeTeam = teams.find(t=>t.id===activeTeamId) || teams[0];
+
+  function addTeam(){
+    if(!newName.trim()) return;
+    onAdd(newName.trim());
+    setNewName(""); setAdding(false);
+  }
+  function saveRename(){
+    if(!editing.name.trim()) return;
+    onRename(editing.id, editing.name.trim());
+    setEditing(null);
+  }
+
+  return(
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",
+          background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,
+          color:C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+        <span style={{maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {activeTeam?.name || "Select Team"}
+        </span>
+        <ChevronDown size={12}/>
+      </button>
+
+      {open&&(
+        <>
+          {/* backdrop */}
+          <div onClick={()=>{setOpen(false);setAdding(false);setEditing(null);}}
+            style={{position:"fixed",inset:0,zIndex:199}}/>
+          <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:220,
+            background:"#111",border:`1px solid ${C.border}`,borderRadius:12,
+            boxShadow:"0 16px 40px #00000088",zIndex:200,overflow:"hidden"}}>
+
+            {/* Team list */}
+            {teams.map(t=>(
+              <div key={t.id}
+                style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",
+                  background:t.id===activeTeamId?"#ff6b0012":"transparent",
+                  borderBottom:`1px solid ${C.border}`}}>
+                {editing?.id===t.id ? (
+                  <>
+                    <input value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})}
+                      onKeyDown={e=>e.key==="Enter"&&saveRename()}
+                      autoFocus
+                      style={{flex:1,background:"#0d0400",border:`1px solid ${C.accent}`,borderRadius:6,
+                        color:C.text,fontSize:13,padding:"4px 8px",outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                    <button onClick={saveRename} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",padding:2,fontSize:11,fontWeight:700}}>Save</button>
+                    <button onClick={()=>setEditing(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2}}><X size={12}/></button>
+                  </>
+                ) : (
+                  <>
+                    <span onClick={()=>{onSwitch(t.id);setOpen(false);}}
+                      style={{flex:1,color:t.id===activeTeamId?C.accent:C.text,fontWeight:t.id===activeTeamId?700:500,
+                        fontSize:13,cursor:"pointer"}}>
+                      {t.id===activeTeamId&&<span style={{color:C.accent,marginRight:6}}>✓</span>}{t.name}
+                    </span>
+                    <button onClick={()=>setEditing({id:t.id,name:t.name})}
+                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,opacity:.7}}
+                      title="Rename"><Pencil size={11}/></button>
+                    {teams.length>1&&(
+                      <button onClick={()=>{if(window.confirm(`Delete "${t.name}"? This will remove all their games and roster.`)){onDelete(t.id);setOpen(false);}}}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,opacity:.7}}
+                        title="Delete team"><Trash2 size={11}/></button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+
+            {/* Add team */}
+            <div style={{padding:"10px 14px"}}>
+              {adding ? (
+                <div style={{display:"flex",gap:6}}>
+                  <input value={newName} onChange={e=>setNewName(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&addTeam()}
+                    placeholder="Team name…" autoFocus
+                    style={{flex:1,background:"#0d0400",border:`1px solid ${C.accent}`,borderRadius:6,
+                      color:C.text,fontSize:13,padding:"5px 8px",outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                  <button onClick={addTeam}
+                    style={{padding:"5px 10px",background:C.accent,border:"none",borderRadius:6,
+                      color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
+                  <button onClick={()=>{setAdding(false);setNewName("");}}
+                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+                </div>
+              ) : (
+                <button onClick={()=>setAdding(true)}
+                  style={{display:"flex",alignItems:"center",gap:6,color:C.muted,background:"none",
+                    border:"none",cursor:"pointer",fontSize:13,fontWeight:600,width:"100%"}}>
+                  <Plus size={13}/> Add team
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function CoachIQStats(){
-  const [view,setView]=useState("dashboard");
-  const [games,setGames]=useState(GAMES);
-  const [roster,setRoster]=useState(DEFAULT_PLAYERS);
-  // keep module-level PLAYERS in sync so helper fns (getHistory, avgRating etc) always see latest squad
+  const [view,setView] = useState("dashboard");
+
+  // ── Persistent teams ──────────────────────────────────────────────────────
+  const INIT_TEAM_ID = "t_default";
+  const [teams, setTeams] = useLocalStorage("coachiq_teams", [
+    {id: INIT_TEAM_ID, name: "Marion FC"}
+  ]);
+  const [activeTeamId, setActiveTeamId] = useLocalStorage("coachiq_active_team", INIT_TEAM_ID);
+
+  // ── Per-team rosters & games ──────────────────────────────────────────────
+  const [allRosters, setAllRosters] = useLocalStorage("coachiq_rosters", {[INIT_TEAM_ID]: DEFAULT_PLAYERS});
+  const [allGames,   setAllGames]   = useLocalStorage("coachiq_games",   {[INIT_TEAM_ID]: GAMES});
+
+  const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
+  const roster = allRosters[safeTeamId] || DEFAULT_PLAYERS;
+  const games  = allGames[safeTeamId]   || [];
+
+  // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
+
+  function setRoster(val){
+    const resolved = typeof val==="function" ? val(roster) : val;
+    setAllRosters(prev=>({...prev,[safeTeamId]:resolved}));
+  }
+  function setGames(val){
+    const resolved = typeof val==="function" ? val(games) : val;
+    setAllGames(prev=>({...prev,[safeTeamId]:resolved}));
+  }
+
+  // ── Team management ───────────────────────────────────────────────────────
+  function addTeam(name){
+    const id = `t_${Date.now()}`;
+    setTeams(prev=>[...prev,{id,name}]);
+    setAllRosters(prev=>({...prev,[id]:DEFAULT_PLAYERS}));
+    setAllGames(prev=>({...prev,[id]:[]}));
+    setActiveTeamId(id);
+    setView("dashboard");
+  }
+  function switchTeam(id){
+    setActiveTeamId(id);
+    setView("dashboard");
+  }
+  function renameTeam(id,name){
+    setTeams(prev=>prev.map(t=>t.id===id?{...t,name}:t));
+  }
+  function deleteTeam(id){
+    const remaining = teams.filter(t=>t.id!==id);
+    setTeams(remaining);
+    setAllRosters(prev=>{const n={...prev};delete n[id];return n;});
+    setAllGames(prev=>{const n={...prev};delete n[id];return n;});
+    if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
+  }
+
+  const activeTeam = teams.find(t=>t.id===safeTeamId) || teams[0];
+
   return(
     <>
       <style>{`
@@ -1688,20 +1870,33 @@ export default function CoachIQStats(){
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @keyframes glow{0%,100%{box-shadow:0 0 10px #ff6b0044}50%{box-shadow:0 0 22px #ff6b0099}}
-        .nav-item:hover{color:#ff6b00 !important;border-color:#ff6b0044 !important;}
       `}</style>
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
           backgroundImage:`
             radial-gradient(ellipse at 50% -10%, #ff6b0018 0%, transparent 55%),
             url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3C/svg%3E")
           `}}>
-        <div style={{background:"#0d0d0d",borderBottom:"1px solid #ff6b0033",boxShadow:"0 2px 20px #ff6b0022",padding:"0 18px",height:56,display:"flex",alignItems:"center",position:"sticky",top:0,zIndex:100}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginRight:"auto"}}>
-            <div style={{width:30,height:30,borderRadius:7,background:`linear-gradient(135deg,${C.accent},${C.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>⚽</div>
+
+        {/* ── Nav bar ───────────────────────────────────────────────────── */}
+        <div style={{background:"#0d0d0d",borderBottom:"1px solid #ff6b0033",boxShadow:"0 2px 20px #ff6b0022",padding:"0 18px",height:56,display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,zIndex:100}}>
+          {/* Logo */}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginRight:4}}>
+            <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#ff6b00,#cc1100)",boxShadow:"0 0 12px #ff6b0066",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff",letterSpacing:-1}}>M</div>
             <span style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:17,letterSpacing:1}}>CoachIQ <span style={{color:C.accent}}>Stats</span></span>
-            <span style={{background:C.accent+"22",color:C.accent,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700}}>Marion FC</span>
           </div>
-          <nav style={{display:"flex",gap:3}}>
+
+          {/* Team switcher */}
+          <TeamSwitcher
+            teams={teams}
+            activeTeamId={safeTeamId}
+            onSwitch={switchTeam}
+            onAdd={addTeam}
+            onRename={renameTeam}
+            onDelete={deleteTeam}
+          />
+
+          {/* Nav links — pushed right */}
+          <nav style={{display:"flex",gap:3,marginLeft:"auto"}}>
             {NAV.map(v=>{
               const Icon=v.icon,active=view===v.id;
               return(
@@ -1714,13 +1909,15 @@ export default function CoachIQStats(){
             })}
           </nav>
         </div>
+
+        {/* ── Page content ──────────────────────────────────────────────── */}
         <div style={{flex:1,overflowY:"auto"}}>
-          {view==="dashboard"&&<DashboardView games={games} setView={setView}/>}
+          {view==="dashboard"&&<DashboardView games={games} setView={setView} teamName={activeTeam?.name}/>}
           {view==="games"    &&<GamesView     games={games} setGames={setGames}/>}
           {view==="live"     &&<LiveTrackView games={games} setGames={setGames}/>}
           {view==="players"  &&<PlayersView   games={games}/>}
           {view==="analytics"&&<AnalyticsView games={games}/>}
-          {view==="roster"   &&<RosterView    players={roster} setPlayers={setRoster}/>}
+          {view==="roster"   &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
         </div>
       </div>
     </>
