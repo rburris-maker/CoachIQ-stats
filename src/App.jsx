@@ -46,22 +46,25 @@ const POS_META = {
   W: { label:"W",  color:"#ffcc00", group:"Midfielder" },
   ST:{ label:"ST", color:"#ff2200", group:"Forward"    },
 };
-const posColor = pos => POS_META[pos]?.color || "#fff";
+const posColor   = pos => POS_META[pos]?.color || "#fff";
+// helpers to support multi-position players (position stored as array)
+const primaryPos = p => Array.isArray(p?.position) ? p.position[0] : (p?.position || "CM");
+const allPos     = p => Array.isArray(p?.position) ? p.position : (p?.position ? [p.position] : ["CM"]);
 
 // ─── SQUAD ────────────────────────────────────────────────────────────────────
 const DEFAULT_PLAYERS = [
-  { id:"p1",  name:"James Mitchell", number:1,  position:"GK", captain:false },
-  { id:"p2",  name:"Carlos Rivera",  number:2,  position:"FB", captain:false },
-  { id:"p3",  name:"Tom Bradley",    number:5,  position:"CB", captain:false },
-  { id:"p4",  name:"Kai Johnson",    number:6,  position:"CB", captain:false },
-  { id:"p5",  name:"Marcus Webb",    number:3,  position:"FB", captain:false },
-  { id:"p6",  name:"Diego Santos",   number:8,  position:"DM", captain:false },
-  { id:"p7",  name:"Liam Chen",      number:10, position:"CM", captain:false },
-  { id:"p8",  name:"Noah Patel",     number:4,  position:"CM", captain:true  },
-  { id:"p9",  name:"Ethan Brooks",   number:7,  position:"W",  captain:false },
-  { id:"p10", name:"Alex Torres",    number:9,  position:"ST", captain:false },
-  { id:"p11", name:"Ryan Murphy",    number:11, position:"W",  captain:false },
-  { id:"p12", name:"Sam Wilson",     number:21, position:"ST", captain:false },
+  { id:"p1",  name:"James Mitchell", number:1,  position:["GK"], captain:false },
+  { id:"p2",  name:"Carlos Rivera",  number:2,  position:["FB"], captain:false },
+  { id:"p3",  name:"Tom Bradley",    number:5,  position:["CB"], captain:false },
+  { id:"p4",  name:"Kai Johnson",    number:6,  position:["CB"], captain:false },
+  { id:"p5",  name:"Marcus Webb",    number:3,  position:["FB"], captain:false },
+  { id:"p6",  name:"Diego Santos",   number:8,  position:["DM","CM"], captain:false },
+  { id:"p7",  name:"Liam Chen",      number:10, position:["CM","W"], captain:false },
+  { id:"p8",  name:"Noah Patel",     number:4,  position:["CM","DM"], captain:true  },
+  { id:"p9",  name:"Ethan Brooks",   number:7,  position:["W","CM"], captain:false },
+  { id:"p10", name:"Alex Torres",    number:9,  position:["ST","W"], captain:false },
+  { id:"p11", name:"Ryan Murphy",    number:11, position:["W","ST"], captain:false },
+  { id:"p12", name:"Sam Wilson",     number:21, position:["ST"], captain:false },
 ];
 
 
@@ -102,7 +105,7 @@ function parseRosterSpreadsheet(file){
             id:`p${Date.now()}-${ri}`,
             name,
             number: isNaN(num)?0:num,
-            position: pos,
+            position: [pos],
             captain: cap==="yes"||cap==="true",
           });
         }
@@ -474,14 +477,14 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function capitalise(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const isCS      = (game, pid) => ["GK","CB","FB"].includes(PLAYERS.find(p=>p.id===pid)?.position) && game.theirScore === 0;
+const isCS      = (game, pid) => ["GK","CB","FB"].includes(primaryPos(PLAYERS.find(p=>p.id===pid))) && game.theirScore === 0;
 const rColor    = r => r>=8.5?"#ff6b00":r>=7.5?"#ff8c00":r>=6.5?"#ffb300":r>=5.5?"#ff4500":"#cc1100";
 
 function getHistory(pid, games) {
   const player = PLAYERS.find(p=>p.id===pid);
   return games.filter(g=>g.status==="completed").map(g=>{
     const st = g.stats.find(s=>s.playerId===pid); if (!st) return null;
-    const res = calcRating(st, player?.position, isCS(g,pid));
+    const res = calcRating(st, primaryPos(player), isCS(g,pid));
     return {...st,...res,date:g.date,opponent:g.opponent,gameId:g.id};
   }).filter(Boolean);
 }
@@ -752,8 +755,8 @@ function GamesView({games,setGames}){
       const summary=game.stats.map(s=>{
         const p=PLAYERS.find(x=>x.id===s.playerId);
         const cs=isCS(game,s.playerId);
-        const {rating,coachNote}=calcRating(s,p?.position,cs);
-        return `${p?.name}(${p?.position}) ${rating}/10 – ${coachNote}`;
+        const {rating,coachNote}=calcRating(s,primaryPos(p),cs);
+        return `${p?.name}(${allPos(p).join("/")}) ${rating}/10 – ${coachNote}`;
       }).join("\n");
       const prompt=`You are a professional soccer coach analyst. Match: Marion FC ${game.ourScore}–${game.theirScore} ${game.opponent} (${game.formation})\n\nPlayer ratings:\n${summary}\n\nGive 4 sharp bullet-point coaching insights. Cover: tactical pattern, top performer, main weakness, one lineup change recommendation. Each bullet max 20 words. Be direct.`;
       const res=await fetch("https://api.anthropic.com/v1/messages",{
@@ -773,7 +776,7 @@ function GamesView({games,setGames}){
     const rows=game.stats.map(s=>{
       const p=PLAYERS.find(x=>x.id===s.playerId);
       const cs=isCS(game,s.playerId);
-      return {...s,player:p,...calcRating(s,p?.position,cs)};
+      return {...s,player:p,...calcRating(s,primaryPos(p),cs)};
     }).sort((a,b)=>b.rating-a.rating);
     const tSh=game.stats.reduce((a,s)=>a+s.shots,0);
     const tSoT=game.stats.reduce((a,s)=>a+s.shotsOnTarget,0);
@@ -831,12 +834,12 @@ function GamesView({games,setGames}){
                   <div onClick={()=>setExpanded(open?null:row.playerId)}
                     style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:i===0?"#ff6b0010":C.surface,borderRadius:10,cursor:"pointer",border:i===0?"1px solid #ff6b0033":`1px solid ${C.border}`,transition:"all .15s"}}>
                     {i===0?<Award size={15} color="#ffb300"/>:<span style={{color:C.muted,fontSize:13,fontWeight:700,width:20,textAlign:"center"}}>{i+1}</span>}
-                    <div style={{width:32,height:32,borderRadius:8,background:posColor(row.player?.position)+"22",border:`1.5px solid ${posColor(row.player?.position)}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(row.player?.position),fontSize:13,flexShrink:0}}>{row.player?.number}</div>
+                    <div style={{width:32,height:32,borderRadius:8,background:posColor(primaryPos(row.player))+"22",border:`1.5px solid ${posColor(primaryPos(row.player))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(row.player)),fontSize:13,flexShrink:0}}>{row.player?.number}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                           <span style={{color:C.text,fontWeight:700,fontSize:14}}>{row.player?.name}</span>
-                          <Tag color={posColor(row.player?.position)}>{row.player?.position}</Tag>
+                          {allPos(row.player).map(pos=><Tag key={pos} color={posColor(pos)}>{pos}</Tag>)}
                           <span style={{color:C.muted,fontSize:11}}>{row.goals}G {row.assists}A {row.tackles}T {row.keyPasses||0}KP</span>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
@@ -1092,15 +1095,15 @@ function LiveTrackView({games,setGames}){
         {PLAYERS.map(player=>{
           const s=stats[player.id]||{};
           const cs=live.theirScore===0;
-          const {rating,label}=calcRating({...s,minutesPlayed:min},player.position,cs);
+          const {rating,label}=calcRating({...s,minutesPlayed:min},primaryPos(player),cs);
           const rc=rColor(rating);
-          const defs=DEFS.filter(d=>!d.gkOnly||player.position==="GK");
+          const defs=DEFS.filter(d=>!d.gkOnly||allPos(player).includes("GK"));
           return(
             <div key={player.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,padding:"10px 13px"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <div style={{width:30,height:30,borderRadius:7,background:posColor(player.position)+"22",border:`1.5px solid ${posColor(player.position)}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(player.position),fontSize:13,flexShrink:0}}>{player.number}</div>
+                <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(player))+"22",border:`1.5px solid ${posColor(primaryPos(player))}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(player)),fontSize:13,flexShrink:0}}>{player.number}</div>
                 <span style={{color:C.text,fontWeight:700,fontSize:13}}>{player.name}</span>
-                <Tag color={posColor(player.position)}>{player.position}</Tag>
+                {allPos(player).map(pos=><Tag key={pos} color={posColor(pos)}>{pos}</Tag>)}
                 <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
                   <span style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{rating.toFixed(1)}</span>
                   <span style={{color:rc,fontSize:11,fontWeight:700}}>{label}</span>
@@ -1134,7 +1137,7 @@ function PlayersView({games}){
 
   const list=useMemo(()=>
     PLAYERS.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()))
-           .filter(p=>pos==="ALL"||p.position===pos)
+           .filter(p=>pos==="ALL"||allPos(p).includes(pos))
            .map(p=>({...p,avg:avgRating(p.id,games)}))
            .sort((a,b)=>b.avg-a.avg)
   ,[games,search,pos]);
@@ -1159,10 +1162,10 @@ function PlayersView({games}){
         <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
         <div style={{background:`linear-gradient(135deg,#0d0400,#1a0800)`,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",gap:18,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{width:68,height:68,borderRadius:14,background:posColor(player.position)+"22",border:`3px solid ${posColor(player.position)}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(player.position),fontSize:28,flexShrink:0}}>{player.number}</div>
+            <div style={{width:68,height:68,borderRadius:14,background:posColor(primaryPos(player))+"22",border:`3px solid ${posColor(primaryPos(player))}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(primaryPos(player)),fontSize:28,flexShrink:0}}>{player.number}</div>
             <div style={{flex:1}}>
               <div style={{display:"flex",gap:8,marginBottom:6}}>
-                <Tag color={posColor(player.position)}>{POS_META[player.position]?.group} · {player.position}</Tag>
+                {allPos(player).map(pos=><Tag key={pos} color={posColor(pos)}>{POS_META[pos]?.group} · {pos}</Tag>)}
                 {player.captain&&<Tag color={C.warning}>CAPTAIN</Tag>}
               </div>
               <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:800,margin:0}}>{player.name}</h2>
@@ -1247,11 +1250,11 @@ function PlayersView({games}){
               onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.card;}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:40,height:40,borderRadius:9,background:posColor(p.position)+"22",border:`2px solid ${posColor(p.position)}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(p.position),fontSize:17,flexShrink:0}}>{p.number}</div>
+                  <div style={{width:40,height:40,borderRadius:9,background:posColor(primaryPos(p))+"22",border:`2px solid ${posColor(primaryPos(p))}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:17,flexShrink:0}}>{p.number}</div>
                   <div>
                     <div style={{color:C.text,fontWeight:700,fontSize:15}}>{p.name}</div>
                     <div style={{display:"flex",gap:6,marginTop:3}}>
-                      <Tag color={posColor(p.position)}>{p.position}</Tag>
+                      {allPos(p).map(pos=><Tag key={pos} color={posColor(pos)}>{pos}</Tag>)}
                       {p.captain&&<Tag color={C.warning}>©</Tag>}
                     </div>
                   </div>
@@ -1278,10 +1281,10 @@ function AnalyticsView({games}){
     return{name:`G${i+1}`,label:`vs ${g.opponent.split(" ")[0]}`,goalsFor:g.ourScore,goalsAgainst:g.theirScore,shots:t.sh,passAcc:t.pa>0?Math.round((t.pc/t.pa)*100):0};
   }),[done]);
 
-  const squad=useMemo(()=>PLAYERS.map(p=>({name:p.name.split(" ")[1]||p.name,rating:avgRating(p.id,games),position:p.position})).sort((a,b)=>b.rating-a.rating),[games]);
+  const squad=useMemo(()=>PLAYERS.map(p=>({name:p.name.split(" ")[1]||p.name,rating:avgRating(p.id,games),position:primaryPos(p)})).sort((a,b)=>b.rating-a.rating),[games]);
 
   const byPos=useMemo(()=>Object.entries(POS_META).map(([pos,meta])=>{
-    const pp=PLAYERS.filter(p=>p.position===pos);
+    const pp=PLAYERS.filter(p=>primaryPos(p)===pos);
     const av=pp.reduce((a,p)=>a+avgRating(p.id,games),0)/(pp.length||1);
     const tg=pp.reduce((a,p)=>a+done.reduce((b,g)=>b+(g.stats.find(s=>s.playerId===p.id)?.goals||0),0),0);
     return{pos,label:meta.label,color:meta.color,avg:Math.round(av*10)/10,totalGoals:tg,players:pp.length};
@@ -1376,9 +1379,9 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   const isNew = !player.id;
   const [form,setForm] = useState({
     id:      player.id      || `p${Date.now()}`,
-    name:    player.name    || "",
-    number:  player.number  ?? "",
-    position:player.position|| "CM",
+    name:     player.name || "",
+    number:   player.number ?? "",
+    positions: allPos(player).length ? allPos(player) : ["CM"],
     captain: player.captain || false,
   });
   const [err,setErr] = useState("");
@@ -1388,10 +1391,10 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     if(!form.number && form.number!==0) return setErr("Jersey number is required");
     if(isNaN(parseInt(form.number))) return setErr("Jersey number must be a number");
     setErr("");
-    onSave({...form, number:parseInt(form.number)});
+    onSave({...form, number:parseInt(form.number), position:form.positions});
   }
 
-  const posColor = POS_META[form.position]?.color || C.accent;
+  const posColor = POS_META[form.positions?.[0]]?.color || C.accent;
 
   return(
     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1431,14 +1434,19 @@ function PlayerModal({player, onSave, onDelete, onClose}){
               placeholder="1–99" style={iStyle({width:120})}/>
           </div>
 
-          {/* Position */}
+          {/* Positions — multi-select */}
           <div>
-            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>POSITION</label>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:4}}>POSITIONS <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(select all that apply)</span></label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
               {Object.entries(POS_META).map(([pos,meta])=>{
-                const active = form.position===pos;
+                const active = form.positions.includes(pos);
                 return(
-                  <button key={pos} onClick={()=>setForm(f=>({...f,position:pos}))}
+                  <button key={pos} onClick={()=>setForm(f=>({
+                    ...f,
+                    positions: active
+                      ? f.positions.filter(p=>p!==pos).length ? f.positions.filter(p=>p!==pos) : f.positions // keep at least 1
+                      : [...f.positions, pos]
+                  }))}
                     style={{padding:"6px 14px",borderRadius:7,fontWeight:700,fontSize:12,cursor:"pointer",
                       background: active ? meta.color+"33" : "#0d0400",
                       border: `1px solid ${active ? meta.color : C.border}`,
@@ -1449,7 +1457,10 @@ function PlayerModal({player, onSave, onDelete, onClose}){
                 );
               })}
             </div>
-            <div style={{color:C.muted,fontSize:11,marginTop:6}}>{POS_META[form.position]?.group}</div>
+            <div style={{color:C.muted,fontSize:11,marginTop:6}}>
+              Primary: <span style={{color:posColor(form.positions[0]),fontWeight:700}}>{form.positions[0]}</span>
+              {form.positions.length>1 && <span> · Can also play: {form.positions.slice(1).join(", ")}</span>}
+            </div>
           </div>
 
           {/* Captain toggle */}
@@ -1539,7 +1550,7 @@ function RosterView({players, setPlayers, teamName}){
   }
 
   const byPos = Object.entries(POS_META).map(([pos,meta])=>({
-    pos, ...meta, players: players.filter(p=>p.position===pos)
+    pos, ...meta, players: players.filter(p=>primaryPos(p)===pos)
   })).filter(g=>g.players.length>0);
 
   return(
@@ -1644,9 +1655,9 @@ function RosterView({players, setPlayers, teamName}){
 
                   {/* Jersey number badge */}
                   <div style={{width:38,height:38,borderRadius:9,flexShrink:0,
-                    background:group.color+"22",border:`2px solid ${group.color}44`,
+                    background:posColor(primaryPos(p))+"22",border:`2px solid ${posColor(primaryPos(p))}44`,
                     display:"flex",alignItems:"center",justifyContent:"center",
-                    fontFamily:"'Oswald',sans-serif",fontWeight:900,color:group.color,fontSize:18}}>
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(primaryPos(p)),fontSize:18}}>
                     {p.number}
                   </div>
 
@@ -1656,7 +1667,7 @@ function RosterView({players, setPlayers, teamName}){
                       <span style={{color:C.text,fontWeight:700,fontSize:14}}>{p.name}</span>
                       {p.captain && <Tag color={C.warning}>© Captain</Tag>}
                     </div>
-                    <div style={{color:C.muted,fontSize:11,marginTop:2}}>{POS_META[p.position]?.group}</div>
+                    <div style={{color:C.muted,fontSize:11,marginTop:2}}>{POS_META[primaryPos(p)]?.group}</div>
                   </div>
 
                   {/* Edit button */}
