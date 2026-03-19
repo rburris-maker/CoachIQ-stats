@@ -3361,59 +3361,181 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     const ATT=[{k:"present",label:"✓",color:C.accent},{k:"absent",label:"✗",color:C.danger},{k:"injured",label:"⚕",color:C.warning}];
 
     // ── PRINT MODE ─────────────────────────────────────────────────────────
-    if(printMode) return(
-      <div style={{padding:32,maxWidth:720,margin:"0 auto",background:C.bg}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-          <div>
-            <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{session.date} · {session.duration} MINS</div>
-            <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>
-              {session.focus} Session
-            </h1>
-            {session.objectives&&<div style={{color:C.muted,fontSize:14,marginTop:4}}>🎯 {session.objectives}</div>}
-          </div>
-          <button onClick={()=>setPrintMode(false)}
-            style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>
-            ← Back
-          </button>
-        </div>
+    if(printMode){
+      function exportPDF(){
+        // Inject a temporary print stylesheet targeting only #practice-print-area
+        const styleEl = document.createElement("style");
+        styleEl.id = "coachiq-print-style";
+        styleEl.innerHTML = `
+          @media print {
+            body > * { display: none !important; }
+            #coachiq-print-portal { display: block !important; position: static !important; }
+            #coachiq-print-portal * { visibility: visible; }
+            @page { margin: 18mm 14mm; size: A4 portrait; }
+          }
+        `;
+        document.head.appendChild(styleEl);
 
-        {SECTIONS.map(sec=>{
-          const cards=blocks[sec.key]||[];
-          if(!cards.length) return null;
-          const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
-          return(
-            <div key={sec.key} style={{marginBottom:24}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
-                borderBottom:`2px solid ${sec.color}44`,paddingBottom:8}}>
-                <span style={{fontSize:18}}>{sec.icon}</span>
-                <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:18,letterSpacing:1}}>{sec.label.toUpperCase()}</div>
-                {secMins>0&&<div style={{color:C.muted,fontSize:13,marginLeft:"auto"}}>{secMins} mins</div>}
+        // Build a detached print portal with the session content
+        let existing = document.getElementById("coachiq-print-portal");
+        if(existing) existing.remove();
+        const portal = document.createElement("div");
+        portal.id = "coachiq-print-portal";
+        portal.style.cssText = "display:none;position:absolute;top:0;left:0;width:100%;background:#fff;font-family:'Helvetica Neue',Arial,sans-serif;padding:32px;box-sizing:border-box;";
+
+        // Header
+        const headerDiv = document.createElement("div");
+        headerDiv.style.cssText = "margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #ff6b00;";
+        headerDiv.innerHTML = `
+          <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#cc4400;text-transform:uppercase;margin-bottom:6px;">
+            Training Session &nbsp;·&nbsp; ${session.date} &nbsp;·&nbsp; ${session.duration} mins
+          </div>
+          <div style="font-size:28px;font-weight:900;color:#1a0d00;font-family:'Arial Black',Arial,sans-serif;margin-bottom:${session.objectives?"6px":"0"};">
+            ${session.focus} Session
+          </div>
+          ${session.objectives ? `<div style="font-size:14px;color:#6b3d1e;">🎯 ${session.objectives}</div>` : ""}
+        `;
+        portal.appendChild(headerDiv);
+
+        // Sections
+        const SECTION_PRINT = [
+          {key:"warmup",   label:"Warmup",    color:"#2d7a3a"},
+          {key:"main",     label:"Main Work", color:"#cc4400"},
+          {key:"cooldown", label:"Cooldown",  color:"#1a5fa8"},
+        ];
+        let hasContent = false;
+        SECTION_PRINT.forEach(sec => {
+          const cards = (blocks[sec.key]||[]);
+          if(!cards.length) return;
+          hasContent = true;
+          const secMins = cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+
+          const secDiv = document.createElement("div");
+          secDiv.style.cssText = "margin-bottom:22px;";
+
+          // Section header
+          const secHeader = document.createElement("div");
+          secHeader.style.cssText = `display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ${sec.color}33;`;
+          secHeader.innerHTML = `
+            <div style="font-size:15px;font-weight:900;color:${sec.color};letter-spacing:1px;text-transform:uppercase;flex:1;">${sec.label}</div>
+            ${secMins>0?`<div style="font-size:12px;color:#8a6040;font-weight:600;">${secMins} mins</div>`:""}
+          `;
+          secDiv.appendChild(secHeader);
+
+          // Drill cards
+          cards.forEach((card, idx) => {
+            const INTENSITY_COLORS = {low:"#2d7a3a",medium:"#cc8800",high:"#cc2200"};
+            const intColor = INTENSITY_COLORS[card.intensity]||"#cc8800";
+            const cardDiv = document.createElement("div");
+            cardDiv.style.cssText = "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;";
+            cardDiv.innerHTML = `
+              <div style="min-width:24px;font-size:16px;font-weight:900;color:#cc8800;font-family:'Arial Black',Arial,sans-serif;">${idx+1}</div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:#1a0d00;margin-bottom:${card.notes?"3px":"0"};">${card.name||"Unnamed drill"}</div>
+                ${card.notes?`<div style="font-size:12px;color:#6b3d1e;line-height:1.6;">${card.notes}</div>`:""}
               </div>
-              {cards.map((card,idx)=>(
-                <div key={card.id} style={{display:"flex",gap:14,marginBottom:12,padding:"12px 16px",
-                  background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
-                  <div style={{minWidth:28,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:18}}>{idx+1}</div>
-                  <div style={{flex:1}}>
-                    <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:card.notes?4:0}}>{card.name}</div>
-                    {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{card.notes}</div>}
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
-                    {card.duration&&<div style={{color:C.text,fontWeight:700,fontSize:13}}>{card.duration} min</div>}
-                    {card.intensity&&(()=>{const int=INTENSITY.find(x=>x.k===card.intensity);return int?<span style={{color:int.color,fontSize:11,fontWeight:700,letterSpacing:1}}>{int.label.toUpperCase()}</span>:null;})()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })}
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+                ${card.duration?`<div style="font-size:13px;font-weight:700;color:#1a0d00;">${card.duration} min</div>`:""}
+                ${card.intensity?`<div style="font-size:10px;font-weight:700;color:${intColor};letter-spacing:1px;text-transform:uppercase;">${card.intensity}</div>`:""}
+              </div>
+            `;
+            secDiv.appendChild(cardDiv);
+          });
+          portal.appendChild(secDiv);
+        });
 
-        {totalMins>0&&(
-          <div style={{textAlign:"right",color:C.muted,fontSize:13,borderTop:`1px solid ${C.border}`,paddingTop:12}}>
-            Total drill time: <strong style={{color:C.text}}>{totalMins} mins</strong> / {session.duration} min session
+        if(!hasContent){
+          const empty = document.createElement("div");
+          empty.style.cssText = "color:#8a6040;font-style:italic;font-size:13px;";
+          empty.textContent = "No drills added to this session yet.";
+          portal.appendChild(empty);
+        }
+
+        // Footer total
+        if(totalMins>0){
+          const footer = document.createElement("div");
+          footer.style.cssText = "margin-top:20px;padding-top:12px;border-top:1px solid #e8d5c0;text-align:right;font-size:12px;color:#8a6040;";
+          footer.innerHTML = `Total drill time: <strong style="color:#1a0d00;">${totalMins} mins</strong> / ${session.duration} min session`;
+          portal.appendChild(footer);
+        }
+
+        document.body.appendChild(portal);
+
+        // Trigger print
+        setTimeout(()=>{
+          window.print();
+          // Cleanup after print dialog closes
+          setTimeout(()=>{
+            portal.remove();
+            styleEl.remove();
+          }, 1000);
+        }, 100);
+      }
+
+      return(
+        <div style={{padding:32,maxWidth:720,margin:"0 auto",background:C.bg}}>
+          {/* Toolbar — hidden when printing */}
+          <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+            <div>
+              <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{session.date} · {session.duration} MINS</div>
+              <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>
+                {session.focus} Session
+              </h1>
+              {session.objectives&&<div style={{color:C.muted,fontSize:14,marginTop:4}}>🎯 {session.objectives}</div>}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={exportPDF}
+                style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                  background:C.accent,border:"none",borderRadius:9,
+                  color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                ⬇ Export PDF
+              </button>
+              <button onClick={()=>setPrintMode(false)}
+                style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>
+                ← Back
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    );
+
+          {/* Plan content */}
+          {SECTIONS.map(sec=>{
+            const cards=blocks[sec.key]||[];
+            if(!cards.length) return null;
+            const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+            return(
+              <div key={sec.key} style={{marginBottom:24}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
+                  borderBottom:`2px solid ${sec.color}44`,paddingBottom:8}}>
+                  <span style={{fontSize:18}}>{sec.icon}</span>
+                  <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:18,letterSpacing:1}}>{sec.label.toUpperCase()}</div>
+                  {secMins>0&&<div style={{color:C.muted,fontSize:13,marginLeft:"auto"}}>{secMins} mins</div>}
+                </div>
+                {cards.map((card,idx)=>(
+                  <div key={card.id} style={{display:"flex",gap:14,marginBottom:12,padding:"12px 16px",
+                    background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <div style={{minWidth:28,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:18}}>{idx+1}</div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:card.notes?4:0}}>{card.name}</div>
+                      {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{card.notes}</div>}
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                      {card.duration&&<div style={{color:C.text,fontWeight:700,fontSize:13}}>{card.duration} min</div>}
+                      {card.intensity&&(()=>{const int=INTENSITY.find(x=>x.k===card.intensity);return int?<span style={{color:int.color,fontSize:11,fontWeight:700,letterSpacing:1}}>{int.label.toUpperCase()}</span>:null;})()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+
+          {totalMins>0&&(
+            <div style={{textAlign:"right",color:C.muted,fontSize:13,borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+              Total drill time: <strong style={{color:C.text}}>{totalMins} mins</strong> / {session.duration} min session
+            </div>
+          )}
+        </div>
+      );
+    }
 
     return(
       <div style={{padding:20,maxWidth:980,margin:"0 auto"}}>
