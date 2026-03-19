@@ -12,6 +12,26 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
+// ─── EMAILJS CONFIG ───────────────────────────────────────────────────────────
+const EJS_SERVICE  = "service_67o2kbq";
+const EJS_TEMPLATE = "template_xlcc4wg";
+const EJS_KEY      = "XdWTyjACtwXgLPPkV";
+
+async function sendPlayerEmail(templateParams){
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      service_id:  EJS_SERVICE,
+      template_id: EJS_TEMPLATE,
+      user_id:     EJS_KEY,
+      template_params: templateParams,
+    }),
+  });
+  if(!res.ok) throw new Error(`EmailJS error ${res.status}: ${await res.text()}`);
+  return res;
+}
+
 
 // ─── PERSISTENT STORAGE HOOK ─────────────────────────────────────────────────
 function useLocalStorage(key, initial) {
@@ -776,14 +796,64 @@ function parseGameSpreadsheet(file) {
 }
 
 // ─── GAMES VIEW ───────────────────────────────────────────────────────────────
-function GamesView({games,setGames}){
+function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster}){
   const [sel,setSel]=useState(null);
   const [aiTxt,setAiTxt]=useState("");
   const [loading,setLoading]=useState(false);
   const [expanded,setExpanded]=useState(null);
   const [importing,setImporting]=useState(false);
   const [importMsg,setImportMsg]=useState(null); // {type:"ok"|"err", text}
+  const [sending,setSending]=useState(false);
+  const [sendMsg,setSendMsg]=useState(null);
   const fileRef=useRef(null);
+
+  async function sendReports(game, roster, teamName, allGames){
+    const playersWithEmail = roster.filter(p=>p.email&&p.email.trim());
+    if(!playersWithEmail.length){
+      setSendMsg({type:"err", text:"No players have email addresses. Add them in the Roster tab."});
+      return;
+    }
+    setSending(true); setSendMsg(null);
+    let sent=0, failed=0;
+    for(const player of playersWithEmail){
+      const st = game.stats.find(s=>s.playerId===player.id);
+      if(!st) continue;
+      const cs  = isCS(game, player.id);
+      const {rating, label, coachNote, breakdown} = calcRating(st, primaryPos(player), cs);
+      const hist = getHistory(player.id, [game, ...(window._allGames||[])]);
+      const seasonAvg = avgRating(player.id, allGames||[game]);
+      const gamesPlayed = (allGames||[game]).filter(g=>g.status==="completed"&&g.stats.find(s=>s.playerId===player.id)).length;
+      try{
+        await sendPlayerEmail({
+          player_name:  player.name,
+          team_name:    teamName||"Your Team",
+          game_opponent:game.opponent,
+          game_date:    game.date,
+          rating:       rating.toFixed(1),
+          rating_label: label,
+          attack:       breakdown.attack>=0?`+${breakdown.attack}`:String(breakdown.attack),
+          possession:   breakdown.possession>=0?`+${breakdown.possession}`:String(breakdown.possession),
+          defensive:    breakdown.defensive>=0?`+${breakdown.defensive}`:String(breakdown.defensive),
+          bonus:        breakdown.bonus>=0?`+${breakdown.bonus}`:String(breakdown.bonus),
+          errors:       String(breakdown.errors),
+          coach_note:   coachNote,
+          season_avg:   seasonAvg.toFixed(1),
+          games_played: String(gamesPlayed),
+          to_email:     player.email,
+          to_name:      player.name,
+        });
+        sent++;
+      }catch(e){
+        console.error("Email failed for", player.name, e);
+        failed++;
+      }
+      // small delay between sends to avoid rate limiting
+      await new Promise(r=>setTimeout(r,300));
+    }
+    setSending(false);
+    if(failed===0) setSendMsg({type:"ok", text:`✓ Match reports sent to ${sent} player${sent!==1?"s":""}`});
+    else setSendMsg({type:"err", text:`Sent ${sent}, failed ${failed}. Check console for details.`});
+  }
 
   async function handleImport(e){
     const file=e.target.files?.[0]; if(!file)return;
@@ -863,13 +933,29 @@ function GamesView({games,setGames}){
 
         {/* AI panel */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"flex",alignItems:"center",gap:7}}><Cpu size={12}/>AI MATCH ANALYSIS</div>
-            <button onClick={()=>genAI(game)} disabled={loading} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,padding:"6px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
-              {loading?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Analyzing…</>:<><Zap size={12}/>Generate</>}
-            </button>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>sendReports(game,activeRoster||PLAYERS,activeTeamName,games)} disabled={sending}
+                style={{background:"#42a5f522",border:"1px solid #42a5f544",borderRadius:8,padding:"6px 12px",
+                  color:"#42a5f5",cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+                {sending?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Sending…</>:<>✉ Send Reports</>}
+              </button>
+              <button onClick={()=>genAI(game)} disabled={loading} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,padding:"6px 12px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+                {loading?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Analyzing…</>:<><Zap size={12}/>Generate</>}
+              </button>
+            </div>
           </div>
-          {aiTxt?<div style={{color:C.text,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{aiTxt}</div>
+          {sendMsg&&(
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            background:sendMsg.type==="ok"?C.accent+"15":C.danger+"15",
+            border:`1px solid ${sendMsg.type==="ok"?C.accent:C.danger}44`,
+            borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+            <span style={{color:sendMsg.type==="ok"?C.accent:C.danger,fontWeight:600,fontSize:13}}>{sendMsg.text}</span>
+            <button onClick={()=>setSendMsg(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+          </div>
+        )}
+        {aiTxt?<div style={{color:C.text,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{aiTxt}</div>
                :<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>Click Generate to get AI coaching insights based on the rating breakdowns.</div>}
         </div>
 
@@ -1762,6 +1848,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     number:    player.number  ?? "",
     positions: initPositions,
     captain:   player.captain || false,
+    email:     player.email   || "",
   });
   const [err,setErr] = useState("");
 
@@ -1840,6 +1927,13 @@ function PlayerModal({player, onSave, onDelete, onClose}){
               Primary: <span style={{color:primaryColor,fontWeight:700}}>{form.positions[0]}</span>
               {form.positions.length>1 && <span> · Can also play: {form.positions.slice(1).join(", ")}</span>}
             </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>EMAIL <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(for match reports)</span></label>
+            <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+              placeholder="player@email.com" style={iStyle()}/>
           </div>
 
           {/* Captain toggle */}
@@ -2509,7 +2603,7 @@ export default function CoachIQStats(){
           <div style={{flex:1,overflowY:"auto",background:C.bg,
             backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3C/svg%3E")`}}>
             {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
-            {view==="games"     &&<GamesView     games={games} setGames={setGames}/>}
+            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
             {view==="players"   &&<PlayersView   games={games}/>}
             {view==="analytics" &&<AnalyticsView games={games}/>}
