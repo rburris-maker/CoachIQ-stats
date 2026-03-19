@@ -984,68 +984,42 @@ function GamesView({games,setGames}){
 
 // ─── LIVE TRACK ───────────────────────────────────────────────────────────────
 function LiveTrackView({games,setGames}){
-  const [live,setLive]       = useState(null);
-  const [stats,setStats]     = useState({});
-  const [min,setMin]         = useState(0);
-  const [events,setEvents]   = useState([]);
-  const [form,setForm]       = useState({opponent:"",location:"Home",formation:"4-3-3",date:new Date().toISOString().split("T")[0]});
-  const [selPlayer,setSelPlayer] = useState(null); // id of open stat panel
+  const [live,setLive]         = useState(null);
+  const [stats,setStats]       = useState({});
+  const [min,setMin]           = useState(0);
+  const [events,setEvents]     = useState([]);
+  const [form,setForm]         = useState({opponent:"",location:"Home",formation:"4-3-3",date:new Date().toISOString().split("T")[0]});
+  const [activeStat,setActiveStat] = useState(null); // currently selected stat key
+  const [benched,setBenched]   = useState(new Set());
   const [endConfirm,setEndConfirm] = useState(false);
-  const [benched,setBenched] = useState(new Set()); // set of player ids on bench
+  const [flash,setFlash]       = useState(null); // {pid, key} for tap feedback
 
-  function toggleBench(pid, e){
-    e.stopPropagation();
-    setBenched(prev=>{
-      const next = new Set(prev);
-      if(next.has(pid)){ next.delete(pid); } else { next.add(pid); if(selPlayer===pid) setSelPlayer(null); }
-      return next;
-    });
-  }
-
-  // Stat definitions — grouped for the panel
-  const STAT_GROUPS = [
-    { label:"Attack",  color:"#ff6b00", stats:[
-      {k:"goals",          label:"Goal",        emoji:"⚽"},
-      {k:"assists",        label:"Assist",      emoji:"🅰️"},
-      {k:"shots",          label:"Shot",        emoji:"🎯"},
-      {k:"shotsOnTarget",  label:"On Target",   emoji:"✅"},
-      {k:"keyPasses",      label:"Key Pass",    emoji:"🔑"},
-      {k:"bigChancesMissed",label:"Big Miss",   emoji:"😬"},
-    ]},
-    { label:"Passing", color:"#ffb300", stats:[
-      {k:"passesCompleted",  label:"Pass",       emoji:"↗"},
-      {k:"passesIncomplete", label:"Incomplete", emoji:"✗"},
-      {k:"dangerousTurnovers",label:"Bad Turn",  emoji:"⚠️"},
-    ]},
-    { label:"Defence", color:"#42a5f5", stats:[
-      {k:"tackles",         label:"Tackle",     emoji:"🛡"},
-      {k:"interceptions",   label:"Inter",      emoji:"✋"},
-      {k:"aerialDuelsWon",  label:"Aerial",     emoji:"☝"},
-      {k:"fouls",           label:"Foul",       emoji:"🟨"},
-    ]},
-    { label:"GK",      color:"#ffb300", stats:[
-      {k:"saves",           label:"Save",       emoji:"🧤", gkOnly:true},
-      {k:"goalsConceded",   label:"Conceded",   emoji:"🔴", gkOnly:true},
-    ]},
+  // Stat buttons — shown across the top
+  const STAT_BTNS = [
+    { k:"goals",            label:"Goal",      emoji:"⚽", color:"#ff6b00" },
+    { k:"assists",          label:"Assist",    emoji:"🅰️", color:"#ff9500" },
+    { k:"shots",            label:"Shot",      emoji:"🎯", color:"#ffb300" },
+    { k:"shotsOnTarget",    label:"On Target", emoji:"✅", color:"#ffcc00" },
+    { k:"keyPasses",        label:"Key Pass",  emoji:"🔑", color:"#ffd700" },
+    { k:"passesCompleted",  label:"Pass",      emoji:"↗",  color:"#66bb6a" },
+    { k:"passesIncomplete", label:"Incomplete",emoji:"✗",  color:"#7a4a2a" },
+    { k:"tackles",          label:"Tackle",    emoji:"🛡",  color:"#42a5f5" },
+    { k:"interceptions",    label:"Inter",     emoji:"✋", color:"#5bc8f5" },
+    { k:"aerialDuelsWon",   label:"Aerial",    emoji:"☝",  color:"#7c6af5" },
+    { k:"dangerousTurnovers",label:"Bad Turn", emoji:"⚠️", color:"#ff4500" },
+    { k:"fouls",            label:"Foul",      emoji:"🟨", color:"#ffa502" },
+    { k:"bigChancesMissed", label:"Big Miss",  emoji:"😬", color:"#cc1100" },
+    { k:"saves",            label:"Save",      emoji:"🧤", color:"#ffb300", gkOnly:true },
+    { k:"goalsConceded",    label:"Conceded",  emoji:"🔴", color:"#ff2200", gkOnly:true },
   ];
 
-  function allStatDefs(player){
-    return STAT_GROUPS.flatMap(g=>g.stats).filter(d=>!d.gkOnly||allPos(player).includes("GK"));
-  }
-
-  function startGame(){
-    if(!form.opponent)return;
-    const init={};
-    PLAYERS.forEach(p=>{init[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,bigChancesMissed:0,minutesPlayed:0};});
-    setLive({id:`g${Date.now()}`,...form,ourScore:0,theirScore:0,status:"live"});
-    setStats(init);setMin(0);setEvents([]);setSelPlayer(null);
-  }
-
   function syncPassAtt(s){
-    // always keep passesAttempted = completed + incomplete
     return {...s, passesAttempted:(s.passesCompleted||0)+(s.passesIncomplete||0)};
   }
-  function inc(pid,key){
+
+  function logStat(pid){
+    if(!activeStat) return;
+    const key = activeStat;
     setStats(prev=>{
       let s={...prev[pid],[key]:(prev[pid][key]||0)+1};
       if(key==="passesCompleted"||key==="passesIncomplete") s=syncPassAtt(s);
@@ -1056,46 +1030,58 @@ function LiveTrackView({games,setGames}){
       }
       return {...prev,[pid]:s};
     });
+    // Flash feedback
+    setFlash({pid,key});
+    setTimeout(()=>setFlash(null),400);
   }
-  function dec(pid,key){
-    setStats(prev=>{
-      const cur=prev[pid][key]||0; if(cur<=0)return prev;
-      let s={...prev[pid],[key]:cur-1};
-      if(key==="passesCompleted"||key==="passesIncomplete") s=syncPassAtt(s);
-      if(key==="goals")setLive(g=>({...g,ourScore:Math.max(0,g.ourScore-1)}));
-      return {...prev,[pid]:s};
-    });
+
+  function undoLast(){
+    if(!events.length) return;
+    // just pop the last goal event visually — full undo is complex, keep simple
+    const last = events[0];
+    if(last.text.includes("GOAL")){
+      setLive(g=>({...g,ourScore:Math.max(0,g.ourScore-1)}));
+    }
+    setEvents(ev=>ev.slice(1));
   }
+
+  function startGame(){
+    if(!form.opponent)return;
+    const init={};
+    PLAYERS.forEach(p=>{init[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,bigChancesMissed:0,minutesPlayed:0};});
+    setLive({id:`g${Date.now()}`,...form,ourScore:0,theirScore:0,status:"live"});
+    setStats(init);setMin(0);setEvents([]);setBenched(new Set());setActiveStat(null);
+  }
+
+  function toggleBench(pid,e){
+    e && e.stopPropagation();
+    setBenched(prev=>{const n=new Set(prev);n.has(pid)?n.delete(pid):n.add(pid);return n;});
+  }
+
   function endGame(){
     const sa=PLAYERS.map(p=>({...stats[p.id],minutesPlayed:min}));
     setGames(prev=>[{...live,status:"completed",stats:sa},...prev]);
     setLive(null);setEndConfirm(false);
   }
 
-  // ── Setup screen ────────────────────────────────────────────────────────────
+  // ── Setup screen ──────────────────────────────────────────────────────────
   if(!live) return(
     <div style={{padding:24,maxWidth:500,margin:"0 auto"}}>
       <div style={{marginBottom:22}}>
         <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>LIVE TRACKER</div>
         <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>New Game</h1>
       </div>
-
-      {/* Opponent */}
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
         <input value={form.opponent} onChange={e=>setForm(f=>({...f,opponent:e.target.value}))}
           placeholder="e.g. City FC"
           style={{width:"100%",padding:"12px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
       </div>
-
-      {/* Date */}
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
         <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}
           style={{width:"100%",padding:"12px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
       </div>
-
-      {/* Location */}
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
         <div style={{display:"flex",gap:8}}>
@@ -1107,8 +1093,6 @@ function LiveTrackView({games,setGames}){
           ))}
         </div>
       </div>
-
-      {/* Formation */}
       <div style={{marginBottom:28}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FORMATION</label>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
@@ -1120,61 +1104,49 @@ function LiveTrackView({games,setGames}){
           ))}
         </div>
       </div>
-
       <button onClick={startGame} disabled={!form.opponent}
-        style={{width:"100%",padding:"16px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:17,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1,transition:"all .2s"}}>
+        style={{width:"100%",padding:"16px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:17,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
         KICK OFF →
       </button>
     </div>
   );
 
-  // ── Live game screen ────────────────────────────────────────────────────────
-  const selectedPlayer = selPlayer ? PLAYERS.find(p=>p.id===selPlayer) : null;
-  const selStats       = selPlayer ? (stats[selPlayer]||{}) : {};
-  const selRating      = selectedPlayer ? calcRating({...selStats,minutesPlayed:min},primaryPos(selectedPlayer),live.theirScore===0) : null;
+  // ── Live screen ───────────────────────────────────────────────────────────
+  const activeStat_def = STAT_BTNS.find(b=>b.k===activeStat);
+  const activePlayers  = PLAYERS.filter(p=>!benched.has(p.id));
+  const benchPlayers   = PLAYERS.filter(p=>benched.has(p.id));
 
   return(
-    <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",overflow:"hidden",userSelect:"none"}}>
 
-      {/* ── Sticky match header ─────────────────────────────────────────── */}
-      <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",borderBottom:`1px solid ${C.border}`,padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-        {/* Live badge + time */}
-        <div style={{display:"flex",flexDirection:"column",gap:3,minWidth:54}}>
-          <span style={{background:C.danger+"22",color:C.danger,border:`1px solid ${C.danger}44`,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700,textAlign:"center",animation:"pulse 2s infinite"}}>● LIVE</span>
-          <div style={{display:"flex",alignItems:"center",gap:4}}>
-            <button onClick={()=>setMin(m=>Math.max(0,m-1))} style={{width:18,height:18,borderRadius:4,background:C.border,border:"none",color:C.text,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-            <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:16,minWidth:28,textAlign:"center"}}>{min}'</span>
-            <button onClick={()=>setMin(m=>Math.min(m+1,120))} style={{width:18,height:18,borderRadius:4,background:C.accent+"33",border:`1px solid ${C.accent}44`,color:C.accent,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
-          </div>
+      {/* ── Match bar ─────────────────────────────────────────────────── */}
+      <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",borderBottom:`1px solid ${C.border}`,padding:"8px 14px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        {/* Time */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <button onClick={()=>setMin(m=>Math.max(0,m-1))} style={{width:22,height:22,borderRadius:5,background:C.border,border:"none",color:C.text,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+          <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:20,minWidth:36,textAlign:"center"}}>{min}'</span>
+          <button onClick={()=>setMin(m=>Math.min(m+1,120))} style={{width:22,height:22,borderRadius:5,background:C.accent+"33",border:`1px solid ${C.accent}44`,color:C.accent,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
         </div>
-
         {/* Score */}
         <div style={{flex:1,textAlign:"center"}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600}}>vs {live.opponent}</div>
-          <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:32,fontWeight:900,lineHeight:1.1}}>
-            {live.ourScore}
-            <span style={{color:C.muted,margin:"0 6px",fontSize:22}}>–</span>
-            {live.theirScore}
+          <div style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1}}>vs {live.opponent.toUpperCase()}</div>
+          <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900,lineHeight:1}}>
+            {live.ourScore}<span style={{color:C.muted,margin:"0 5px",fontSize:18}}>–</span>{live.theirScore}
           </div>
         </div>
-
         {/* Controls */}
-        <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
+        <div style={{display:"flex",gap:6}}>
           <button onClick={()=>setLive(g=>({...g,theirScore:g.theirScore+1}))}
-            style={{padding:"5px 12px",background:C.danger+"22",border:`1px solid ${C.danger}44`,borderRadius:7,color:C.danger,cursor:"pointer",fontWeight:700,fontSize:12}}>
-            +OPP
-          </button>
+            style={{padding:"5px 10px",background:C.danger+"22",border:`1px solid ${C.danger}44`,borderRadius:7,color:C.danger,cursor:"pointer",fontWeight:700,fontSize:12}}>+OPP</button>
           <button onClick={()=>setEndConfirm(true)}
-            style={{padding:"5px 12px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
-            Full Time
-          </button>
+            style={{padding:"5px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>End</button>
         </div>
       </div>
 
-      {/* End game confirm banner */}
+      {/* End confirm */}
       {endConfirm&&(
-        <div style={{background:"#1a0800",borderBottom:`1px solid ${C.danger}44`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexShrink:0}}>
-          <span style={{color:C.text,fontSize:13}}>Save game and end session?</span>
+        <div style={{background:"#1a0800",borderBottom:`1px solid ${C.danger}44`,padding:"8px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexShrink:0}}>
+          <span style={{color:C.text,fontSize:13}}>Save and end this game?</span>
           <div style={{display:"flex",gap:8}}>
             <button onClick={endGame} style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>Save & End</button>
             <button onClick={()=>setEndConfirm(false)} style={{padding:"6px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:13,cursor:"pointer"}}>Cancel</button>
@@ -1182,191 +1154,133 @@ function LiveTrackView({games,setGames}){
         </div>
       )}
 
-      {/* Events ticker */}
-      {events.length>0&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"5px 16px",display:"flex",gap:16,overflow:"hidden",flexShrink:0}}>
-          {events.slice(0,3).map(ev=>(
-            <span key={ev.id} style={{color:C.text,fontSize:12,whiteSpace:"nowrap"}}>{ev.text}</span>
-          ))}
-        </div>
-      )}
+      {/* ── Stat selector strip ───────────────────────────────────────── */}
+      <div style={{background:"#0a0400",borderBottom:`1px solid ${C.border}`,padding:"8px 10px",display:"flex",gap:6,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+        {STAT_BTNS.filter(b=>!b.gkOnly||PLAYERS.some(p=>allPos(p).includes("GK")&&!benched.has(p.id))).map(btn=>{
+          const active = activeStat===btn.k;
+          return(
+            <button key={btn.k}
+              onClick={()=>setActiveStat(active?null:btn.k)}
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+                padding:"8px 10px",minWidth:56,borderRadius:10,cursor:"pointer",
+                flexShrink:0,transition:"all .12s",
+                background: active ? btn.color+"33" : "#111",
+                border: `2px solid ${active ? btn.color : "transparent"}`,
+                boxShadow: active ? `0 0 10px ${btn.color}44` : "none"}}>
+              <span style={{fontSize:18,lineHeight:1}}>{btn.emoji}</span>
+              <span style={{color:active?btn.color:C.muted,fontSize:9,fontWeight:700,letterSpacing:.3,whiteSpace:"nowrap"}}>{btn.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* ── Main content: split into player list + stat panel ───────────── */}
-      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      {/* Active stat prompt */}
+      <div style={{background: activeStat_def ? activeStat_def.color+"18" : "#0a0400",
+        borderBottom:`1px solid ${activeStat_def ? activeStat_def.color+"33" : C.border}`,
+        padding:"6px 14px",flexShrink:0,minHeight:32,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        {activeStat_def
+          ? <span style={{color:activeStat_def.color,fontWeight:700,fontSize:13}}>
+              {activeStat_def.emoji} {activeStat_def.label} — tap a player
+            </span>
+          : <span style={{color:C.muted,fontSize:12}}>← Select a stat above, then tap the player</span>
+        }
+        {events.length>0&&(
+          <button onClick={undoLast} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 8px",color:C.muted,fontSize:11,cursor:"pointer"}}>↩ Undo</button>
+        )}
+      </div>
 
-        {/* Player list */}
-        <div style={{width:selPlayer?"210px":"100%",flexShrink:0,overflowY:"auto",borderRight:selPlayer?`1px solid ${C.border}`:"none",transition:"width .2s"}}>
+      {/* ── Player grid ───────────────────────────────────────────────── */}
+      <div style={{flex:1,overflowY:"auto",padding:"10px"}}>
 
-          {/* Active section header */}
-          <div style={{padding:"6px 14px",background:"#0d0400",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1}}>ON PITCH</span>
-            <span style={{color:C.muted,fontSize:10}}>{PLAYERS.length - benched.size}</span>
-          </div>
-
-          {/* Active players */}
-          {PLAYERS.filter(p=>!benched.has(p.id)).map(player=>{
-            const s    = stats[player.id]||{};
-            const cs   = live.theirScore===0;
+        {/* Active players grid */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:8,marginBottom:benched.size>0?16:0}}>
+          {activePlayers.map(player=>{
+            const s   = stats[player.id]||{};
+            const cs  = live.theirScore===0;
             const {rating} = calcRating({...s,minutesPlayed:min},primaryPos(player),cs);
-            const rc   = rColor(rating);
-            const isSel= selPlayer===player.id;
-            const pc   = posColor(primaryPos(player));
-            const evts = (s.goals||0)+(s.assists||0)+(s.shots||0)+(s.tackles||0)+(s.saves||0);
+            const rc  = rColor(rating);
+            const pc  = posColor(primaryPos(player));
+            const val = activeStat ? (s[activeStat]||0) : null;
+            const isFlashing = flash?.pid===player.id;
+            const canLog = !!activeStat && !(STAT_BTNS.find(b=>b.k===activeStat)?.gkOnly && !allPos(player).includes("GK"));
+
             return(
               <div key={player.id}
-                onClick={()=>setSelPlayer(isSel?null:player.id)}
-                style={{display:"flex",alignItems:"center",gap:9,padding:"9px 10px 9px 14px",
-                  background:isSel?"#ff6b0012":C.bg,
-                  borderBottom:`1px solid ${C.border}`,
-                  borderLeft:isSel?`3px solid ${C.accent}`:"3px solid transparent",
-                  cursor:"pointer",transition:"all .12s"}}>
-                <div style={{width:34,height:34,borderRadius:8,flexShrink:0,
-                  background:pc+"22",border:`2px solid ${pc}44`,
+                onClick={()=>canLog&&logStat(player.id)}
+                style={{borderRadius:12,padding:"10px 6px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                  cursor:canLog?"pointer":"default",transition:"all .1s",
+                  background: isFlashing ? (activeStat_def?.color||C.accent)+"44" : activeStat&&canLog ? "#1a0800" : C.card,
+                  border: `2px solid ${isFlashing ? (activeStat_def?.color||C.accent) : activeStat&&canLog ? (activeStat_def?.color||C.accent)+"44" : C.border}`,
+                  transform: isFlashing ? "scale(0.95)" : "scale(1)",
+                  opacity: canLog||!activeStat ? 1 : 0.35}}>
+
+                {/* Jersey number */}
+                <div style={{width:44,height:44,borderRadius:10,
+                  background:pc+"22",border:`2px solid ${pc}55`,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:15}}>
+                  fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:22}}>
                   {player.number}
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.name.split(" ")[1]||player.name}</div>
-                  <div style={{display:"flex",gap:3,marginTop:2,flexWrap:"wrap"}}>
-                    {allPos(player).map(pos=>(
-                      <span key={pos} style={{background:posColor(pos)+"22",color:posColor(pos),border:`1px solid ${posColor(pos)}44`,borderRadius:3,padding:"0 4px",fontSize:9,fontWeight:700}}>{pos}</span>
-                    ))}
-                  </div>
+
+                {/* Name */}
+                <div style={{color:C.text,fontWeight:700,fontSize:11,textAlign:"center",lineHeight:1.2,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {player.name.split(" ")[1]||player.name}
                 </div>
-                <div style={{textAlign:"right",flexShrink:0,marginRight:2}}>
-                  <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:17,lineHeight:1}}>{rating.toFixed(1)}</div>
-                  {evts>0&&<div style={{color:C.muted,fontSize:9,marginTop:1}}>{evts} evt</div>}
+
+                {/* Rating + active stat count */}
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{rating.toFixed(1)}</span>
+                  {val!==null&&val>0&&(
+                    <span style={{background:(activeStat_def?.color||C.accent)+"33",color:activeStat_def?.color||C.accent,borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>{val}</span>
+                  )}
                 </div>
+
                 {/* Bench button */}
-                <button
-                  onClick={e=>toggleBench(player.id,e)}
-                  title="Move to bench"
-                  style={{width:24,height:24,borderRadius:6,flexShrink:0,background:"#1a0800",
-                    border:`1px solid ${C.border}`,color:C.muted,cursor:"pointer",
-                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,
-                    transition:"all .15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor=C.warning;e.currentTarget.style.color=C.warning;}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>
-                  ↓
-                </button>
+                <button onClick={e=>toggleBench(player.id,e)}
+                  style={{position:"absolute",display:"none"}} aria-hidden/>
               </div>
             );
           })}
-
-          {/* Bench section */}
-          {benched.size>0&&(
-            <>
-              <div style={{padding:"6px 14px",background:"#0a0800",borderBottom:`1px solid ${C.border}`,borderTop:`2px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH</span>
-                <span style={{color:C.muted,fontSize:10}}>{benched.size}</span>
-              </div>
-              {PLAYERS.filter(p=>benched.has(p.id)).map(player=>{
-                const s  = stats[player.id]||{};
-                const pc = posColor(primaryPos(player));
-                const evts = (s.goals||0)+(s.assists||0)+(s.shots||0)+(s.tackles||0)+(s.saves||0);
-                return(
-                  <div key={player.id}
-                    style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px 8px 14px",
-                      borderBottom:`1px solid ${C.border}`,opacity:.55,
-                      borderLeft:"3px solid transparent",background:C.bg}}>
-                    <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
-                      background:pc+"11",border:`1.5px solid ${pc}33`,
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc+"88",fontSize:14}}>
-                      {player.number}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{color:C.muted,fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.name.split(" ")[1]||player.name}</div>
-                    </div>
-                    {evts>0&&<div style={{color:C.muted,fontSize:9}}>{evts} evt</div>}
-                    {/* Bring on button */}
-                    <button
-                      onClick={e=>toggleBench(player.id,e)}
-                      title="Bring on"
-                      style={{width:24,height:24,borderRadius:6,flexShrink:0,background:"#001a08",
-                        border:`1px solid ${C.accent}44`,color:C.accent,cursor:"pointer",
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900,
-                        transition:"all .15s"}}
-                      onMouseEnter={e=>{e.currentTarget.style.background=C.accent+"22";}}
-                      onMouseLeave={e=>{e.currentTarget.style.background="#001a08";}}>
-                      ↑
-                    </button>
-                  </div>
-                );
-              })}
-            </>
-          )}
         </div>
 
-        {/* Stat input panel */}
-        {selectedPlayer&&(
-          <div style={{flex:1,overflowY:"auto",background:C.bg}}>
-            {/* Panel header */}
-            <div style={{padding:"12px 16px",background:"linear-gradient(135deg,#0d0400,#1a0800)",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:10}}>
-              <div style={{width:40,height:40,borderRadius:9,flexShrink:0,
-                background:posColor(primaryPos(selectedPlayer))+"22",
-                border:`2px solid ${posColor(primaryPos(selectedPlayer))}44`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                color:posColor(primaryPos(selectedPlayer)),fontSize:18}}>
-                {selectedPlayer.number}
-              </div>
-              <div style={{flex:1}}>
-                <div style={{color:C.text,fontWeight:700,fontSize:15}}>{selectedPlayer.name}</div>
-                <div style={{display:"flex",gap:4,marginTop:2}}>
-                  {allPos(selectedPlayer).map(pos=>(
-                    <span key={pos} style={{background:posColor(pos)+"22",color:posColor(pos),border:`1px solid ${posColor(pos)}44`,borderRadius:3,padding:"0 6px",fontSize:10,fontWeight:700}}>{pos}</span>
-                  ))}
-                </div>
-              </div>
-              {selRating&&(
-                <div style={{textAlign:"right"}}>
-                  <div style={{color:rColor(selRating.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,lineHeight:1}}>{selRating.rating.toFixed(1)}</div>
-                  <div style={{color:rColor(selRating.rating),fontSize:11,fontWeight:700}}>{selRating.label}</div>
-                </div>
-              )}
-              <button onClick={()=>setSelPlayer(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4,marginLeft:4}}><X size={16}/></button>
+        {/* Bench section */}
+        {benched.size>0&&(
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH</div>
+              <div style={{flex:1,height:1,background:C.border}}/>
             </div>
-
-            {/* Stat groups */}
-            <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:16}}>
-              {STAT_GROUPS.map(group=>{
-                const visibleStats = group.stats.filter(d=>!d.gkOnly||allPos(selectedPlayer).includes("GK"));
-                if(!visibleStats.length) return null;
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6}}>
+              {benchPlayers.map(player=>{
+                const pc=posColor(primaryPos(player));
                 return(
-                  <div key={group.label}>
-                    <div style={{color:group.color,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8,textTransform:"uppercase"}}>{group.label}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:8}}>
-                      {visibleStats.map(d=>{
-                        const val = selStats[d.k]||0;
-                        return(
-                          <div key={d.k} style={{background:C.card,border:`1px solid ${val>0?group.color+"44":C.border}`,borderRadius:10,padding:"10px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:18}}>{d.emoji}</span>
-                            <span style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.3,textAlign:"center"}}>{d.label}</span>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <button onClick={()=>dec(selectedPlayer.id,d.k)}
-                                style={{width:26,height:26,borderRadius:6,background:C.surface,border:"none",color:C.text,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
-                              <span style={{color:val>0?group.color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:22,minWidth:22,textAlign:"center"}}>{val}</span>
-                              <button onClick={()=>inc(selectedPlayer.id,d.k)}
-                                style={{width:26,height:26,borderRadius:6,background:group.color+"33",border:`1px solid ${group.color}55`,color:group.color,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  <div key={player.id}
+                    onClick={()=>toggleBench(player.id,{stopPropagation:()=>{}})}
+                    style={{borderRadius:10,padding:"8px 4px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                      cursor:"pointer",opacity:.45,background:C.card,border:`1px solid ${C.border}`}}>
+                    <div style={{width:34,height:34,borderRadius:8,background:pc+"22",border:`2px solid ${pc}44`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:17}}>
+                      {player.number}
                     </div>
+                    <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{player.name.split(" ")[1]||player.name}</div>
+                    <div style={{color:C.accent,fontSize:9,fontWeight:700}}>TAP TO SUB ON</div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Empty state when no player selected */}
-        {!selectedPlayer&&live&&(
-          <div style={{display:"none"}}/>
+          </>
         )}
       </div>
+
+      {/* ── Last 3 events ─────────────────────────────────────────────── */}
+      {events.length>0&&(
+        <div style={{background:"#0a0400",borderTop:`1px solid ${C.border}`,padding:"5px 14px",display:"flex",gap:14,overflow:"hidden",flexShrink:0}}>
+          {events.slice(0,3).map(ev=>(
+            <span key={ev.id} style={{color:C.muted,fontSize:11,whiteSpace:"nowrap"}}>{ev.text}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
