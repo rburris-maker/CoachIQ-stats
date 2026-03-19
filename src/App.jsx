@@ -29,6 +29,39 @@ function useLocalStorage(key, initial) {
   return [val, setValue];
 }
 
+function AppLogo({size=36, glow=true}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={{filter:glow?"drop-shadow(0 0 8px #ff6b0077)":"none",flexShrink:0}}>
+      {/* Shield */}
+      <path d="M50 6 L88 20 L88 52 C88 72 70 88 50 95 C30 88 12 72 12 52 L12 20 Z"
+        fill="url(#shieldGrad)" stroke="#ff6b00" strokeWidth="2.5"/>
+      {/* Shield inner highlight */}
+      <path d="M50 14 L80 25 L80 52 C80 68 65 81 50 87 C35 81 20 68 20 52 L20 25 Z"
+        fill="none" stroke="#ff8c0033" strokeWidth="1"/>
+      {/* Bar chart bars */}
+      <rect x="24" y="62" width="12" height="20" rx="2" fill="#ff6b00" opacity="0.9"/>
+      <rect x="40" y="52" width="12" height="30" rx="2" fill="#ff8c00" opacity="0.95"/>
+      <rect x="56" y="44" width="12" height="38" rx="2" fill="#ffb300"/>
+      {/* Trend arrow */}
+      <path d="M22 68 L44 50 L58 56 L76 34" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
+      <path d="M70 30 L78 32 L76 40" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.9"/>
+      {/* Soccer ball */}
+      <circle cx="50" cy="22" r="14" fill="#fff" stroke="#e0e0e0" strokeWidth="1"/>
+      <path d="M50 8 L52 14 L58 12 L56 18 L62 20 L56 22 L58 28 L52 26 L50 32 L48 26 L42 28 L44 22 L38 20 L44 18 L42 12 L48 14 Z"
+        fill="#1a1a2e" opacity="0.75"/>
+      <circle cx="50" cy="22" r="14" fill="none" stroke="#ff6b00" strokeWidth="1.5" opacity="0.4"/>
+      {/* Gradients */}
+      <defs>
+        <linearGradient id="shieldGrad" x1="50" y1="6" x2="50" y2="95" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#1a0800"/>
+          <stop offset="100%" stopColor="#0a0400"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
   bg:"#080808", surface:"#111111", card:"#181818",
@@ -2291,7 +2324,9 @@ export default function CoachIQStats(){
         input,select,textarea{font-family:'Outfit',sans-serif;}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        .sidebar-item:hover{background:#ff6b0012 !important;color:#ff6b00 !important;}
+        .sidebar-item:hover{background:#ff6b0014 !important;color:#e0e0e0 !important;}
+        .card-hover:hover{border-color:#ff6b0055 !important;background:#110800 !important;}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
 
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",
@@ -2301,8 +2336,8 @@ export default function CoachIQStats(){
         <div style={{
           width: sidebarCollapsed ? 60 : 220,
           flexShrink:0,
-          background:"#0a0a0a",
-          borderRight:"1px solid #1a0800",
+          background:"#080808",
+          borderRight:"1px solid #2a1000",
           display:"flex",flexDirection:"column",
           position:"sticky",top:0,height:"100vh",
           transition:"width .2s ease",
@@ -2314,22 +2349,16 @@ export default function CoachIQStats(){
             {sidebarCollapsed ? (
               /* Collapsed: just the M logo, click to expand */
               <button onClick={()=>setSidebarCollapsed(false)}
-                style={{width:36,height:36,borderRadius:9,flexShrink:0,margin:"0 auto",
-                  background:"linear-gradient(135deg,#ff6b00,#cc1100)",
-                  boxShadow:"0 0 14px #ff6b0055",border:"none",cursor:"pointer",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff"}}>M</button>
+                style={{background:"none",border:"none",cursor:"pointer",padding:0,margin:"0 auto",display:"flex"}}>
+                <AppLogo size={38} glow={true}/>
+              </button>
             ) : (
               <>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
-                    background:"linear-gradient(135deg,#ff6b00,#cc1100)",
-                    boxShadow:"0 0 14px #ff6b0055",
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff"}}>M</div>
+                  <AppLogo size={38} glow={true}/>
                   <div>
-                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:14,letterSpacing:.5,whiteSpace:"nowrap"}}>
-                      CoachIQ <span style={{color:C.accent}}>Stats</span>
+                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:13,letterSpacing:1,whiteSpace:"nowrap",textTransform:"uppercase"}}>
+                      COACHIQ <span style={{color:C.accent}}>STATS</span>
                     </div>
                   </div>
                 </div>
@@ -2377,8 +2406,8 @@ export default function CoachIQStats(){
             {SIDEBAR_GROUPS.map(group=>(
               <div key={group.label} style={{marginBottom:4}}>
                 {!sidebarCollapsed&&(
-                  <div style={{color:"#3a2010",fontSize:9,fontWeight:700,letterSpacing:1.5,
-                    padding:"8px 16px 4px",textTransform:"uppercase"}}>{group.label}</div>
+                  <div style={{color:"#5a3020",fontSize:9,fontWeight:700,letterSpacing:2,
+                    padding:"12px 16px 4px",textTransform:"uppercase"}}>{group.label}</div>
                 )}
                 {group.items.map(item=>{
                   const Icon=item.icon;
@@ -2395,7 +2424,7 @@ export default function CoachIQStats(){
                         justifyContent: sidebarCollapsed?"center":"flex-start",
                         background: active?"#ff6b0018":"transparent",
                         border:"none",
-                        borderRight: active?`3px solid ${C.accent}`:"3px solid transparent",
+                        borderLeft: active?`3px solid ${C.accent}`:"3px solid transparent",
                         color: active?C.accent:C.muted,
                         cursor:"pointer",fontWeight:active?700:500,fontSize:13,
                         transition:"all .12s",textAlign:"left",
@@ -2440,7 +2469,7 @@ export default function CoachIQStats(){
         <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden"}}>
 
           {/* Top bar — slim, no nav */}
-          <div style={{height:52,background:"#0a0a0a",borderBottom:"1px solid #1a0800",
+          <div style={{height:52,background:"#080808",borderBottom:"1px solid #2a1000",
             display:"flex",alignItems:"center",justifyContent:"space-between",
             padding:"0 20px",flexShrink:0}}>
             <div style={{color:C.muted,fontSize:12,fontWeight:600}}>
