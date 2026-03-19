@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, Trophy, Radio, BarChart2,
   Target, Award, MapPin, ChevronRight,
   Search, Calendar, AlertTriangle, RefreshCw, Cpu,
-  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft
+  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft, CalendarDays, ClipboardCheck
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -2207,10 +2207,12 @@ const SIDEBAR_GROUPS = [
     {id:"home",     label:"Home",      icon:LayoutDashboard},
     {id:"games",    label:"Games",     icon:Trophy},
     {id:"live",     label:"Live",      icon:Radio},
+    {id:"calendar", label:"Calendar",  icon:CalendarDays},
   ]},
   { label:"SQUAD", items:[
     {id:"players",  label:"Players",   icon:Users},
     {id:"roster",   label:"Roster",    icon:ClipboardList},
+    {id:"tryouts",  label:"Tryouts",   icon:ClipboardCheck},
   ]},
   { label:"PLANNING", items:[
     {id:"gameplan", label:"Game Plan", icon:BookOpen},
@@ -2391,6 +2393,8 @@ export default function CoachIQStats(){
   const [allPractices, setAllPractices] = useLocalStorage("coachiq_practices", {[INIT_TEAM_ID]: []});
   const [allDrills,    setAllDrills]    = useLocalStorage("coachiq_drills",    {[INIT_TEAM_ID]: []});
   const [allTemplates, setAllTemplates] = useLocalStorage("coachiq_templates", {[INIT_TEAM_ID]: []});
+  const [allSchedule,  setAllSchedule]  = useLocalStorage("coachiq_schedule",  {[INIT_TEAM_ID]: []});
+  const [allTryouts,   setAllTryouts]   = useLocalStorage("coachiq_tryouts",   {[INIT_TEAM_ID]: []});
 
   const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
   const roster    = allRosters[safeTeamId]   || DEFAULT_PLAYERS;
@@ -2399,6 +2403,8 @@ export default function CoachIQStats(){
   const practices = allPractices[safeTeamId] || [];
   const drills    = allDrills[safeTeamId]     || [];
   const templates = allTemplates[safeTeamId]  || [];
+  const schedule  = allSchedule[safeTeamId]   || [];
+  const tryouts   = allTryouts[safeTeamId]    || [];
 
   // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
@@ -2427,6 +2433,14 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(templates) : val;
     setAllTemplates(prev=>({...prev,[safeTeamId]:resolved}));
   }
+  function setSchedule(val){
+    const resolved = typeof val==="function" ? val(schedule) : val;
+    setAllSchedule(prev=>({...prev,[safeTeamId]:resolved}));
+  }
+  function setTryouts(val){
+    const resolved = typeof val==="function" ? val(tryouts) : val;
+    setAllTryouts(prev=>({...prev,[safeTeamId]:resolved}));
+  }
 
   // ── Team management ───────────────────────────────────────────────────────
   function addTeam(name){
@@ -2438,6 +2452,8 @@ export default function CoachIQStats(){
     setAllPractices(prev=>({...prev,[id]:[]}));
     setAllDrills(prev=>({...prev,[id]:[]}));
     setAllTemplates(prev=>({...prev,[id]:[]}));
+    setAllSchedule(prev=>({...prev,[id]:[]}));
+    setAllTryouts(prev=>({...prev,[id]:[]}));
     setActiveTeamId(id);
     setView("home");
   }
@@ -2457,6 +2473,8 @@ export default function CoachIQStats(){
     setAllPractices(prev=>{const n={...prev};delete n[id];return n;});
     setAllDrills(prev=>{const n={...prev};delete n[id];return n;});
     setAllTemplates(prev=>{const n={...prev};delete n[id];return n;});
+    setAllSchedule(prev=>{const n={...prev};delete n[id];return n;});
+    setAllTryouts(prev=>{const n={...prev};delete n[id];return n;});
     if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
   }
 
@@ -2655,6 +2673,8 @@ export default function CoachIQStats(){
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
+            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
+            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
           </div>
@@ -3878,6 +3898,692 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             })}
           </div>
       }
+    </div>
+  );
+}
+
+
+// ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
+function CalendarView({schedule, setSchedule, games, practices, setView}){
+  const today = new Date();
+  const [curMonth, setCurMonth] = useState(today.getMonth());
+  const [curYear,  setCurYear]  = useState(today.getFullYear());
+  const [selDay,   setSelDay]   = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editEvt,  setEditEvt]  = useState(null);
+  const [form, setForm] = useState({
+    type:"game", title:"", date:"", time:"", location:"", opponent:"", notes:""
+  });
+
+  const EVENT_TYPES = [
+    {k:"game",       label:"Game",       color:"#ff6b00"},
+    {k:"practice",   label:"Practice",   color:"#66bb6a"},
+    {k:"tournament", label:"Tournament", color:"#7c6af5"},
+    {k:"other",      label:"Other",      color:"#42a5f5"},
+  ];
+  const typeColor = k => EVENT_TYPES.find(t=>t.k===k)?.color || C.accent;
+
+  // Build all events including auto-imported from games + practices
+  const allEvents = useMemo(()=>{
+    const evts = [...schedule];
+    // Auto-include completed games not already in schedule
+    games.filter(g=>g.status==="completed").forEach(g=>{
+      if(!schedule.find(e=>e.linkedGameId===g.id)){
+        evts.push({id:`auto_g_${g.id}`, type:"game", title:`vs ${g.opponent}`,
+          date:g.date, time:"", location:g.location||"",
+          opponent:g.opponent, linkedGameId:g.id, auto:true,
+          result:{our:g.ourScore, their:g.theirScore}});
+      }
+    });
+    return evts;
+  },[schedule, games]);
+
+  // Get days in month
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const firstDay    = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  function eventsOnDay(d){
+    const dateStr = `${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    return allEvents.filter(e=>e.date===dateStr);
+  }
+
+  function saveEvent(){
+    if(!form.date) return;
+    if(editEvt){
+      setSchedule(prev=>prev.map(e=>e.id===editEvt?{...e,...form}:e));
+      setEditEvt(null);
+    } else {
+      setSchedule(prev=>[...prev,{id:`ev${Date.now()}`,...form,createdAt:new Date().toISOString()}]);
+    }
+    setShowForm(false);
+    setForm({type:"game",title:"",date:selDay||"",time:"",location:"",opponent:"",notes:""});
+  }
+
+  function deleteEvent(id){
+    setSchedule(prev=>prev.filter(e=>e.id!==id));
+  }
+
+  function openAdd(dateStr){
+    setSelDay(dateStr);
+    setForm({type:"game",title:"",date:dateStr,time:"",location:"",opponent:"",notes:""});
+    setEditEvt(null);
+    setShowForm(true);
+  }
+
+  function openEdit(evt){
+    if(evt.auto) return; // can't edit auto-imported
+    setForm({type:evt.type,title:evt.title,date:evt.date,time:evt.time||"",
+      location:evt.location||"",opponent:evt.opponent||"",notes:evt.notes||""});
+    setEditEvt(evt.id);
+    setShowForm(true);
+  }
+
+  const iStyle = (extra={}) => ({padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",width:"100%",...extra});
+
+  // Upcoming events (next 30 days)
+  const upcoming = useMemo(()=>{
+    const todayStr = today.toISOString().split("T")[0];
+    const limitStr = new Date(today.getTime()+30*86400000).toISOString().split("T")[0];
+    return allEvents.filter(e=>e.date>=todayStr&&e.date<=limitStr).sort((a,b)=>a.date.localeCompare(b.date));
+  },[allEvents]);
+
+  return(
+    <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SEASON</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Calendar</h1>
+        </div>
+        <button onClick={()=>openAdd(today.toISOString().split("T")[0])}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>Add Event
+        </button>
+      </div>
+
+      {/* Add/Edit form modal */}
+      {showForm&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:28,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800}}>{editEvt?"Edit Event":"Add Event"}</h3>
+              <button onClick={()=>{setShowForm(false);setEditEvt(null);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
+            </div>
+
+            {/* Type */}
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>TYPE</label>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                {EVENT_TYPES.map(t=>(
+                  <button key={t.k} onClick={()=>setForm(f=>({...f,type:t.k}))}
+                    style={{padding:"7px 14px",background:form.type===t.k?t.color+"22":C.surface,
+                      border:`1px solid ${form.type===t.k?t.color:C.border}`,borderRadius:8,
+                      color:form.type===t.k?t.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Title */}
+            <div style={{marginBottom:12}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
+                {form.type==="game"?"OPPONENT":"TITLE"}
+              </label>
+              <input value={form.type==="game"?form.opponent:form.title}
+                onChange={e=>setForm(f=>form.type==="game"?{...f,opponent:e.target.value,title:`vs ${e.target.value}`}:{...f,title:e.target.value})}
+                placeholder={form.type==="game"?"e.g. Lincoln High":"e.g. Team Meeting"}
+                style={iStyle()}/>
+            </div>
+
+            {/* Date + Time */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+                <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={iStyle()}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>TIME</label>
+                <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={iStyle()}/>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div style={{marginBottom:12}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
+              <input value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))}
+                placeholder="e.g. Home Field / Away" style={iStyle()}/>
+            </div>
+
+            {/* Notes */}
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>NOTES</label>
+              <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2}
+                placeholder="Bus time, uniform, field notes..." style={iStyle({resize:"vertical"})}/>
+            </div>
+
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={saveEvent} disabled={!form.date}
+                style={{flex:1,padding:"11px",background:form.date?C.accent:"#2a1000",border:"none",borderRadius:9,
+                  color:form.date?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                {editEvt?"Save Changes":"Add Event"}
+              </button>
+              {editEvt&&(
+                <button onClick={()=>{deleteEvent(editEvt);setShowForm(false);setEditEvt(null);}}
+                  style={{padding:"11px 16px",background:"#2a0800",border:`1px solid ${C.danger}44`,
+                    borderRadius:9,color:C.danger,fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                  <Trash2 size={14}/>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:20}}>
+        {/* Calendar grid */}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
+          {/* Month nav */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:`1px solid ${C.border}`}}>
+            <button onClick={()=>{if(curMonth===0){setCurMonth(11);setCurYear(y=>y-1);}else setCurMonth(m=>m-1);}}
+              style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:6,borderRadius:7,display:"flex",alignItems:"center"}}>
+              <ChevronDown size={16} style={{transform:"rotate(90deg)"}}/>
+            </button>
+            <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>
+              {MONTHS[curMonth]} {curYear}
+            </div>
+            <button onClick={()=>{if(curMonth===11){setCurMonth(0);setCurYear(y=>y+1);}else setCurMonth(m=>m+1);}}
+              style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:6,borderRadius:7,display:"flex",alignItems:"center"}}>
+              <ChevronDown size={16} style={{transform:"rotate(-90deg)"}}/>
+            </button>
+          </div>
+
+          {/* Day headers */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`1px solid ${C.border}`}}>
+            {DAYS.map(d=>(
+              <div key={d} style={{textAlign:"center",padding:"8px 0",color:C.muted,fontSize:11,fontWeight:700,letterSpacing:.5}}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar cells */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {/* Empty cells before first day */}
+            {Array(firstDay).fill(null).map((_,i)=>(
+              <div key={`empty-${i}`} style={{minHeight:80,borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`}}/>
+            ))}
+            {/* Day cells */}
+            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+              const dateStr = `${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+              const dayEvts = eventsOnDay(d);
+              const isToday = d===today.getDate() && curMonth===today.getMonth() && curYear===today.getFullYear();
+              const col = (firstDay + d - 1) % 7;
+              const isLastCol = col === 6;
+              return(
+                <div key={d}
+                  onClick={()=>openAdd(dateStr)}
+                  style={{minHeight:80,padding:"6px 6px 4px",
+                    borderRight:isLastCol?"none":`1px solid ${C.border}`,
+                    borderBottom:`1px solid ${C.border}`,
+                    cursor:"pointer",transition:"background .1s",
+                    background:"transparent"}}
+                  onMouseEnter={e=>e.currentTarget.style.background=C.surface}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  {/* Day number */}
+                  <div style={{
+                    width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                    marginBottom:4,fontSize:12,fontWeight:isToday?900:500,
+                    background:isToday?C.accent:"transparent",
+                    color:isToday?"#000":C.text}}>
+                    {d}
+                  </div>
+                  {/* Events */}
+                  {dayEvts.slice(0,3).map(evt=>(
+                    <div key={evt.id}
+                      onClick={e=>{e.stopPropagation();openEdit(evt);}}
+                      style={{fontSize:10,fontWeight:700,padding:"2px 5px",borderRadius:4,marginBottom:2,
+                        background:typeColor(evt.type)+"22",color:typeColor(evt.type),
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                        cursor:evt.auto?"default":"pointer"}}>
+                      {evt.time&&<span style={{opacity:.7,marginRight:3}}>{evt.time.slice(0,5)}</span>}
+                      {evt.title||evt.opponent}
+                    </div>
+                  ))}
+                  {dayEvts.length>3&&<div style={{fontSize:9,color:C.muted,fontWeight:700}}>+{dayEvts.length-3} more</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Upcoming events sidebar */}
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,flex:1}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>NEXT 30 DAYS</div>
+            {upcoming.length===0
+              ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No events upcoming</div>
+              : upcoming.map(evt=>{
+                  const col=typeColor(evt.type);
+                  const d=new Date(evt.date+"T12:00:00");
+                  const dayLabel=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+                  const r=evt.result;
+                  return(
+                    <div key={evt.id}
+                      onClick={()=>!evt.auto&&openEdit(evt)}
+                      style={{display:"flex",gap:10,marginBottom:12,cursor:evt.auto?"default":"pointer",
+                        padding:"8px 10px",borderRadius:9,background:C.surface,
+                        border:`1px solid ${C.border}`,transition:"border .12s"}}
+                      onMouseEnter={e=>{if(!evt.auto)e.currentTarget.style.borderColor=col;}}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                      <div style={{width:4,borderRadius:99,background:col,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {evt.title||evt.opponent}
+                        </div>
+                        <div style={{color:C.muted,fontSize:11,marginTop:2}}>{dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}</div>
+                        {evt.location&&<div style={{color:C.muted,fontSize:11}}>{evt.location}</div>}
+                        {r&&<div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:C.warning,fontSize:12,fontWeight:700,marginTop:2}}>{r.our}–{r.their}</div>}
+                      </div>
+                    </div>
+                  );
+                })
+            }
+          </div>
+
+          {/* Legend */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>EVENT TYPES</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {EVENT_TYPES.map(t=>(
+                <div key={t.k} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:10,height:10,borderRadius:3,background:t.color,flexShrink:0}}/>
+                  <span style={{color:C.muted,fontSize:12,fontWeight:600}}>{t.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
+function TryoutsView({tryouts, setTryouts}){
+  const [selTryout, setSelTryout]   = useState(null);
+  const [selCand,   setSelCand]     = useState(null);
+  const [creating,  setCreating]    = useState(false);
+  const [addingCand,setAddingCand]  = useState(false);
+  const [tForm,     setTForm]       = useState({name:"",year:new Date().getFullYear().toString()});
+  const [cForm,     setCForm]       = useState({name:"",age:"",school:"",position:"CM",notes:""});
+
+  const SCORE_CATS = [
+    {k:"technical",  label:"Technical",   desc:"Ball control, passing, first touch",color:"#ff6b00"},
+    {k:"athletic",   label:"Athletic",    desc:"Speed, stamina, physicality",       color:"#ef5350"},
+    {k:"tactical",   label:"Tactical",    desc:"Positioning, decision making",      color:"#42a5f5"},
+    {k:"attitude",   label:"Attitude",    desc:"Effort, coachability, communication",color:"#66bb6a"},
+    {k:"positional", label:"Positional",  desc:"Quality in their specific role",    color:"#7c6af5"},
+  ];
+
+  const STATUS_OPTS = [
+    {k:"prospect", label:"Prospect", color:C.muted},
+    {k:"offered",  label:"Offered",  color:"#66bb6a"},
+    {k:"signed",   label:"Signed",   color:C.accent},
+    {k:"cut",      label:"Cut",      color:C.danger},
+  ];
+
+  function avgScore(scores){
+    const vals = Object.values(scores||{}).filter(v=>v>0);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  }
+
+  function createTryout(){
+    if(!tForm.name.trim()) return;
+    const t={id:`try${Date.now()}`,name:tForm.name.trim(),year:tForm.year,
+      status:"open",candidates:[],createdAt:new Date().toISOString()};
+    setTryouts(prev=>[t,...prev]);
+    setSelTryout(t.id); setCreating(false);
+  }
+
+  function addCandidate(){
+    if(!cForm.name.trim()) return;
+    const c={id:`c${Date.now()}`,name:cForm.name.trim(),age:cForm.age,
+      school:cForm.school,position:cForm.position,
+      scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
+      status:"prospect",notes:cForm.notes,coachNote:""};
+    setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,candidates:[...t.candidates,c]}:t));
+    setCForm({name:"",age:"",school:"",position:"CM",notes:""});
+    setAddingCand(false);
+    setSelCand(c.id);
+  }
+
+  function updateScore(candId, cat, val){
+    setTryouts(prev=>prev.map(t=>{
+      if(t.id!==selTryout) return t;
+      return {...t,candidates:t.candidates.map(c=>c.id!==candId?c:{...c,scores:{...c.scores,[cat]:val}})};
+    }));
+  }
+
+  function updateCandField(candId, key, val){
+    setTryouts(prev=>prev.map(t=>{
+      if(t.id!==selTryout) return t;
+      return {...t,candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})};
+    }));
+  }
+
+  function deleteCandidate(candId){
+    setTryouts(prev=>prev.map(t=>t.id!==selTryout?t:{...t,candidates:t.candidates.filter(c=>c.id!==candId)}));
+    setSelCand(null);
+  }
+
+  const iS = (extra={}) => ({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",
+    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",width:"100%",...extra});
+
+  // ── Tryout list ──────────────────────────────────────────────────────────
+  if(!selTryout) return(
+    <div style={{padding:20,maxWidth:800,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SQUAD</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Tryouts</h1>
+        </div>
+        <button onClick={()=>setCreating(true)}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>New Tryout
+        </button>
+      </div>
+
+      {creating&&(
+        <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW TRYOUT SESSION</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10,marginBottom:12}}>
+            <input value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))}
+              placeholder="e.g. Varsity 2025-26 Tryouts" style={iS()}/>
+            <input value={tForm.year} onChange={e=>setTForm(f=>({...f,year:e.target.value}))}
+              placeholder="Year" style={iS()}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={createTryout} disabled={!tForm.name.trim()}
+              style={{padding:"9px 20px",background:tForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
+                color:tForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>
+              Create
+            </button>
+            <button onClick={()=>setCreating(false)}
+              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tryouts.length===0&&!creating
+        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <ClipboardCheck size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No tryout sessions yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create your first tryout to start evaluating candidates</div>
+          </div>
+        : tryouts.map(t=>{
+            const signed = t.candidates.filter(c=>c.status==="signed").length;
+            const offered= t.candidates.filter(c=>c.status==="offered").length;
+            const cut    = t.candidates.filter(c=>c.status==="cut").length;
+            return(
+              <div key={t.id} onClick={()=>setSelTryout(t.id)}
+                style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+                  padding:"16px 20px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                <div style={{width:46,height:46,borderRadius:11,background:C.accent+"22",border:`2px solid ${C.accent}44`,
+                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <ClipboardCheck size={22} color={C.accent}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{t.name}</div>
+                  <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                    <span style={{color:C.muted,fontSize:12}}>{t.year}</span>
+                    <span style={{color:C.muted,fontSize:12}}>{t.candidates.length} candidates</span>
+                    {signed>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{signed} signed</span>}
+                    {offered>0&&<span style={{color:"#66bb6a",fontSize:12,fontWeight:700}}>{offered} offered</span>}
+                    {cut>0&&<span style={{color:C.danger,fontSize:12,fontWeight:700}}>{cut} cut</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{padding:"3px 10px",background:t.status==="open"?C.accent+"22":"#2a1000",
+                    border:`1px solid ${t.status==="open"?C.accent:C.border}`,borderRadius:6,
+                    color:t.status==="open"?C.accent:C.muted,fontSize:11,fontWeight:700}}>
+                    {t.status==="open"?"OPEN":"CLOSED"}
+                  </span>
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              </div>
+            );
+          })
+      }
+    </div>
+  );
+
+  // ── Tryout detail ────────────────────────────────────────────────────────
+  const tryout = tryouts.find(t=>t.id===selTryout);
+  if(!tryout) return null;
+
+  const sorted = [...tryout.candidates].sort((a,b)=>avgScore(b.scores)-avgScore(a.scores));
+  const selCandObj = selCand ? tryout.candidates.find(c=>c.id===selCand) : null;
+
+  return(
+    <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+        <button onClick={()=>{setSelTryout(null);setSelCand(null);}}
+          style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+        <div style={{flex:1}}>
+          <div style={{color:C.muted,fontSize:12}}>{tryout.year}</div>
+          <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>{tryout.name}</h2>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {/* Open/Close toggle */}
+          <button onClick={()=>setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:t.status==="open"?"closed":"open"}:t))}
+            style={{padding:"8px 14px",background:tryout.status==="open"?C.accent+"22":"#2a1000",
+              border:`1px solid ${tryout.status==="open"?C.accent:C.border}`,borderRadius:8,
+              color:tryout.status==="open"?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            {tryout.status==="open"?"Close Tryout":"Reopen"}
+          </button>
+          <button onClick={()=>setAddingCand(true)}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.accent,
+              border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+            <Plus size={14}/>Add Candidate
+          </button>
+          <button onClick={()=>{if(window.confirm("Delete this tryout?"))setTryouts(prev=>prev.filter(t=>t.id!==selTryout));setSelTryout(null);}}
+            style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",
+              color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
+            <Trash2 size={13}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Add candidate form */}
+      {addingCand&&(
+        <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW CANDIDATE</div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))}
+              placeholder="Full Name *" style={iS()}/>
+            <input value={cForm.age} onChange={e=>setCForm(f=>({...f,age:e.target.value}))}
+              placeholder="Age/Grade" style={iS()}/>
+            <input value={cForm.school} onChange={e=>setCForm(f=>({...f,school:e.target.value}))}
+              placeholder="School/Club" style={iS()}/>
+            <select value={cForm.position} onChange={e=>setCForm(f=>({...f,position:e.target.value}))} style={iS()}>
+              {["GK","CB","FB","DM","CM","W","ST"].map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:12}}>
+            <input value={cForm.notes} onChange={e=>setCForm(f=>({...f,notes:e.target.value}))}
+              placeholder="Initial notes (optional)" style={iS()}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={addCandidate} disabled={!cForm.name.trim()}
+              style={{padding:"9px 20px",background:cForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
+                color:cForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>
+              Add
+            </button>
+            <button onClick={()=>setAddingCand(false)}
+              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"340px 1fr",gap:16}}>
+
+        {/* Ranked candidate list */}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
+            CANDIDATES ({tryout.candidates.length})
+          </div>
+          {sorted.length===0
+            ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No candidates yet</div>
+            : sorted.map((c,rank)=>{
+                const avg=avgScore(c.scores);
+                const sc=STATUS_OPTS.find(s=>s.k===c.status);
+                const isSel=selCand===c.id;
+                const pc=posColor(c.position);
+                return(
+                  <div key={c.id} onClick={()=>setSelCand(isSel?null:c.id)}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
+                      borderRadius:10,marginBottom:6,cursor:"pointer",transition:"all .12s",
+                      background:isSel?C.accent+"18":C.surface,
+                      border:`1px solid ${isSel?C.accent:C.border}`}}>
+                    {/* Rank */}
+                    <div style={{width:22,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:14,textAlign:"center",flexShrink:0}}>
+                      {rank+1}
+                    </div>
+                    {/* Position badge */}
+                    <div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:pc+"22",
+                      border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
+                      {c.position}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                      <div style={{color:C.muted,fontSize:11}}>{c.age&&`${c.age} · `}{c.school}</div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      {avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{avg.toFixed(1)}</div>}
+                      <div style={{color:sc?.color||C.muted,fontSize:10,fontWeight:700}}>{sc?.label}</div>
+                    </div>
+                  </div>
+                );
+              })
+          }
+        </div>
+
+        {/* Candidate scoring panel */}
+        {selCandObj ? (
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* Candidate header */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:54,height:54,borderRadius:12,flexShrink:0,
+                background:posColor(selCandObj.position)+"22",border:`2px solid ${posColor(selCandObj.position)}44`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(selCandObj.position),fontSize:18}}>
+                {selCandObj.position}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div>
+                <div style={{color:C.muted,fontSize:13,marginTop:2}}>
+                  {selCandObj.age&&`Age/Grade: ${selCandObj.age}`}
+                  {selCandObj.age&&selCandObj.school&&" · "}
+                  {selCandObj.school}
+                </div>
+              </div>
+              {/* Overall score */}
+              {avgScore(selCandObj.scores)>0&&(
+                <div style={{textAlign:"center",flexShrink:0}}>
+                  <div style={{color:rColor(avgScore(selCandObj.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:42,lineHeight:1}}>
+                    {avgScore(selCandObj.scores).toFixed(1)}
+                  </div>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600}}>OVERALL</div>
+                </div>
+              )}
+              <button onClick={()=>deleteCandidate(selCandObj.id)}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}>
+                <Trash2 size={15}/>
+              </button>
+            </div>
+
+            {/* Status selector */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>STATUS</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {STATUS_OPTS.map(opt=>(
+                  <button key={opt.k} onClick={()=>updateCandField(selCandObj.id,"status",opt.k)}
+                    style={{padding:"8px 18px",background:selCandObj.status===opt.k?opt.color+"22":C.surface,
+                      border:`1.5px solid ${selCandObj.status===opt.k?opt.color:C.border}`,
+                      borderRadius:8,color:selCandObj.status===opt.k?opt.color:C.muted,
+                      cursor:"pointer",fontWeight:700,fontSize:13,transition:"all .12s"}}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Score sliders */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:16}}>EVALUATION SCORES (1-10)</div>
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {SCORE_CATS.map(cat=>{
+                  const val=selCandObj.scores[cat.k]||0;
+                  return(
+                    <div key={cat.k}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <div>
+                          <span style={{color:cat.color,fontWeight:700,fontSize:13}}>{cat.label}</span>
+                          <span style={{color:C.muted,fontSize:11,marginLeft:8}}>{cat.desc}</span>
+                        </div>
+                        <span style={{color:val>0?cat.color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{val>0?val:"-"}</span>
+                      </div>
+                      {/* Score buttons 1-10 */}
+                      <div style={{display:"flex",gap:4}}>
+                        {[1,2,3,4,5,6,7,8,9,10].map(n=>(
+                          <button key={n} onClick={()=>updateScore(selCandObj.id,cat.k,n===val?0:n)}
+                            style={{flex:1,height:28,borderRadius:5,border:`1.5px solid ${n<=val?cat.color:C.border}`,
+                              background:n<=val?cat.color+"22":"transparent",
+                              color:n<=val?cat.color:C.muted,cursor:"pointer",
+                              fontWeight:700,fontSize:11,transition:"all .08s"}}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Coach note */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>COACH NOTES</div>
+              <textarea value={selCandObj.coachNote||""} rows={3}
+                onChange={e=>updateCandField(selCandObj.id,"coachNote",e.target.value)}
+                placeholder="Observations, strengths, areas of concern..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+          </div>
+        ) : (
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:48,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+            <ClipboardCheck size={40} style={{color:C.muted,opacity:.3}}/>
+            <div style={{color:C.muted,fontSize:14,textAlign:"center"}}>Select a candidate to score them</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
