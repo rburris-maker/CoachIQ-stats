@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, Trophy, Radio, BarChart2,
   Target, Award, MapPin, ChevronRight,
   Search, Calendar, AlertTriangle, RefreshCw, Cpu,
-  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings
+  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -2034,14 +2034,72 @@ function RosterView({players, setPlayers, teamName}){
   );
 }
 
-const NAV=[
-  {id:"dashboard",label:"Dashboard",icon:LayoutDashboard},
-  {id:"games",    label:"Games",    icon:Trophy},
-  {id:"live",     label:"Live",     icon:Radio},
-  {id:"players",  label:"Players",  icon:Users},
-  {id:"analytics",label:"Analytics",icon:BarChart2},
-  {id:"roster",   label:"Roster",   icon:ClipboardList},
+// Sidebar nav groups
+const SIDEBAR_GROUPS = [
+  { label:"MATCH", items:[
+    {id:"home",     label:"Home",      icon:LayoutDashboard},
+    {id:"games",    label:"Games",     icon:Trophy},
+    {id:"live",     label:"Live",      icon:Radio},
+  ]},
+  { label:"SQUAD", items:[
+    {id:"players",  label:"Players",   icon:Users},
+    {id:"roster",   label:"Roster",    icon:ClipboardList},
+  ]},
+  { label:"PLANNING", items:[
+    {id:"gameplan", label:"Game Plan", icon:BookOpen},
+    {id:"practice", label:"Practice",  icon:Dumbbell},
+  ]},
+  { label:"INSIGHTS", items:[
+    {id:"analytics",label:"Analytics", icon:BarChart2},
+  ]},
 ];
+const NAV = SIDEBAR_GROUPS.flatMap(g=>g.items);
+const NAV_PRIMARY = NAV;
+const NAV_SECONDARY = [];
+
+
+// ─── MORE MENU ────────────────────────────────────────────────────────────────
+function MoreMenu({view, setView, secondaryInActive}){
+  const [open,setOpen] = useState(false);
+  return(
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{display:"flex",alignItems:"center",gap:5,padding:"7px 11px",
+          background: secondaryInActive||open ? C.accent+"22" : "transparent",
+          border: secondaryInActive||open ? `1px solid ${C.accent}44` : "1px solid transparent",
+          borderRadius:8, color: secondaryInActive||open ? C.accent : C.muted,
+          cursor:"pointer",fontWeight:600,fontSize:13,transition:"all .15s"}}>
+        More <ChevronDown size={12} style={{transition:"transform .2s",transform:open?"rotate(180deg)":"rotate(0deg)"}}/>
+      </button>
+
+      {open&&(
+        <>
+          <div onClick={()=>setOpen(false)}
+            style={{position:"fixed",inset:0,zIndex:199}}/>
+          <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,minWidth:180,
+            background:"#111",border:`1px solid ${C.border}`,borderRadius:12,
+            boxShadow:"0 16px 40px #00000088",zIndex:200,overflow:"hidden",padding:6}}>
+            {NAV_SECONDARY.map(v=>{
+              const Icon=v.icon,active=view===v.id;
+              return(
+                <button key={v.id}
+                  onClick={()=>{setView(v.id);setOpen(false);}}
+                  style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",
+                    background:active?C.accent+"22":"transparent",borderRadius:8,
+                    border:"none",color:active?C.accent:C.muted,cursor:"pointer",
+                    fontWeight:600,fontSize:13,textAlign:"left",transition:"all .12s",
+                    marginBottom:2}}>
+                  <Icon size={15}/>{v.label}
+                  {active&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:C.accent}}/>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ─── TEAM SWITCHER DROPDOWN ──────────────────────────────────────────────────
 function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}){
@@ -2150,7 +2208,7 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
 }
 
 export default function CoachIQStats(){
-  const [view,setView] = useState("dashboard");
+  const [view,setView] = useState("home");
 
   // ── Persistent teams ──────────────────────────────────────────────────────
   const INIT_TEAM_ID = "t_default";
@@ -2159,13 +2217,17 @@ export default function CoachIQStats(){
   ]);
   const [activeTeamId, setActiveTeamId] = useLocalStorage("coachiq_active_team", INIT_TEAM_ID);
 
-  // ── Per-team rosters & games ──────────────────────────────────────────────
-  const [allRosters, setAllRosters] = useLocalStorage("coachiq_rosters", {[INIT_TEAM_ID]: DEFAULT_PLAYERS});
-  const [allGames,   setAllGames]   = useLocalStorage("coachiq_games",   {[INIT_TEAM_ID]: GAMES});
+  // ── Per-team rosters & games & plans ─────────────────────────────────────
+  const [allRosters,   setAllRosters]   = useLocalStorage("coachiq_rosters",   {[INIT_TEAM_ID]: DEFAULT_PLAYERS});
+  const [allGames,     setAllGames]     = useLocalStorage("coachiq_games",     {[INIT_TEAM_ID]: GAMES});
+  const [allGamePlans, setAllGamePlans] = useLocalStorage("coachiq_gameplans", {[INIT_TEAM_ID]: []});
+  const [allPractices, setAllPractices] = useLocalStorage("coachiq_practices", {[INIT_TEAM_ID]: []});
 
   const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
-  const roster = allRosters[safeTeamId] || DEFAULT_PLAYERS;
-  const games  = allGames[safeTeamId]   || [];
+  const roster    = allRosters[safeTeamId]   || DEFAULT_PLAYERS;
+  const games     = allGames[safeTeamId]     || [];
+  const gamePlans = allGamePlans[safeTeamId] || [];
+  const practices = allPractices[safeTeamId] || [];
 
   // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
@@ -2178,6 +2240,14 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(games) : val;
     setAllGames(prev=>({...prev,[safeTeamId]:resolved}));
   }
+  function setGamePlans(val){
+    const resolved = typeof val==="function" ? val(gamePlans) : val;
+    setAllGamePlans(prev=>({...prev,[safeTeamId]:resolved}));
+  }
+  function setPractices(val){
+    const resolved = typeof val==="function" ? val(practices) : val;
+    setAllPractices(prev=>({...prev,[safeTeamId]:resolved}));
+  }
 
   // ── Team management ───────────────────────────────────────────────────────
   function addTeam(name){
@@ -2185,12 +2255,14 @@ export default function CoachIQStats(){
     setTeams(prev=>[...prev,{id,name}]);
     setAllRosters(prev=>({...prev,[id]:DEFAULT_PLAYERS}));
     setAllGames(prev=>({...prev,[id]:[]}));
+    setAllGamePlans(prev=>({...prev,[id]:[]}));
+    setAllPractices(prev=>({...prev,[id]:[]}));
     setActiveTeamId(id);
-    setView("dashboard");
+    setView("home");
   }
   function switchTeam(id){
     setActiveTeamId(id);
-    setView("dashboard");
+    setView("home");
   }
   function renameTeam(id,name){
     setTeams(prev=>prev.map(t=>t.id===id?{...t,name}:t));
@@ -2200,10 +2272,14 @@ export default function CoachIQStats(){
     setTeams(remaining);
     setAllRosters(prev=>{const n={...prev};delete n[id];return n;});
     setAllGames(prev=>{const n={...prev};delete n[id];return n;});
+    setAllGamePlans(prev=>{const n={...prev};delete n[id];return n;});
+    setAllPractices(prev=>{const n={...prev};delete n[id];return n;});
     if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
   }
 
   const activeTeam = teams.find(t=>t.id===safeTeamId) || teams[0];
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return(
     <>
@@ -2212,60 +2288,912 @@ export default function CoachIQStats(){
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:${C.bg};color:${C.text};font-family:'Outfit',sans-serif;} html{background:${C.bg};}
         ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#ff6b0055;border-radius:3px;}
-        input{font-family:'Outfit',sans-serif;}
+        input,select,textarea{font-family:'Outfit',sans-serif;}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        @keyframes glow{0%,100%{box-shadow:0 0 10px #ff6b0044}50%{box-shadow:0 0 22px #ff6b0099}}
+        .sidebar-item:hover{background:#ff6b0012 !important;color:#ff6b00 !important;}
       `}</style>
-      <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
-          backgroundImage:`
-            radial-gradient(ellipse at 50% -10%, #ff6b0018 0%, transparent 55%),
-            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3C/svg%3E")
-          `}}>
 
-        {/* ── Nav bar ───────────────────────────────────────────────────── */}
-        <div style={{background:"#0d0d0d",borderBottom:"1px solid #ff6b0033",boxShadow:"0 2px 20px #ff6b0022",padding:"0 18px",height:56,display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,zIndex:100}}>
-          {/* Logo */}
-          <div style={{display:"flex",alignItems:"center",gap:8,marginRight:4}}>
-            <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#ff6b00,#cc1100)",boxShadow:"0 0 12px #ff6b0066",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff",letterSpacing:-1}}>M</div>
-            <span style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:17,letterSpacing:1}}>CoachIQ <span style={{color:C.accent}}>Stats</span></span>
+      <div style={{minHeight:"100vh",background:C.bg,display:"flex",
+        backgroundImage:`radial-gradient(ellipse at 20% 0%, #ff6b0014 0%, transparent 50%)`}}>
+
+        {/* ═══ SIDEBAR ═══════════════════════════════════════════════════ */}
+        <div style={{
+          width: sidebarCollapsed ? 60 : 220,
+          flexShrink:0,
+          background:"#0a0a0a",
+          borderRight:"1px solid #1a0800",
+          display:"flex",flexDirection:"column",
+          position:"sticky",top:0,height:"100vh",
+          transition:"width .2s ease",
+          overflow:"hidden",
+          zIndex:50,
+        }}>
+          {/* Logo + collapse toggle */}
+          <div style={{padding:"0 10px",borderBottom:"1px solid #1a0800",display:"flex",alignItems:"center",justifyContent:"space-between",height:64,flexShrink:0}}>
+            {sidebarCollapsed ? (
+              /* Collapsed: just the M logo, click to expand */
+              <button onClick={()=>setSidebarCollapsed(false)}
+                style={{width:36,height:36,borderRadius:9,flexShrink:0,margin:"0 auto",
+                  background:"linear-gradient(135deg,#ff6b00,#cc1100)",
+                  boxShadow:"0 0 14px #ff6b0055",border:"none",cursor:"pointer",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff"}}>M</button>
+            ) : (
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
+                    background:"linear-gradient(135deg,#ff6b00,#cc1100)",
+                    boxShadow:"0 0 14px #ff6b0055",
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,color:"#fff"}}>M</div>
+                  <div>
+                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:14,letterSpacing:.5,whiteSpace:"nowrap"}}>
+                      CoachIQ <span style={{color:C.accent}}>Stats</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Collapse button — always visible when expanded */}
+                <button onClick={()=>setSidebarCollapsed(true)}
+                  style={{background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:7,
+                    color:C.muted,cursor:"pointer",padding:"5px 7px",flexShrink:0,
+                    display:"flex",alignItems:"center",justifyContent:"center"}}
+                  title="Collapse sidebar">
+                  <ChevronDown size={14} style={{transform:"rotate(90deg)"}}/>
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Team switcher */}
-          <TeamSwitcher
-            teams={teams}
-            activeTeamId={safeTeamId}
-            onSwitch={switchTeam}
-            onAdd={addTeam}
-            onRename={renameTeam}
-            onDelete={deleteTeam}
-          />
-
-          {/* Nav links — pushed right */}
-          <nav style={{display:"flex",gap:3,marginLeft:"auto"}}>
-            {NAV.map(v=>{
-              const Icon=v.icon,active=view===v.id;
-              return(
-                <button key={v.id} onClick={()=>setView(v.id)}
-                  style={{display:"flex",alignItems:"center",gap:6,padding:"7px 13px",background:active?C.accent+"22":"transparent",border:active?`1px solid ${C.accent}44`:"1px solid transparent",borderRadius:8,color:active?C.accent:C.muted,cursor:"pointer",fontWeight:600,fontSize:13,transition:"all .15s"}}>
-                  <Icon size={14}/>{v.label}
-                  {v.id==="live"&&<span style={{width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite"}}/>}
+          {/* Team switcher — full when expanded, icon button when collapsed */}
+          <div style={{borderBottom:"1px solid #1a0800",padding: sidebarCollapsed?"8px 10px":"12px 14px",flexShrink:0}}>
+            {sidebarCollapsed ? (
+              /* Collapsed: show active team initial as a clickable button */
+              <div style={{position:"relative"}}>
+                <button
+                  onClick={()=>setSidebarCollapsed(false)}
+                  title={`Team: ${teams.find(t=>t.id===safeTeamId)?.name||"Team"} — expand to switch`}
+                  style={{width:40,height:40,borderRadius:9,margin:"0 auto",display:"flex",
+                    alignItems:"center",justifyContent:"center",cursor:"pointer",
+                    background:C.accent+"22",border:`1px solid ${C.accent}44`,
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16,color:C.accent}}>
+                  {(teams.find(t=>t.id===safeTeamId)?.name||"T")[0].toUpperCase()}
                 </button>
-              );
-            })}
+              </div>
+            ) : (
+              <>
+                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>TEAM</div>
+                <TeamSwitcher
+                  teams={teams} activeTeamId={safeTeamId}
+                  onSwitch={switchTeam} onAdd={addTeam}
+                  onRename={renameTeam} onDelete={deleteTeam}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Nav groups */}
+          <nav style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+            {SIDEBAR_GROUPS.map(group=>(
+              <div key={group.label} style={{marginBottom:4}}>
+                {!sidebarCollapsed&&(
+                  <div style={{color:"#3a2010",fontSize:9,fontWeight:700,letterSpacing:1.5,
+                    padding:"8px 16px 4px",textTransform:"uppercase"}}>{group.label}</div>
+                )}
+                {group.items.map(item=>{
+                  const Icon=item.icon;
+                  const active=view===item.id;
+                  return(
+                    <button key={item.id}
+                      className="sidebar-item"
+                      onClick={()=>setView(item.id)}
+                      title={sidebarCollapsed?item.label:undefined}
+                      style={{
+                        display:"flex",alignItems:"center",position:"relative",
+                        gap:sidebarCollapsed?0:10,
+                        width:"100%",padding: sidebarCollapsed?"12px 0":"9px 16px",
+                        justifyContent: sidebarCollapsed?"center":"flex-start",
+                        background: active?"#ff6b0018":"transparent",
+                        border:"none",
+                        borderRight: active?`3px solid ${C.accent}`:"3px solid transparent",
+                        color: active?C.accent:C.muted,
+                        cursor:"pointer",fontWeight:active?700:500,fontSize:13,
+                        transition:"all .12s",textAlign:"left",
+                      }}>
+                      <Icon size={16} style={{flexShrink:0}}/>
+                      {!sidebarCollapsed&&(
+                        <span style={{whiteSpace:"nowrap",flex:1}}>{item.label}</span>
+                      )}
+                      {item.id==="live"&&!sidebarCollapsed&&(
+                        <span style={{width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite",flexShrink:0}}/>
+                      )}
+                      {item.id==="live"&&sidebarCollapsed&&(
+                        <span style={{position:"absolute",top:8,right:8,width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite"}}/>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
+
+          {/* Season record at bottom */}
+          {!sidebarCollapsed&&(()=>{
+            const ts=teamSum(games);
+            return(
+              <div style={{padding:"12px 16px",borderTop:"1px solid #1a0800"}}>
+                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>THIS SEASON</div>
+                <div style={{display:"flex",gap:10}}>
+                  {[["W",ts.wins,C.accent],["D",ts.draws,C.warning],["L",ts.losses,C.danger]].map(([l,v,c])=>(
+                    <div key={l} style={{flex:1,textAlign:"center"}}>
+                      <div style={{color:c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{v}</div>
+                      <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
-        {/* ── Page content ──────────────────────────────────────────────── */}
-        <div style={{flex:1,overflowY:"auto"}}>
-          {view==="dashboard"&&<DashboardView games={games} setView={setView} teamName={activeTeam?.name}/>}
-          {view==="games"    &&<GamesView     games={games} setGames={setGames}/>}
-          {view==="live"     &&<LiveTrackView games={games} setGames={setGames}/>}
-          {view==="players"  &&<PlayersView   games={games}/>}
-          {view==="analytics"&&<AnalyticsView games={games}/>}
-          {view==="roster"   &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
+        {/* ═══ MAIN CONTENT ══════════════════════════════════════════════ */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden"}}>
+
+          {/* Top bar — slim, no nav */}
+          <div style={{height:52,background:"#0a0a0a",borderBottom:"1px solid #1a0800",
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+            padding:"0 20px",flexShrink:0}}>
+            <div style={{color:C.muted,fontSize:12,fontWeight:600}}>
+              {activeTeam?.name} · <span style={{color:C.text}}>{NAV.find(n=>n.id===view)?.label||"Home"}</span>
+            </div>
+            {/* Live indicator if game active */}
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
+              <span style={{color:C.muted,fontSize:11}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+            </div>
+          </div>
+
+          {/* Page content */}
+          <div style={{flex:1,overflowY:"auto",
+            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0008' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0008' stroke-width='1'/%3E%3C/svg%3E")`}}>
+            {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
+            {view==="games"     &&<GamesView     games={games} setGames={setGames}/>}
+            {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
+            {view==="players"   &&<PlayersView   games={games}/>}
+            {view==="analytics" &&<AnalyticsView games={games}/>}
+            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
+            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
+            {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster}/>}
+            {/* redirect old dashboard id */}
+            {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
+          </div>
         </div>
       </div>
     </>
+  );
+}
+
+// ─── GAME PLAN VIEW ───────────────────────────────────────────────────────────
+// ─── HOME VIEW ────────────────────────────────────────────────────────────────
+function HomeView({games, gamePlans, practices, roster, setView, teamName}){
+  const ts   = teamSum(games);
+  const done = games.filter(g=>g.status==="completed");
+  const upcoming = [...gamePlans].sort((a,b)=>a.date.localeCompare(b.date)).find(gp=>gp.date>=new Date().toISOString().split("T")[0]);
+  const recent = done.slice(0,3);
+  const topPlayers = useMemo(()=>
+    roster.map(p=>({...p,avg:avgRating(p.id,games)})).sort((a,b)=>b.avg-a.avg).slice(0,3)
+  ,[games,roster]);
+  const lastPractice = practices[0];
+  const form5 = done.slice(0,5).map(g=>g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D");
+  const FOCUS_COLS={"Mixed":C.accent,"Attacking":"#ff6b00","Defending":"#42a5f5","Transition":"#7c6af5","Set Pieces":"#ffb300","Fitness":"#ef5350","Technical":"#66bb6a"};
+  const QUICK=[
+    {label:"Start Live Game",icon:Radio,  color:"#ff6b00",view:"live",    desc:"Track stats in real time"},
+    {label:"New Game Plan",  icon:BookOpen,color:"#ffb300",view:"gameplan",desc:"Prepare for your next match"},
+    {label:"Log Practice",   icon:Dumbbell,color:"#66bb6a",view:"practice",desc:"Record today's session"},
+    {label:"View Squad",     icon:Users,   color:"#42a5f5",view:"players", desc:"Player profiles and ratings"},
+  ];
+  return(
+    <div style={{padding:24,maxWidth:1000,margin:"0 auto"}}>
+      {/* Hero */}
+      <div style={{background:"linear-gradient(135deg,#0d0400,#1a0600)",border:"1px solid #3a1a00",borderRadius:18,padding:"28px 32px",marginBottom:22,position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",right:-20,top:-20,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,#ff6b0012,transparent)"}}/>
+        <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:6}}>WELCOME BACK</div>
+        <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:34,fontWeight:900,lineHeight:1.1,marginBottom:18}}>
+          {teamName||"Your Team"} <span style={{color:C.accent}}>Season</span>
+        </h1>
+        <div style={{display:"flex",gap:28,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div>
+            <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>{ts.points}</div>
+            <div style={{color:C.muted,fontSize:12,fontWeight:600,marginTop:2}}>Points</div>
+          </div>
+          <div>
+            <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>
+              {ts.wins}<span style={{color:C.muted,fontSize:22}}>-{ts.draws}-{ts.losses}</span>
+            </div>
+            <div style={{color:C.muted,fontSize:12,fontWeight:600,marginTop:2}}>W-D-L · {ts.played} played</div>
+          </div>
+          {form5.length>0&&(
+            <div>
+              <div style={{display:"flex",gap:5,marginBottom:4}}>
+                {form5.map((r,i)=>{const c=r==="W"?C.accent:r==="L"?C.danger:C.warning;return(
+                  <div key={i} style={{width:30,height:30,borderRadius:7,background:c+"25",border:`1.5px solid ${c}`,display:"flex",alignItems:"center",justifyContent:"center",color:c,fontWeight:900,fontSize:12}}>{r}</div>
+                );})}
+              </div>
+              <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Last {form5.length} results</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10,marginBottom:22}}>
+        {QUICK.map(a=>{const Icon=a.icon;return(
+          <button key={a.view} onClick={()=>setView(a.view)}
+            style={{background:C.card,border:`1px solid ${a.color}22`,borderRadius:13,padding:"16px 18px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"all .15s",position:"relative"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=a.color+"77";e.currentTarget.style.background="#1a0800";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=a.color+"22";e.currentTarget.style.background=C.card;}}>
+            <div style={{width:40,height:40,borderRadius:10,background:a.color+"22",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Icon size={19} color={a.color}/>
+            </div>
+            <div style={{minWidth:0}}>
+              <div style={{color:C.text,fontWeight:700,fontSize:13,marginBottom:2}}>{a.label}</div>
+              <div style={{color:C.muted,fontSize:11}}>{a.desc}</div>
+            </div>
+          </button>
+        );})}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        {/* Upcoming game plan */}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>NEXT GAME PLAN</div>
+            <button onClick={()=>setView("gameplan")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>View all →</button>
+          </div>
+          {upcoming?(
+            <div>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:4}}>vs {upcoming.opponent}</div>
+              <div style={{display:"flex",gap:12,color:C.muted,fontSize:12,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{upcoming.date}</span>
+                <span>{upcoming.location}</span><span>{upcoming.formation}</span>
+              </div>
+              {(()=>{
+                const assigned=Object.values(upcoming.lineup).flat().filter(Boolean);
+                const total=Object.values(upcoming.lineup).flat().length;
+                return(
+                  <div>
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+                      {assigned.slice(0,9).map(pid=>{const p=roster.find(r=>r.id===pid);if(!p)return null;return(
+                        <div key={pid} style={{width:28,height:28,borderRadius:6,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:12}}>{p.number}</div>
+                      );})}
+                      {assigned.length>9&&<div style={{width:28,height:28,borderRadius:6,background:C.surface,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:10,fontWeight:700}}>+{assigned.length-9}</div>}
+                    </div>
+                    <div style={{color:C.muted,fontSize:12}}>{assigned}/{total} set · {upcoming.subs.length} subs planned</div>
+                  </div>
+                );
+              })()}
+            </div>
+          ):(
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <BookOpen size={28} style={{color:C.muted,opacity:.3,marginBottom:8}}/>
+              <div style={{color:C.muted,fontSize:13,marginBottom:10}}>No upcoming game plan</div>
+              <button onClick={()=>setView("gameplan")} style={{padding:"7px 16px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>Create one →</button>
+            </div>
+          )}
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {/* Top performers */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>TOP PERFORMERS</div>
+              <button onClick={()=>setView("players")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>All →</button>
+            </div>
+            {topPlayers.map((p,i)=>(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0}}>
+                <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
+                <div style={{flex:1}}>
+                  <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</div>
+                  <div style={{height:4,background:"#1a0800",borderRadius:99,marginTop:4,overflow:"hidden"}}>
+                    <div style={{width:`${Math.min(((p.avg-5)/5)*100,100)}%`,height:"100%",background:rColor(p.avg),borderRadius:99}}/>
+                  </div>
+                </div>
+                <span style={{color:rColor(p.avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>{p.avg.toFixed(1)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent results */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>RECENT RESULTS</div>
+              <button onClick={()=>setView("games")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>All →</button>
+            </div>
+            {recent.length===0
+              ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games yet</div>
+              :recent.map(g=>{const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;return(
+                <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,padding:"7px 10px",background:C.surface,borderRadius:8}}>
+                  <div style={{width:24,height:24,borderRadius:6,background:rc+"22",border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:11,flexShrink:0}}>{r}</div>
+                  <span style={{color:C.text,fontSize:13,flex:1}}>vs {g.opponent}</span>
+                  <span style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:14}}>{g.ourScore}–{g.theirScore}</span>
+                </div>
+              );})}
+          </div>
+
+          {/* Last practice */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>LAST PRACTICE</div>
+              <button onClick={()=>setView("practice")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>Log →</button>
+            </div>
+            {lastPractice?(
+              <div>
+                <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                  <Tag color={FOCUS_COLS[lastPractice.focus]||C.accent}>{lastPractice.focus}</Tag>
+                  <span style={{color:C.muted,fontSize:12}}>{lastPractice.date} · {lastPractice.duration}min</span>
+                </div>
+                {lastPractice.plan&&<div style={{color:C.muted,fontSize:12,lineHeight:1.5}}>{lastPractice.plan.slice(0,90)}{lastPractice.plan.length>90?"…":""}</div>}
+              </div>
+            ):<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No sessions logged yet</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GamePlanView({gamePlans, setGamePlans, games, roster}){
+  const [sel,setSel]       = useState(null);
+  const [creating,setCreating] = useState(false);
+  const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
+  const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
+
+  const SLOTS = {
+    "4-3-3":  {GK:1,DEF:4,MID:3,FWD:3},
+    "4-4-2":  {GK:1,DEF:4,MID:4,FWD:2},
+    "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},
+    "3-5-2":  {GK:1,DEF:3,MID:5,FWD:2},
+    "5-3-2":  {GK:1,DEF:5,MID:3,FWD:2},
+  };
+
+  function createPlan(){
+    if(!form.opponent) return;
+    const slots = SLOTS[form.formation]||SLOTS["4-3-3"];
+    const lineup = {
+      GK:  Array(slots.GK ).fill(null),
+      DEF: Array(slots.DEF).fill(null),
+      MID: Array(slots.MID).fill(null),
+      FWD: Array(slots.FWD).fill(null),
+    };
+    const plan = {
+      id:`gp${Date.now()}`, ...form,
+      lineup, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
+      instructions:"", createdAt: new Date().toISOString()
+    };
+    setGamePlans(prev=>[plan,...prev]);
+    setSel(plan.id); setCreating(false);
+  }
+
+  if(creating) return(
+    <div style={{padding:24,maxWidth:500,margin:"0 auto"}}>
+      <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+      <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:4}}>GAME PLAN</div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Game Plan</h2>
+      {[["OPPONENT","opponent","text"],["DATE","date","date"]].map(([lbl,key,type])=>(
+        <div key={key} style={{marginBottom:14}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{lbl}</label>
+          <input type={type} value={form[key]} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}
+            style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+        </div>
+      ))}
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
+        <div style={{display:"flex",gap:8}}>
+          {["Home","Away"].map(l=><button key={l} onClick={()=>setForm(f=>({...f,location:l}))} style={{flex:1,padding:"10px",background:form.location===l?C.accent+"22":C.card,border:`1px solid ${form.location===l?C.accent:C.border}`,borderRadius:9,color:form.location===l?C.accent:C.muted,cursor:"pointer",fontWeight:700}}>{l}</button>)}
+        </div>
+      </div>
+      <div style={{marginBottom:24}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FORMATION</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2"].map(f=><button key={f} onClick={()=>setForm(g=>({...g,formation:f}))} style={{padding:"9px 14px",background:form.formation===f?C.accent+"22":C.card,border:`1px solid ${form.formation===f?C.accent:C.border}`,borderRadius:9,color:form.formation===f?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>{f}</button>)}
+        </div>
+      </div>
+      <button onClick={createPlan} disabled={!form.opponent}
+        style={{width:"100%",padding:"14px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:10,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        CREATE PLAN →
+      </button>
+    </div>
+  );
+
+  if(sel){
+    const plan = gamePlans.find(p=>p.id===sel);
+    if(!plan) return null;
+
+    function updatePlan(updater){
+      setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,...updater(p)}:p));
+    }
+
+    const usedIds = Object.values(plan.lineup).flat().filter(Boolean);
+    const benchRoster = roster.filter(p=>!usedIds.includes(p.id));
+
+    function assignSlot(zone,idx,pid){
+      updatePlan(p=>{
+        const lineup={...p.lineup,[zone]:[...p.lineup[zone]]};
+        // If player already in another slot, clear it
+        Object.keys(lineup).forEach(z=>{ lineup[z]=lineup[z].map(id=>id===pid?null:id); });
+        lineup[zone][idx]=pid||null;
+        return {lineup};
+      });
+    }
+
+    function addSub(){
+      updatePlan(p=>({subs:[...p.subs,{id:`s${Date.now()}`,minute:"60-70",playerOn:null,playerOff:null,condition:"Regardless"}]}));
+    }
+    function updateSub(id,key,val){
+      updatePlan(p=>({subs:p.subs.map(s=>s.id===id?{...s,[key]:val}:s)}));
+    }
+    function removeSub(id){
+      updatePlan(p=>({subs:p.subs.filter(s=>s.id!==id)}));
+    }
+
+    const ZONES=[["GK","Goalkeeper"],["DEF","Defenders"],["MID","Midfielders"],["FWD","Forwards"]];
+    const ZONE_COL={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
+
+    return(
+      <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
+          </div>
+          <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+            style={{background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+            <Trash2 size={13}/>Delete
+          </button>
+        </div>
+
+        {/* Picker overlay */}
+        {picking&&(
+          <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:22,width:"100%",maxWidth:400,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700}}>Select Player</h3>
+                <button onClick={()=>setPicking(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
+              </div>
+              <div style={{overflowY:"auto",flex:1}}>
+                <div onClick={()=>{assignSlot(picking.zone,picking.idx,null);setPicking(null);}}
+                  style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:"#1a0800",border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
+                  — Clear slot
+                </div>
+                {roster.map(p=>{
+                  const inUse = usedIds.includes(p.id) && plan.lineup[picking.zone]?.[picking.idx]!==p.id;
+                  return(
+                    <div key={p.id} onClick={()=>{assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
+                      style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
+                        background:inUse?"#111":"#1a0800",border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
+                        opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
+                      <div style={{flex:1}}>
+                        <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
+                        <div style={{display:"flex",gap:4,marginTop:2}}>
+                          {allPos(p).map(pos=><span key={pos} style={{background:posColor(pos)+"22",color:posColor(pos),border:`1px solid ${posColor(pos)}44`,borderRadius:3,padding:"0 5px",fontSize:9,fontWeight:700}}>{pos}</span>)}
+                        </div>
+                      </div>
+                      {inUse&&<span style={{color:C.muted,fontSize:10}}>In use</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+
+          {/* ── Lineup builder ─────────────────────────────────────── */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>STARTING XI</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {ZONES.map(([zone,label])=>(
+                <div key={zone}>
+                  <div style={{color:ZONE_COL[zone],fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>{label.toUpperCase()}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {(plan.lineup[zone]||[]).map((pid,idx)=>{
+                      const p = pid ? roster.find(r=>r.id===pid) : null;
+                      return(
+                        <div key={idx} onClick={()=>setPicking({zone,idx})}
+                          style={{flex:"1 1 80px",minWidth:70,padding:"8px 6px",borderRadius:9,cursor:"pointer",
+                            background:p?"#1a0800":C.surface,
+                            border:`1.5px solid ${p?ZONE_COL[zone]+"66":C.border}`,
+                            display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                            transition:"all .12s"}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor=ZONE_COL[zone]}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor=p?ZONE_COL[zone]+"66":C.border}>
+                          {p ? <>
+                            <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`2px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(primaryPos(p)),fontSize:16}}>{p.number}</div>
+                            <div style={{color:C.text,fontSize:10,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{p.name.split(" ")[1]||p.name}</div>
+                          </> : <>
+                            <div style={{width:32,height:32,borderRadius:7,background:C.border,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:18}}>+</div>
+                            <div style={{color:C.muted,fontSize:10}}>Empty</div>
+                          </>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bench */}
+            <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+              <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>BENCH</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {benchRoster.length===0
+                  ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
+                  : benchRoster.map(p=>(
+                    <div key={p.id} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
+                      <div style={{width:22,height:22,borderRadius:5,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:11}}>{p.number}</div>
+                      <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right column ──────────────────────────────────────── */}
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* Sub plan */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>SUBSTITUTION PLAN</div>
+                <button onClick={addSub} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  <Plus size={12}/>Add Sub
+                </button>
+              </div>
+              {plan.subs.length===0
+                ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No substitutions planned yet</div>
+                : plan.subs.map(sub=>(
+                  <div key={sub.id} style={{background:C.surface,borderRadius:10,padding:"12px 14px",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                      {/* Minute window */}
+                      <select value={sub.minute} onChange={e=>updateSub(sub.id,"minute",e.target.value)}
+                        style={{padding:"5px 8px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        {["45-55","55-65","60-70","65-75","70-80","75-85","80-90"].map(m=><option key={m} value={m}>{m}'</option>)}
+                      </select>
+                      {/* Condition */}
+                      <select value={sub.condition} onChange={e=>updateSub(sub.id,"condition",e.target.value)}
+                        style={{padding:"5px 8px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        {["Regardless","If Winning","If Drawing","If Losing","If Chasing"].map(c=><option key={c}>{c}</option>)}
+                      </select>
+                      <button onClick={()=>removeSub(sub.id)} style={{marginLeft:"auto",background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{color:C.accent,fontSize:12,fontWeight:700,flexShrink:0}}>ON →</span>
+                      <select value={sub.playerOn||""} onChange={e=>updateSub(sub.id,"playerOn",e.target.value||null)}
+                        style={{flex:1,padding:"5px 8px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        <option value="">Select player</option>
+                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{color:C.danger,fontSize:12,fontWeight:700,flexShrink:0}}>OFF →</span>
+                      <select value={sub.playerOff||""} onChange={e=>updateSub(sub.id,"playerOff",e.target.value||null)}
+                        style={{flex:1,padding:"5px 8px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        <option value="">Select player</option>
+                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* Opposition notes */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>OPPOSITION NOTES</div>
+              {[["threats","Key Threats"],["setPieces","Set Pieces"],["pressing","Pressing Style"]].map(([key,label])=>(
+                <div key={key} style={{marginBottom:10}}>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
+                  <input value={plan.oppNotes[key]||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,[key]:e.target.value}}))}
+                    placeholder={`e.g. ${key==="threats"?"Fast #9, strong in the air":key==="setPieces"?"Near post corners":"Press high, trigger = GK"}`}
+                    style={{width:"100%",padding:"8px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+              <div style={{marginTop:4}}>
+                <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>GENERAL NOTES</label>
+                <textarea value={plan.oppNotes.notes||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,notes:e.target.value}}))}
+                  rows={3} placeholder="Any other intelligence..."
+                  style={{width:"100%",padding:"8px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+
+            {/* Match instructions */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>MATCH INSTRUCTIONS</div>
+              <textarea value={plan.instructions||""} onChange={e=>updatePlan(()=>({instructions:e.target.value}))}
+                rows={4} placeholder="Team instructions, tactical focus, set piece routines..."
+                style={{width:"100%",padding:"10px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>PREPARATION</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Game Plans</h1>
+        </div>
+        <button onClick={()=>setCreating(true)}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>New Plan
+        </button>
+      </div>
+
+      {gamePlans.length===0
+        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <BookOpen size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No game plans yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create a plan before your next match</div>
+          </div>
+        : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {gamePlans.map(plan=>{
+              const assigned = Object.values(plan.lineup).flat().filter(Boolean).length;
+              const total    = Object.values(plan.lineup).flat().length;
+              return(
+                <div key={plan.id} onClick={()=>setSel(plan.id)}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  <div style={{width:44,height:44,borderRadius:10,background:C.accent+"22",border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <BookOpen size={20} color={C.accent}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15}}>vs {plan.opponent}</div>
+                    <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{plan.date}</span>
+                      <span>{plan.location}</span>
+                      <span>{plan.formation}</span>
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{color:assigned===total?C.accent:C.warning,fontWeight:700,fontSize:13}}>{assigned}/{total} set</div>
+                    <div style={{color:C.muted,fontSize:11}}>{plan.subs.length} subs planned</div>
+                  </div>
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
+function PracticeView({practices, setPractices, gamePlans, roster}){
+  const [sel,setSel]           = useState(null);
+  const [creating,setCreating] = useState(false);
+  const [filterTag,setFilterTag] = useState("All");
+  const [selPlayer,setSelPlayer] = useState("");
+  const [noteText,setNoteText]   = useState("");
+  const [form,setForm]         = useState({date:new Date().toISOString().split("T")[0],duration:"60",focus:"Mixed",plan:"",linkedGame:""});
+
+  const FOCUS_TAGS = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
+  const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
+    "Set Pieces":"#ffb300",Fitness:"#ef5350",Technical:"#66bb6a"};
+
+  function createSession(){
+    const session = {
+      id:`pr${Date.now()}`, ...form,
+      playerNotes:[], createdAt:new Date().toISOString()
+    };
+    setPractices(prev=>[session,...prev]);
+    setSel(session.id); setCreating(false);
+  }
+
+  if(creating) return(
+    <div style={{padding:24,maxWidth:500,margin:"0 auto"}}>
+      <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+      <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:4}}>PRACTICE</div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Session</h2>
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+        <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}
+          style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DURATION (MINS)</label>
+        <div style={{display:"flex",gap:8}}>
+          {["45","60","75","90","120"].map(d=><button key={d} onClick={()=>setForm(f=>({...f,duration:d}))} style={{flex:1,padding:"10px 6px",background:form.duration===d?C.accent+"22":C.card,border:`1px solid ${form.duration===d?C.accent:C.border}`,borderRadius:8,color:form.duration===d?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>{d}</button>)}
+        </div>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FOCUS</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {FOCUS_TAGS.map(t=>{const col=FOCUS_COLORS[t];return(<button key={t} onClick={()=>setForm(f=>({...f,focus:t}))} style={{padding:"8px 14px",background:form.focus===t?col+"22":C.card,border:`1px solid ${form.focus===t?col:C.border}`,borderRadius:8,color:form.focus===t?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{t}</button>);})}
+        </div>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LINKED GAME (OPTIONAL)</label>
+        <select value={form.linkedGame} onChange={e=>setForm(f=>({...f,linkedGame:e.target.value}))}
+          style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}>
+          <option value="">None</option>
+          {gamePlans.map(gp=><option key={gp.id} value={gp.id}>vs {gp.opponent} ({gp.date})</option>)}
+        </select>
+      </div>
+      <div style={{marginBottom:24}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION PLAN</label>
+        <textarea value={form.plan} onChange={e=>setForm(f=>({...f,plan:e.target.value}))} rows={5}
+          placeholder="Warmup, drills, small-sided games, cooldown..."
+          style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+      </div>
+      <button onClick={createSession}
+        style={{width:"100%",padding:"14px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        CREATE SESSION →
+      </button>
+    </div>
+  );
+
+  if(sel){
+    const session = practices.find(p=>p.id===sel);
+    if(!session) return null;
+    const focusCol = FOCUS_COLORS[session.focus]||C.accent;
+    const linked   = gamePlans.find(gp=>gp.id===session.linkedGame);
+
+    function updateSession(updater){
+      setPractices(prev=>prev.map(p=>p.id===sel?{...p,...updater(p)}:p));
+    }
+
+
+
+    function addPlayerNote(){
+      if(!selPlayer||!noteText.trim()) return;
+      const p = roster.find(r=>r.id===selPlayer);
+      updateSession(s=>({playerNotes:[...s.playerNotes,{id:`n${Date.now()}`,pid:selPlayer,name:p?.name||"",note:noteText.trim()}]}));
+      setNoteText(""); setSelPlayer("");
+    }
+    function removeNote(id){
+      updateSession(s=>({playerNotes:s.playerNotes.filter(n=>n.id!==id)}));
+    }
+
+    return(
+      <div style={{padding:20,maxWidth:860,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+              <Tag color={focusCol}>{session.focus}</Tag>
+              <span style={{color:C.muted,fontSize:12}}>{session.date} · {session.duration} mins</span>
+              {linked&&<span style={{color:C.muted,fontSize:12}}>· Prep for vs {linked.opponent}</span>}
+            </div>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>Training Session</h2>
+          </div>
+          <button onClick={()=>{if(window.confirm("Delete this session?"))setPractices(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+            style={{background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+            <Trash2 size={13}/>Delete
+          </button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          {/* Session plan */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>SESSION PLAN</div>
+            <textarea value={session.plan} onChange={e=>updateSession(()=>({plan:e.target.value}))} rows={10}
+              placeholder="Write your session plan here..."
+              style={{width:"100%",padding:"10px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+          </div>
+
+          {/* Player notes */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>PLAYER NOTES</div>
+
+            {/* Add note */}
+            <div style={{background:C.surface,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:8}}>
+              <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)}
+                style={{width:"100%",padding:"8px 10px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+                <option value="">Select player...</option>
+                {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+              </select>
+              <textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2}
+                placeholder="Note about this player's session..."
+                style={{width:"100%",padding:"8px 10px",background:"#0d0400",border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",resize:"vertical",boxSizing:"border-box"}}/>
+              <button onClick={addPlayerNote} disabled={!selPlayer||!noteText.trim()}
+                style={{padding:"8px 14px",background:selPlayer&&noteText.trim()?C.accent:"#2a1000",border:"none",borderRadius:7,color:selPlayer&&noteText.trim()?"#000":C.muted,fontWeight:700,fontSize:13,cursor:selPlayer&&noteText.trim()?"pointer":"default"}}>
+                Add Note
+              </button>
+            </div>
+
+            {/* Notes list */}
+            <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+              {session.playerNotes.length===0
+                ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No player notes yet</div>
+                : session.playerNotes.map(note=>{
+                    const p = roster.find(r=>r.id===note.pid);
+                    return(
+                      <div key={note.id} style={{background:C.surface,borderRadius:9,padding:"10px 12px",display:"flex",gap:10}}>
+                        <div style={{width:30,height:30,borderRadius:7,flexShrink:0,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:13}}>{p?.number||"?"}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:12,marginBottom:3}}>{note.name}</div>
+                          <div style={{color:C.muted,fontSize:12,lineHeight:1.5}}>{note.note}</div>
+                        </div>
+                        <button onClick={()=>removeNote(note.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",flexShrink:0,alignSelf:"flex-start"}}><X size={13}/></button>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const filtered = filterTag==="All" ? practices : practices.filter(p=>p.focus===filterTag);
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>TRAINING</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice Log</h1>
+        </div>
+        <button onClick={()=>setCreating(true)}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>New Session
+        </button>
+      </div>
+
+      {/* Focus filter */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
+        {["All",...FOCUS_TAGS].map(t=>{
+          const col=t==="All"?C.accent:(FOCUS_COLORS[t]||C.accent);
+          return(<button key={t} onClick={()=>setFilterTag(t)} style={{padding:"6px 12px",background:filterTag===t?col+"22":C.card,border:`1px solid ${filterTag===t?col:C.border}`,borderRadius:7,color:filterTag===t?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{t}</button>);
+        })}
+      </div>
+
+      {filtered.length===0
+        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <Dumbbell size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No sessions {filterTag!=="All"?`tagged "${filterTag}"`:""} yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Log your first training session</div>
+          </div>
+        : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {filtered.map(session=>{
+              const col=FOCUS_COLORS[session.focus]||C.accent;
+              const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
+              return(
+                <div key={session.id} onClick={()=>setSel(session.id)}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=col}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  <div style={{width:44,height:44,borderRadius:10,background:col+"22",border:`2px solid ${col}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <Dumbbell size={20} color={col}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                      <Tag color={col}>{session.focus}</Tag>
+                      <span style={{color:C.muted,fontSize:12}}>{session.duration} mins</span>
+                      {linked&&<span style={{color:C.muted,fontSize:12}}>· Prep: vs {linked.opponent}</span>}
+                    </div>
+                    <div style={{color:C.text,fontWeight:700,fontSize:14}}>{session.date}</div>
+                    {session.plan&&<div style={{color:C.muted,fontSize:12,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{session.plan.slice(0,80)}{session.plan.length>80?"…":""}</div>}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    {session.playerNotes.length>0&&<div style={{color:C.muted,fontSize:12}}>{session.playerNotes.length} player note{session.playerNotes.length!==1?"s":""}</div>}
+                  </div>
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
   );
 }
