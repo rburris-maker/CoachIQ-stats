@@ -826,52 +826,51 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster})
       const passAccStr = passAtt>0 ? `${Math.round((st.passesCompleted/passAtt)*100)}%` : "N/A";
       const isGK = allPos(player).includes("GK");
 
-      // Build stats block — position relevant stats only
-      const statsLines = [
-        `Goals:            ${st.goals}`,
-        `Assists:          ${st.assists}`,
-        !isGK && `Shots:            ${st.shots} (${st.shotsOnTarget} on target)`,
-        `Key Passes:       ${st.keyPasses||0}`,
-        `Pass Accuracy:    ${st.passesCompleted} / ${passAtt} (${passAccStr})`,
-        `Tackles:          ${st.tackles}`,
-        `Interceptions:    ${st.interceptions}`,
-        `Aerial Duels Won: ${st.aerialDuelsWon||0}`,
-        st.fouls>0 && `Fouls:            ${st.fouls}`,
-        (st.dangerousTurnovers||0)>0 && `Dangerous Turns:  ${st.dangerousTurnovers}`,
-        isGK && `Saves:            ${st.saves||0}`,
-        isGK && `Goals Conceded:   ${st.goalsConceded||0}`,
-        `Minutes Played:   ${st.minutesPlayed||90}`,
-      ].filter(Boolean).join("\n");
-
       const fmt = n => n >= 0 ? `+${n}` : String(n);
 
       try{
         await sendPlayerEmail({
-          // Routing — must match {{to_email}} and {{to_name}} in template
-          to_email:     player.email.trim(),
-          to_name:      player.name,
+          // Routing
+          to_email:      player.email.trim(),
+          to_name:       player.name,
           // Game info
-          player_name:  player.name,
-          team_name:    teamName||"Your Team",
-          game_opponent:game.opponent,
-          game_date:    game.date,
-          game_location:game.location,
+          player_name:   player.name,
+          team_name:     teamName||"Your Team",
+          game_opponent: game.opponent,
+          game_date:     game.date,
+          game_location: game.location,
           // Rating
-          rating:       rating.toFixed(1),
-          rating_label: label,
+          rating:        rating.toFixed(1),
+          rating_label:  label,
           // Score breakdown
-          attack:       fmt(breakdown.attack),
-          possession:   fmt(breakdown.possession),
-          defensive:    fmt(breakdown.defensive),
-          bonus:        fmt(breakdown.bonus),
-          errors:       fmt(breakdown.errors),
-          // Raw stats
-          player_stats: statsLines,
+          attack:        fmt(breakdown.attack),
+          possession:    fmt(breakdown.possession),
+          defensive:     fmt(breakdown.defensive),
+          bonus:         fmt(breakdown.bonus),
+          errors:        fmt(breakdown.errors),
+          // Individual stats — each sent separately for clean HTML layout
+          stat_goals:       String(st.goals),
+          stat_assists:     String(st.assists),
+          stat_shots:       String(st.shots),
+          stat_shots_ot:    String(st.shotsOnTarget),
+          stat_key_passes:  String(st.keyPasses||0),
+          stat_pass_comp:   String(st.passesCompleted),
+          stat_pass_att:    String(passAtt),
+          stat_pass_acc:    passAccStr,
+          stat_tackles:     String(st.tackles),
+          stat_ints:        String(st.interceptions),
+          stat_aerials:     String(st.aerialDuelsWon||0),
+          stat_fouls:       String(st.fouls||0),
+          stat_turns:       String(st.dangerousTurnovers||0),
+          stat_saves:       String(st.saves||0),
+          stat_conceded:    String(st.goalsConceded||0),
+          stat_minutes:     String(st.minutesPlayed||90),
+          stat_is_gk:       isGK ? "true" : "false",
           // Coach note
-          coach_note:   coachNote,
+          coach_note:    coachNote,
           // Season context
-          season_avg:   seasonAvg.toFixed(1),
-          games_played: String(gamesPlayed),
+          season_avg:    seasonAvg.toFixed(1),
+          games_played:  String(gamesPlayed),
         });
         sent++;
       }catch(e){
