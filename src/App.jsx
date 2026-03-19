@@ -2390,6 +2390,7 @@ export default function CoachIQStats(){
   const [allGamePlans, setAllGamePlans] = useLocalStorage("coachiq_gameplans", {[INIT_TEAM_ID]: []});
   const [allPractices, setAllPractices] = useLocalStorage("coachiq_practices", {[INIT_TEAM_ID]: []});
   const [allDrills,    setAllDrills]    = useLocalStorage("coachiq_drills",    {[INIT_TEAM_ID]: []});
+  const [allTemplates, setAllTemplates] = useLocalStorage("coachiq_templates", {[INIT_TEAM_ID]: []});
 
   const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
   const roster    = allRosters[safeTeamId]   || DEFAULT_PLAYERS;
@@ -2397,6 +2398,7 @@ export default function CoachIQStats(){
   const gamePlans = allGamePlans[safeTeamId] || [];
   const practices = allPractices[safeTeamId] || [];
   const drills    = allDrills[safeTeamId]     || [];
+  const templates = allTemplates[safeTeamId]  || [];
 
   // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
@@ -2421,6 +2423,10 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(drills) : val;
     setAllDrills(prev=>({...prev,[safeTeamId]:resolved}));
   }
+  function setTemplates(val){
+    const resolved = typeof val==="function" ? val(templates) : val;
+    setAllTemplates(prev=>({...prev,[safeTeamId]:resolved}));
+  }
 
   // ── Team management ───────────────────────────────────────────────────────
   function addTeam(name){
@@ -2431,6 +2437,7 @@ export default function CoachIQStats(){
     setAllGamePlans(prev=>({...prev,[id]:[]}));
     setAllPractices(prev=>({...prev,[id]:[]}));
     setAllDrills(prev=>({...prev,[id]:[]}));
+    setAllTemplates(prev=>({...prev,[id]:[]}));
     setActiveTeamId(id);
     setView("home");
   }
@@ -2449,6 +2456,7 @@ export default function CoachIQStats(){
     setAllGamePlans(prev=>{const n={...prev};delete n[id];return n;});
     setAllPractices(prev=>{const n={...prev};delete n[id];return n;});
     setAllDrills(prev=>{const n={...prev};delete n[id];return n;});
+    setAllTemplates(prev=>{const n={...prev};delete n[id];return n;});
     if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
   }
 
@@ -2646,7 +2654,7 @@ export default function CoachIQStats(){
             {view==="analytics" &&<AnalyticsView games={games}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
-            {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills}/>}
+            {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
           </div>
@@ -3156,42 +3164,108 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
 }
 
 // ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
-function PracticeView({practices, setPractices, gamePlans, roster, drills, setDrills}){
-  const [sel,setSel]             = useState(null);
-  const [creating,setCreating]   = useState(false);
-  const [filterTag,setFilterTag] = useState("All");
-  const [selPlayer,setSelPlayer] = useState("");
-  const [noteText,setNoteText]   = useState("");
-  const [drillName,setDrillName] = useState("");
-  const planRef = useRef(null);
+function PracticeView({practices, setPractices, gamePlans, roster, drills, setDrills, templates, setTemplates}){
+  const [sel,setSel]               = useState(null);
+  const [creating,setCreating]     = useState(false);
+  const [filterTag,setFilterTag]   = useState("All");
+  const [selPlayer,setSelPlayer]   = useState("");
+  const [noteText,setNoteText]     = useState("");
+  const [drillName,setDrillName]   = useState("");
+  const [printMode,setPrintMode]   = useState(false);
+  const [showTemplates,setShowTemplates] = useState(false);
+  const [savingTpl,setSavingTpl]   = useState(false);
+  const [tplName,setTplName]       = useState("");
 
   const FOCUS_TAGS   = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
   const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
     "Set Pieces":"#ffb300",Fitness:"#ef5350",Technical:"#66bb6a"};
+  const INTENSITY    = [{k:"low",label:"Low",color:"#66bb6a"},{k:"medium",label:"Med",color:"#ffb300"},{k:"high",label:"High",color:"#ef5350"}];
+
+  const EMPTY_BLOCKS = () => ({
+    warmup:  [],
+    main:    [],
+    cooldown:[],
+  });
 
   const [form,setForm] = useState({
     date:new Date().toISOString().split("T")[0],
     duration:"60", focus:"Mixed",
-    objectives:"", plan:"", linkedGame:"",
+    objectives:"", linkedGame:"",
+    blocks: EMPTY_BLOCKS(),
   });
 
   const iS = (extra={}) => ({width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
     borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
     boxSizing:"border-box",...extra});
 
-  function createSession(){
+  // ── Drill card helpers ────────────────────────────────────────────────────
+  function makeCard(name){ return {id:`dc${Date.now()}_${Math.random().toString(36).slice(2)}`,name,duration:"",notes:"",intensity:"medium"}; }
+
+  function addCardToBlock(session_or_form, setter, block, name){
+    setter(prev=>{
+      if(Array.isArray(prev)){ // setPractices
+        return prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:[...(p.blocks?.[block]||[]),makeCard(name)]}}:p);
+      } else { // setForm
+        return {...prev, blocks:{...prev.blocks,[block]:[...(prev.blocks?.[block]||[]),makeCard(name)]}};
+      }
+    });
+  }
+
+  function removeCard(block, cardId){
+    setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:p.blocks[block].filter(c=>c.id!==cardId)}}:p));
+  }
+
+  function updateCard(block, cardId, key, val){
+    setPractices(prev=>prev.map(p=>p.id===sel?{
+      ...p, blocks:{...p.blocks,[block]:p.blocks[block].map(c=>c.id===cardId?{...c,[key]:val}:c)}
+    }:p));
+  }
+
+  function moveCard(block, cardId, dir){
+    setPractices(prev=>prev.map(p=>{
+      if(p.id!==sel) return p;
+      const arr=[...p.blocks[block]];
+      const i=arr.findIndex(c=>c.id===cardId);
+      if(dir===-1&&i===0) return p;
+      if(dir===1&&i===arr.length-1) return p;
+      [arr[i],arr[i+dir]]=[arr[i+dir],arr[i]];
+      return {...p,blocks:{...p.blocks,[block]:arr}};
+    }));
+  }
+
+  function createSession(sourceBlocks){
     const initAtt={};
     roster.forEach(p=>{ initAtt[p.id]="present"; });
-    const session={id:`pr${Date.now()}`,...form,rating:0,attendance:initAtt,playerNotes:[],createdAt:new Date().toISOString()};
+    const session={
+      id:`pr${Date.now()}`, ...form,
+      blocks: sourceBlocks || form.blocks || EMPTY_BLOCKS(),
+      rating:0, attendance:initAtt, playerNotes:[], createdAt:new Date().toISOString()
+    };
     setPractices(prev=>[session,...prev]);
     setSel(session.id); setCreating(false);
   }
 
+  // ─── CREATE FORM ───────────────────────────────────────────────────────────
   if(creating) return(
-    <div style={{padding:24,maxWidth:520,margin:"0 auto"}}>
+    <div style={{padding:24,maxWidth:560,margin:"0 auto"}}>
       <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
       <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>PRACTICE</div>
       <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Session</h2>
+
+      {/* Templates picker */}
+      {(templates||[]).length>0&&(
+        <div style={{marginBottom:18}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>START FROM TEMPLATE</div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+            {(templates||[]).map(t=>(
+              <button key={t.id} onClick={()=>{setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(t.blocks))})); }}
+                style={{padding:"7px 14px",background:C.surface,border:`1px solid ${C.accent}44`,borderRadius:8,
+                  color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>{t.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
         <div>
           <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
@@ -3202,11 +3276,14 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           <div style={{display:"flex",gap:4}}>
             {["45","60","75","90"].map(d=>(
               <button key={d} onClick={()=>setForm(f=>({...f,duration:d}))}
-                style={{flex:1,padding:"9px 4px",background:form.duration===d?C.accent+"22":C.card,border:`1px solid ${form.duration===d?C.accent:C.border}`,borderRadius:8,color:form.duration===d?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{d}</button>
+                style={{flex:1,padding:"9px 4px",background:form.duration===d?C.accent+"22":C.card,
+                  border:`1px solid ${form.duration===d?C.accent:C.border}`,borderRadius:8,
+                  color:form.duration===d?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{d}</button>
             ))}
           </div>
         </div>
       </div>
+
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FOCUS</label>
         <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
@@ -3216,95 +3293,175 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           );})}
         </div>
       </div>
+
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION OBJECTIVES</label>
         <input value={form.objectives} onChange={e=>setForm(f=>({...f,objectives:e.target.value}))}
           placeholder="e.g. Improve defensive shape in transition" style={{...iS(),background:C.card}}/>
       </div>
-      <div style={{marginBottom:14}}>
+
+      <div style={{marginBottom:24}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LINKED GAME (OPTIONAL)</label>
         <select value={form.linkedGame} onChange={e=>setForm(f=>({...f,linkedGame:e.target.value}))} style={{...iS(),background:C.card}}>
           <option value="">None</option>
           {gamePlans.map(gp=><option key={gp.id} value={gp.id}>vs {gp.opponent} ({gp.date})</option>)}
         </select>
       </div>
-      <div style={{marginBottom:24}}>
-        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION PLAN</label>
-        <textarea value={form.plan} onChange={e=>setForm(f=>({...f,plan:e.target.value}))} rows={5}
-          placeholder="Warmup, drills, small-sided games, cooldown..." style={{...iS({background:C.card,resize:"vertical"})}}/>
-      </div>
-      <button onClick={createSession}
-        style={{width:"100%",padding:"14px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+
+      <button onClick={()=>createSession(null)}
+        style={{width:"100%",padding:"14px",background:C.accent,border:"none",borderRadius:10,
+          color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
         CREATE SESSION →
       </button>
     </div>
   );
 
+  // ─── SESSION DETAIL ────────────────────────────────────────────────────────
   if(sel){
-    const session=practices.find(p=>p.id===sel); if(!session)return null;
+    const session=practices.find(p=>p.id===sel); if(!session) return null;
     const focusCol=FOCUS_COLORS[session.focus]||C.accent;
     const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
     const att=session.attendance||{};
     const pres=Object.values(att).filter(v=>v==="present").length;
     const abs=Object.values(att).filter(v=>v==="absent").length;
     const inj=Object.values(att).filter(v=>v==="injured").length;
+    const blocks=session.blocks||EMPTY_BLOCKS();
 
     function upd(fn){ setPractices(prev=>prev.map(p=>p.id===sel?{...p,...fn(p)}:p)); }
     function setAtt(pid,status){ upd(s=>({attendance:{...s.attendance,[pid]:status}})); }
     function addNote(){
-      if(!selPlayer||!noteText.trim())return;
+      if(!selPlayer||!noteText.trim()) return;
       const p=roster.find(r=>r.id===selPlayer);
       upd(s=>({playerNotes:[...s.playerNotes,{id:`n${Date.now()}`,pid:selPlayer,name:p?.name||"",note:noteText.trim()}]}));
       setNoteText(""); setSelPlayer("");
     }
     function saveDrill(){
-      if(!drillName.trim())return;
-      if(!drills.find(d=>d.name.toLowerCase()===drillName.trim().toLowerCase()))
+      if(!drillName.trim()) return;
+      if(!(drills||[]).find(d=>d.name.toLowerCase()===drillName.trim().toLowerCase()))
         setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim()}]);
       setDrillName("");
     }
-    function insertDrill(name){
-      const ta = planRef.current;
-      if(ta){
-        const start = ta.selectionStart;
-        const end   = ta.selectionEnd;
-        const cur   = session.plan||"";
-        const before = cur.slice(0,start);
-        const after  = cur.slice(end);
-        const insert = (before&&!before.endsWith("\n")?"\n":"")+name+"\n";
-        const newVal = before+insert+after;
-        upd(()=>({plan:newVal}));
-        // restore cursor after inserted text
-        setTimeout(()=>{
-          ta.focus();
-          ta.setSelectionRange(start+insert.length,start+insert.length);
-        },10);
-      } else {
-        upd(s=>({plan:(s.plan?s.plan+"\n":"")+name}));
-      }
+    function saveTemplate(){
+      if(!tplName.trim()) return;
+      const tpl={id:`t${Date.now()}`,name:tplName.trim(),
+        focus:session.focus, objectives:session.objectives||"",
+        blocks:JSON.parse(JSON.stringify(blocks))};
+      setTemplates(prev=>[tpl,...prev]);
+      setTplName(""); setSavingTpl(false);
     }
+
+    const SECTIONS=[
+      {key:"warmup",   label:"Warmup",   color:"#66bb6a", icon:"🟢", desc:"Activation, mobility, rondos"},
+      {key:"main",     label:"Main Work", color:"#ff6b00", icon:"🟠", desc:"Core drills and tactical work"},
+      {key:"cooldown", label:"Cooldown",  color:"#42a5f5", icon:"🔵", desc:"Possession, stretching, debrief"},
+    ];
+
+    const totalMins = SECTIONS.flatMap(s=>(blocks[s.key]||[]).map(c=>parseInt(c.duration)||0)).reduce((a,b)=>a+b,0);
 
     const ATT=[{k:"present",label:"✓",color:C.accent},{k:"absent",label:"✗",color:C.danger},{k:"injured",label:"⚕",color:C.warning}];
 
+    // ── PRINT MODE ─────────────────────────────────────────────────────────
+    if(printMode) return(
+      <div style={{padding:32,maxWidth:720,margin:"0 auto",background:C.bg}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+          <div>
+            <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{session.date} · {session.duration} MINS</div>
+            <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>
+              {session.focus} Session
+            </h1>
+            {session.objectives&&<div style={{color:C.muted,fontSize:14,marginTop:4}}>🎯 {session.objectives}</div>}
+          </div>
+          <button onClick={()=>setPrintMode(false)}
+            style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>
+            ← Back
+          </button>
+        </div>
+
+        {SECTIONS.map(sec=>{
+          const cards=blocks[sec.key]||[];
+          if(!cards.length) return null;
+          const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+          return(
+            <div key={sec.key} style={{marginBottom:24}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
+                borderBottom:`2px solid ${sec.color}44`,paddingBottom:8}}>
+                <span style={{fontSize:18}}>{sec.icon}</span>
+                <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:18,letterSpacing:1}}>{sec.label.toUpperCase()}</div>
+                {secMins>0&&<div style={{color:C.muted,fontSize:13,marginLeft:"auto"}}>{secMins} mins</div>}
+              </div>
+              {cards.map((card,idx)=>(
+                <div key={card.id} style={{display:"flex",gap:14,marginBottom:12,padding:"12px 16px",
+                  background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+                  <div style={{minWidth:28,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:18}}>{idx+1}</div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:card.notes?4:0}}>{card.name}</div>
+                    {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{card.notes}</div>}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                    {card.duration&&<div style={{color:C.text,fontWeight:700,fontSize:13}}>{card.duration} min</div>}
+                    {card.intensity&&(()=>{const int=INTENSITY.find(x=>x.k===card.intensity);return int?<span style={{color:int.color,fontSize:11,fontWeight:700,letterSpacing:1}}>{int.label.toUpperCase()}</span>:null;})()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+
+        {totalMins>0&&(
+          <div style={{textAlign:"right",color:C.muted,fontSize:13,borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+            Total drill time: <strong style={{color:C.text}}>{totalMins} mins</strong> / {session.duration} min session
+          </div>
+        )}
+      </div>
+    );
+
     return(
       <div style={{padding:20,maxWidth:980,margin:"0 auto"}}>
+
         {/* Header */}
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
             <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
               <Tag color={focusCol}>{session.focus}</Tag>
               <span style={{color:C.muted,fontSize:12}}>{session.date} · {session.duration} mins</span>
               {linked&&<span style={{color:C.muted,fontSize:12}}>· Prep for vs {linked.opponent}</span>}
-              {Object.keys(att).length>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{pres} present{abs>0?` · ${abs} absent`:""}{inj>0?` · ${inj} injured`:""}</span>}
+              {Object.keys(att).length>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{pres} present{abs>0?` · ${abs} absent`:""}  {inj>0?` · ${inj} injured`:""}</span>}
             </div>
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>Training Session</h2>
           </div>
-          <button onClick={()=>{if(window.confirm("Delete this session?"))setPractices(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
-            style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
-            <Trash2 size={13}/>Delete
-          </button>
+          <div style={{display:"flex",gap:7}}>
+            <button onClick={()=>setPrintMode(true)}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>
+              ⛶ View Plan
+            </button>
+            <button onClick={()=>setSavingTpl(v=>!v)}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",background:savingTpl?C.accent+"22":C.surface,
+                border:`1px solid ${savingTpl?C.accent:C.border}`,borderRadius:8,color:savingTpl?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>
+              ☆ Save as Template
+            </button>
+            <button onClick={()=>{if(window.confirm("Delete this session?"))setPractices(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+              style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12}}>
+              <Trash2 size={13}/>
+            </button>
+          </div>
         </div>
+
+        {/* Save as template input */}
+        {savingTpl&&(
+          <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",gap:10,alignItems:"center"}}>
+            <input value={tplName} onChange={e=>setTplName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveTemplate()}
+              placeholder="Template name (e.g. Match Prep, Fitness Day)..."
+              style={{...iS(),flex:1}}/>
+            <button onClick={saveTemplate} disabled={!tplName.trim()}
+              style={{padding:"9px 16px",background:tplName.trim()?C.accent:"transparent",border:`1px solid ${tplName.trim()?C.accent:C.border}`,
+                borderRadius:8,color:tplName.trim()?"#000":C.muted,fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>
+              Save
+            </button>
+          </div>
+        )}
 
         {/* Row 1: Objectives + Rating */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14,marginBottom:14}}>
@@ -3330,114 +3487,196 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
         </div>
 
-        {/* Row 2: Plan + Drills */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>SESSION PLAN</div>
-            <textarea ref={planRef} value={session.plan||""} onChange={e=>upd(()=>({plan:e.target.value}))} rows={10}
-              placeholder="Write your session plan here..." style={iS({resize:"vertical"})}/>
-          </div>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>DRILL LIBRARY</div>
-            <div style={{display:"flex",gap:5}}>
-              <input value={drillName} onChange={e=>setDrillName(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&saveDrill()}
-                placeholder="Drill name..." style={iS({fontSize:12,padding:"7px 9px"})}/>
-              <button onClick={saveDrill} disabled={!drillName.trim()}
-                style={{padding:"7px 10px",background:drillName.trim()?C.accent+"22":C.surface,
-                  border:`1px solid ${drillName.trim()?C.accent:C.border}`,borderRadius:7,
-                  color:drillName.trim()?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>+</button>
-            </div>
-            <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
-              {(drills||[]).length===0
-                ? <div style={{color:C.muted,fontSize:12,fontStyle:"italic"}}>Save drills to reuse across sessions</div>
-                : (drills||[]).map(d=>(
-                  <div key={d.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:C.surface,borderRadius:8,border:`1px solid ${C.border}`}}>
-                    <span style={{flex:1,color:C.text,fontSize:12,fontWeight:600}}>{d.name}</span>
-                    <button onClick={()=>insertDrill(d.name)}
-                      style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:5,padding:"2px 7px",color:C.accent,cursor:"pointer",fontSize:10,fontWeight:700}}>Add</button>
-                    <button onClick={()=>setDrills(prev=>prev.filter(x=>x.id!==d.id))}
-                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2}}><X size={11}/></button>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </div>
+        {/* Row 2: Session blocks + Drill library */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 230px",gap:14,marginBottom:14}}>
 
-        {/* Row 3: Attendance + Player Notes */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          {/* Attendance */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>ATTENDANCE</div>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>
-              {roster.map(p=>{
-                const status=att[p.id]||"present";
-                const pc=posColor(primaryPos(p));
-                return(
-                  <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.surface,borderRadius:8,
-                    border:`1px solid ${status==="present"?C.accent+"22":status==="injured"?C.warning+"22":C.danger+"22"}`}}>
-                    <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,
-                      display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
-                      {p.number}
-                    </div>
-                    <span style={{flex:1,color:C.text,fontSize:12,fontWeight:600}}>{p.name.split(" ")[1]||p.name}</span>
-                    <div style={{display:"flex",gap:3}}>
-                      {ATT.map(opt=>(
-                        <button key={opt.k} onClick={()=>setAtt(p.id,opt.k)} title={opt.label}
-                          style={{width:28,height:26,borderRadius:6,border:`1.5px solid ${status===opt.k?opt.color:C.border}`,
-                            background:status===opt.k?opt.color+"22":"transparent",
-                            color:status===opt.k?opt.color:C.muted,cursor:"pointer",fontSize:13,fontWeight:700,transition:"all .1s"}}>
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
+          {/* Session plan blocks */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {SECTIONS.map(sec=>{
+              const cards=blocks[sec.key]||[];
+              const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+              return(
+                <div key={sec.key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  {/* Section header */}
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <span style={{fontSize:16}}>{sec.icon}</span>
+                    <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:15,letterSpacing:.5}}>{sec.label.toUpperCase()}</div>
+                    {secMins>0&&<div style={{color:C.muted,fontSize:11,marginLeft:4}}>{secMins} min</div>}
+                    <div style={{flex:1}}/>
+                    {/* Add from library quick-pick */}
+                    <select defaultValue="" onChange={e=>{if(e.target.value){
+                        setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard(e.target.value)]}}:p));
+                        e.target.value="";
+                      }}}
+                      style={{padding:"4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontSize:11,cursor:"pointer",maxWidth:140}}>
+                      <option value="">+ From library</option>
+                      {(drills||[]).map(d=><option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
+                    {/* Add blank card */}
+                    <button onClick={()=>setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard("")]}}:p))}
+                      style={{padding:"4px 9px",background:sec.color+"22",border:`1px solid ${sec.color}44`,borderRadius:7,color:sec.color,cursor:"pointer",fontWeight:700,fontSize:12}}>+ Add</button>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Drill cards */}
+                  {cards.length===0
+                    ? <div style={{color:C.muted,fontSize:12,fontStyle:"italic",textAlign:"center",padding:"12px 0"}}>{sec.desc}</div>
+                    : cards.map((card,idx)=>(
+                        <div key={card.id} style={{background:C.surface,borderRadius:10,padding:"10px 12px",marginBottom:8,
+                          border:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
+                          {/* Card top row */}
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            {/* Reorder */}
+                            <div style={{display:"flex",flexDirection:"column",gap:1,flexShrink:0}}>
+                              <button onClick={()=>moveCard(sec.key,card.id,-1)} disabled={idx===0}
+                                style={{background:"none",border:"none",color:idx===0?C.border:C.muted,cursor:idx===0?"default":"pointer",fontSize:10,padding:0,lineHeight:1}}>▲</button>
+                              <button onClick={()=>moveCard(sec.key,card.id,1)} disabled={idx===cards.length-1}
+                                style={{background:"none",border:"none",color:idx===cards.length-1?C.border:C.muted,cursor:idx===cards.length-1?"default":"pointer",fontSize:10,padding:0,lineHeight:1}}>▼</button>
+                            </div>
+                            {/* Name */}
+                            <input value={card.name} onChange={e=>updateCard(sec.key,card.id,"name",e.target.value)}
+                              placeholder="Drill name..."
+                              style={{flex:1,padding:"6px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.text,fontSize:13,fontWeight:600,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                            {/* Duration */}
+                            <input type="number" min="1" max="60" value={card.duration}
+                              onChange={e=>updateCard(sec.key,card.id,"duration",e.target.value)}
+                              placeholder="min"
+                              style={{width:52,padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",textAlign:"center"}}/>
+                            <span style={{color:C.muted,fontSize:11,flexShrink:0}}>min</span>
+                            {/* Delete */}
+                            <button onClick={()=>removeCard(sec.key,card.id)}
+                              style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,flexShrink:0}}><X size={13}/></button>
+                          </div>
+                          {/* Notes + intensity */}
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            <input value={card.notes||""} onChange={e=>updateCard(sec.key,card.id,"notes",e.target.value)}
+                              placeholder="Notes, coaching points, setup..."
+                              style={{flex:1,padding:"5px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.muted,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                            {/* Intensity */}
+                            <div style={{display:"flex",gap:4,flexShrink:0}}>
+                              {INTENSITY.map(int=>(
+                                <button key={int.k} onClick={()=>updateCard(sec.key,card.id,"intensity",int.k)}
+                                  title={int.label}
+                                  style={{padding:"3px 7px",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",transition:"all .1s",
+                                    border:`1.5px solid ${card.intensity===int.k?int.color:C.border}`,
+                                    background:card.intensity===int.k?int.color+"22":"transparent",
+                                    color:card.intensity===int.k?int.color:C.muted}}>
+                                  {int.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                  }
+                </div>
+              );
+            })}
           </div>
 
-          {/* Player notes */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>PLAYER NOTES</div>
-            <div style={{background:C.surface,borderRadius:10,padding:10,display:"flex",flexDirection:"column",gap:7}}>
-              <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)} style={iS({padding:"8px 10px"})}>
-                <option value="">Select player...</option>
-                {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
-              </select>
-              <textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2}
-                placeholder="Note about this player's session..." style={iS({resize:"vertical"})}/>
-              <button onClick={addNote} disabled={!selPlayer||!noteText.trim()}
-                style={{padding:"7px",background:selPlayer&&noteText.trim()?C.accent:"transparent",
-                  border:`1px solid ${selPlayer&&noteText.trim()?C.accent:C.border}`,borderRadius:7,
-                  color:selPlayer&&noteText.trim()?"#000":C.muted,fontWeight:700,fontSize:12,
-                  cursor:selPlayer&&noteText.trim()?"pointer":"default"}}>
-                Add Note
-              </button>
+          {/* Right sidebar: Drill library + Attendance */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Drill Library */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>DRILL LIBRARY</div>
+              <div style={{display:"flex",gap:5,marginBottom:8}}>
+                <input value={drillName} onChange={e=>setDrillName(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&saveDrill()}
+                  placeholder="Save a drill..." style={iS({fontSize:11,padding:"6px 9px"})}/>
+                <button onClick={saveDrill} disabled={!drillName.trim()}
+                  style={{padding:"6px 9px",background:drillName.trim()?C.accent+"22":C.surface,
+                    border:`1px solid ${drillName.trim()?C.accent:C.border}`,borderRadius:7,
+                    color:drillName.trim()?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>+</button>
+              </div>
+              <div style={{maxHeight:180,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
+                {(drills||[]).length===0
+                  ? <div style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>No drills saved yet</div>
+                  : (drills||[]).map(d=>(
+                    <div key={d.id} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 8px",
+                      background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}>
+                      <span style={{flex:1,color:C.text,fontSize:11,fontWeight:600}}>{d.name}</span>
+                      <button onClick={()=>setDrills(prev=>prev.filter(x=>x.id!==d.id))}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:1}}><X size={10}/></button>
+                    </div>
+                  ))
+                }
+              </div>
             </div>
-            <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
-              {session.playerNotes.length===0
-                ? <div style={{color:C.muted,fontSize:12,fontStyle:"italic"}}>No player notes yet</div>
-                : session.playerNotes.map(note=>{
-                    const p=roster.find(r=>r.id===note.pid);
-                    return(
-                      <div key={note.id} style={{background:C.surface,borderRadius:9,padding:"9px 12px",display:"flex",gap:8}}>
-                        <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:posColor(primaryPos(p))+"22",
-                          border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:11}}>
-                          {p?.number||"?"}
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{color:C.text,fontWeight:700,fontSize:12,marginBottom:2}}>{note.name}</div>
-                          <div style={{color:C.muted,fontSize:12,lineHeight:1.5}}>{note.note}</div>
-                        </div>
-                        <button onClick={()=>upd(s=>({playerNotes:s.playerNotes.filter(n=>n.id!==note.id)}))}
-                          style={{background:"none",border:"none",color:C.muted,cursor:"pointer",flexShrink:0}}><X size={11}/></button>
+
+            {/* Attendance */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,flex:1}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>
+                ATTENDANCE <span style={{color:C.accent,fontWeight:700}}>{pres}</span>/{Object.keys(att).length}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:360,overflowY:"auto"}}>
+                {roster.map(p=>{
+                  const status=att[p.id]||"present";
+                  const pc=posColor(primaryPos(p));
+                  return(
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:C.surface,borderRadius:7,
+                      border:`1px solid ${status==="present"?C.accent+"22":status==="injured"?C.warning+"22":C.danger+"22"}`}}>
+                      <div style={{width:24,height:24,borderRadius:5,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:11}}>
+                        {p.number}
                       </div>
-                    );
-                  })
-              }
+                      <span style={{flex:1,color:C.text,fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {p.name.split(" ")[1]||p.name}
+                      </span>
+                      <div style={{display:"flex",gap:2}}>
+                        {ATT.map(opt=>(
+                          <button key={opt.k} onClick={()=>setAtt(p.id,opt.k)}
+                            style={{width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .1s",
+                              border:`1.5px solid ${status===opt.k?opt.color:C.border}`,
+                              background:status===opt.k?opt.color+"22":"transparent",
+                              color:status===opt.k?opt.color:C.muted}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Player notes */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>PLAYER NOTES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)} style={iS({padding:"7px 10px",fontSize:12})}>
+                  <option value="">Select player...</option>
+                  {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                </select>
+                <textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2}
+                  placeholder="Coaching note..." style={iS({resize:"vertical",fontSize:12})}/>
+                <button onClick={addNote} disabled={!selPlayer||!noteText.trim()}
+                  style={{padding:"7px",background:selPlayer&&noteText.trim()?C.accent:"transparent",
+                    border:`1px solid ${selPlayer&&noteText.trim()?C.accent:C.border}`,borderRadius:7,
+                    color:selPlayer&&noteText.trim()?"#000":C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  Add Note
+                </button>
+                {session.playerNotes.map(note=>{
+                  const p=roster.find(r=>r.id===note.pid);
+                  return(
+                    <div key={note.id} style={{background:C.surface,borderRadius:8,padding:"8px 10px",display:"flex",gap:7}}>
+                      <div style={{width:22,height:22,borderRadius:5,flexShrink:0,background:posColor(primaryPos(p))+"22",
+                        border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>
+                        {p?.number||"?"}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:C.text,fontWeight:700,fontSize:11,marginBottom:1}}>{note.name}</div>
+                        <div style={{color:C.muted,fontSize:11,lineHeight:1.5}}>{note.note}</div>
+                      </div>
+                      <button onClick={()=>upd(s=>({playerNotes:s.playerNotes.filter(n=>n.id!==note.id)}))}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",flexShrink:0}}><X size={10}/></button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -3445,6 +3684,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     );
   }
 
+  // ─── SESSION LIST ──────────────────────────────────────────────────────────
   const filtered=filterTag==="All"?practices:practices.filter(p=>p.focus===filterTag);
 
   return(
@@ -3454,11 +3694,17 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice Log</h1>
         </div>
-        <button onClick={()=>setCreating(true)}
-          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-          <Plus size={15}/>New Session
-        </button>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {(templates||[]).length>0&&(
+            <span style={{color:C.muted,fontSize:12}}>{templates.length} template{templates.length!==1?"s":""}</span>
+          )}
+          <button onClick={()=>setCreating(true)}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+            <Plus size={15}/>New Session
+          </button>
+        </div>
       </div>
+
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
         {["All",...FOCUS_TAGS].map(t=>{
           const col=t==="All"?C.accent:(FOCUS_COLORS[t]||C.accent);
@@ -3466,6 +3712,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             style={{padding:"6px 12px",background:filterTag===t?col+"22":C.card,border:`1px solid ${filterTag===t?col:C.border}`,borderRadius:7,color:filterTag===t?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{t}</button>);
         })}
       </div>
+
       {filtered.length===0
         ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
             <Dumbbell size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
@@ -3479,6 +3726,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
               const att=session.attendance||{};
               const pres=Object.values(att).filter(v=>v==="present").length;
               const total=Object.keys(att).length;
+              const blocks=session.blocks||{};
+              const drillCount=Object.values(blocks).flat().length;
               return(
                 <div key={session.id} onClick={()=>setSel(session.id)}
                   style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"all .15s"}}
@@ -3499,7 +3748,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                   <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",gap:3,alignItems:"flex-end"}}>
                     {(session.rating||0)>0&&<div style={{color:C.warning,fontSize:11}}>{"★".repeat(session.rating)}{"☆".repeat(5-session.rating)}</div>}
                     {total>0&&<div style={{color:C.muted,fontSize:11}}>{pres}/{total} present</div>}
-                    {session.playerNotes?.length>0&&<div style={{color:C.muted,fontSize:11}}>{session.playerNotes.length} notes</div>}
+                    {drillCount>0&&<div style={{color:C.muted,fontSize:11}}>{drillCount} drill{drillCount!==1?"s":""}</div>}
                   </div>
                   <ChevronRight size={16} color={C.muted}/>
                 </div>
