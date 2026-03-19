@@ -4256,88 +4256,208 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
 
 // ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
 function TryoutsView({tryouts, setTryouts}){
-  const [selTryout, setSelTryout]   = useState(null);
-  const [selCand,   setSelCand]     = useState(null);
-  const [creating,  setCreating]    = useState(false);
-  const [addingCand,setAddingCand]  = useState(false);
-  const [tForm,     setTForm]       = useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
-  const [cForm,     setCForm]       = useState({name:"",grade:"9",club:"",position:"CM",notes:""});
+  const [selTryout,  setSelTryout]  = useState(null);
+  const [selCand,    setSelCand]    = useState(null);
+  const [activeTab,  setActiveTab]  = useState("candidates"); // candidates | lineups
+  const [lineupTeam, setLineupTeam] = useState("varsity");
+  const [creating,   setCreating]   = useState(false);
+  const [addingCand, setAddingCand] = useState(false);
+  const [pickingSlot,setPickingSlot]= useState(null); // {zone,idx}
+  const [importMsg,  setImportMsg]  = useState(null);
+  const fileRef = useRef(null);
+
+  const [tForm, setTForm] = useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
+  const [cForm, setCForm] = useState({name:"",primaryPos:"CM",secondaryPos:"",grade:"9",club:"",notes:""});
+
+  const POSITIONS = ["GK","CB","FB","DM","CM","W","ST"];
 
   const SCORE_CATS = [
-    {k:"technical",  label:"Technical",   desc:"Ball control, passing, first touch",color:"#ff6b00"},
-    {k:"athletic",   label:"Athletic",    desc:"Speed, stamina, physicality",       color:"#ef5350"},
-    {k:"tactical",   label:"Tactical",    desc:"Positioning, decision making",      color:"#42a5f5"},
-    {k:"attitude",   label:"Attitude",    desc:"Effort, coachability, communication",color:"#66bb6a"},
-    {k:"positional", label:"Positional",  desc:"Quality in their specific role",    color:"#7c6af5"},
+    {k:"technical",  label:"Technical",   desc:"Ball control, passing, first touch", color:"#ff6b00"},
+    {k:"athletic",   label:"Athletic",    desc:"Speed, stamina, physicality",         color:"#ef5350"},
+    {k:"tactical",   label:"Tactical",    desc:"Positioning, decision making",        color:"#42a5f5"},
+    {k:"attitude",   label:"Attitude",    desc:"Effort, coachability, communication", color:"#66bb6a"},
+    {k:"positional", label:"Positional",  desc:"Quality in their specific role",      color:"#7c6af5"},
   ];
 
-  // Status options differ by team type — stored on the tryout itself
   const HS_STATUS = [
-    {k:"prospect", label:"Prospect", color:C.muted},
-    {k:"varsity",  label:"Varsity",  color:C.accent},
-    {k:"jv",       label:"JV",       color:"#ffb300"},
-    {k:"jvb",      label:"JVB",      color:"#42a5f5"},
-    {k:"cut",      label:"Cut",      color:C.danger},
+    {k:"prospect",label:"Prospect",color:C.muted},
+    {k:"varsity", label:"Varsity", color:C.accent},
+    {k:"jv",      label:"JV",      color:"#ffb300"},
+    {k:"jvb",     label:"JVB",     color:"#42a5f5"},
+    {k:"cut",     label:"Cut",     color:C.danger},
   ];
   const CLUB_STATUS = [
-    {k:"prospect", label:"Prospect", color:C.muted},
-    {k:"varsity",  label:"Varsity",  color:C.accent},
-    {k:"jv",       label:"JV",       color:"#ffb300"},
-    {k:"jvb",      label:"JVB",      color:"#42a5f5"},
-    {k:"cut",      label:"Cut",      color:C.danger},
+    {k:"prospect",label:"Prospect",color:C.muted},
+    {k:"varsity", label:"Varsity", color:C.accent},
+    {k:"jv",      label:"JV",      color:"#ffb300"},
+    {k:"jvb",     label:"JVB",     color:"#42a5f5"},
+    {k:"cut",     label:"Cut",     color:C.danger},
   ];
 
+  const LINEUP_TEAMS = [
+    {k:"varsity",label:"Varsity",color:C.accent},
+    {k:"jv",     label:"JV",     color:"#ffb300"},
+    {k:"jvb",    label:"JVB",    color:"#42a5f5"},
+  ];
+
+  const FORMATIONS = ["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2"];
+  const SLOTS_FOR = f => {
+    const m = {"4-3-3":{GK:1,DEF:4,MID:3,FWD:3},"4-4-2":{GK:1,DEF:4,MID:4,FWD:2},
+               "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},"3-5-2":{GK:1,DEF:3,MID:5,FWD:2},
+               "5-3-2":{GK:1,DEF:5,MID:3,FWD:2}};
+    return m[f]||m["4-3-3"];
+  };
+  const ZONES = [{key:"GK",label:"Goalkeeper",color:"#ffb300"},{key:"DEF",label:"Defenders",color:"#42a5f5"},
+                 {key:"MID",label:"Midfielders",color:"#66bb6a"},{key:"FWD",label:"Forwards",color:"#ff6b00"}];
+
   function avgScore(scores){
-    const vals = Object.values(scores||{}).filter(v=>v>0);
-    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    const vals=Object.values(scores||{}).filter(v=>v>0);
+    return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
   }
+
+  function upd(fn){ setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,...fn(t)}:t)); }
 
   function createTryout(){
     if(!tForm.name.trim()) return;
     const t={id:`try${Date.now()}`,name:tForm.name.trim(),year:tForm.year,
-      teamType:tForm.teamType||"highschool",status:"open",candidates:[],createdAt:new Date().toISOString()};
+      teamType:tForm.teamType||"highschool",status:"open",
+      candidates:[],customStats:[],
+      lineups:{
+        varsity:{formation:"4-3-3",slots:{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]}},
+        jv:     {formation:"4-3-3",slots:{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]}},
+        jvb:    {formation:"4-3-3",slots:{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]}},
+      },
+      createdAt:new Date().toISOString()};
     setTryouts(prev=>[t,...prev]);
     setSelTryout(t.id); setCreating(false);
   }
 
   function addCandidate(){
     if(!cForm.name.trim()) return;
+    const tryout = tryouts.find(t=>t.id===selTryout);
+    const customStatVals={};
+    (tryout?.customStats||[]).forEach(s=>{ customStatVals[s.id]=""; });
+    const positions=[cForm.primaryPos,...(cForm.secondaryPos&&cForm.secondaryPos!==cForm.primaryPos?[cForm.secondaryPos]:[])];
     const c={id:`c${Date.now()}`,name:cForm.name.trim(),
-      grade: tryout?.teamType==="highschool" ? cForm.grade : "",
-      club:  tryout?.teamType==="club" ? cForm.club : "",
-      position:cForm.position,
+      positions, primaryPos:cForm.primaryPos,
+      grade:tryout?.teamType==="highschool"?cForm.grade:"",
+      club: tryout?.teamType==="club"?cForm.club:"",
       scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
+      customStats:customStatVals,
       status:"prospect",notes:cForm.notes,coachNote:""};
-    setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,candidates:[...t.candidates,c]}:t));
-    setCForm({name:"",grade:"9",club:"",position:"CM",notes:""});
+    upd(t=>({candidates:[...t.candidates,c]}));
+    setCForm({name:"",primaryPos:"CM",secondaryPos:"",grade:"9",club:"",notes:""});
     setAddingCand(false);
     setSelCand(c.id);
   }
 
-  function updateScore(candId, cat, val){
-    setTryouts(prev=>prev.map(t=>{
-      if(t.id!==selTryout) return t;
-      return {...t,candidates:t.candidates.map(c=>c.id!==candId?c:{...c,scores:{...c.scores,[cat]:val}})};
-    }));
+  function updateScore(candId,cat,val){
+    upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,scores:{...c.scores,[cat]:val}})}));
   }
-
-  function updateCandField(candId, key, val){
-    setTryouts(prev=>prev.map(t=>{
-      if(t.id!==selTryout) return t;
-      return {...t,candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})};
-    }));
+  function updateCandField(candId,key,val){
+    upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})}));
   }
-
+  function updateCustomStat(candId,statId,val){
+    upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,customStats:{...c.customStats,[statId]:val}})}));
+  }
   function deleteCandidate(candId){
-    setTryouts(prev=>prev.map(t=>t.id!==selTryout?t:{...t,candidates:t.candidates.filter(c=>c.id!==candId)}));
+    upd(t=>({candidates:t.candidates.filter(c=>c.id!==candId)}));
     setSelCand(null);
   }
 
-  const iS = (extra={}) => ({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
+  // ── Custom stat management ───────────────────────────────────────────────
+  const [newStatLabel, setNewStatLabel] = useState("");
+  const [newStatUnit,  setNewStatUnit]  = useState("");
+  function addCustomStat(){
+    if(!newStatLabel.trim()) return;
+    const stat={id:`st${Date.now()}`,label:newStatLabel.trim(),unit:newStatUnit.trim()};
+    upd(t=>({
+      customStats:[...(t.customStats||[]),stat],
+      candidates:t.candidates.map(c=>({...c,customStats:{...c.customStats,[stat.id]:""}}))
+    }));
+    setNewStatLabel(""); setNewStatUnit("");
+  }
+  function removeCustomStat(statId){
+    upd(t=>({
+      customStats:(t.customStats||[]).filter(s=>s.id!==statId),
+      candidates:t.candidates.map(c=>{const cs={...c.customStats};delete cs[statId];return{...c,customStats:cs};})
+    }));
+  }
+
+  // ── Lineup management ────────────────────────────────────────────────────
+  function setLineupFormation(team, formation){
+    const slots=SLOTS_FOR(formation);
+    const newSlots={};
+    Object.entries(slots).forEach(([zone,count])=>{ newSlots[zone]=Array(count).fill(null); });
+    upd(t=>({lineups:{...t.lineups,[team]:{formation,slots:newSlots}}}));
+  }
+  function assignLineupSlot(team,zone,idx,candId){
+    upd(t=>{
+      const lineup={...t.lineups[team]};
+      const slots={...lineup.slots,[zone]:[...lineup.slots[zone]]};
+      slots[zone][idx]=candId||null;
+      return {lineups:{...t.lineups,[team]:{...lineup,slots}}};
+    });
+    setPickingSlot(null);
+  }
+
+  // ── Mass upload ──────────────────────────────────────────────────────────
+  function downloadTemplate(){
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    const isHS=tryout?.teamType==="highschool";
+    const wb=XLSX.utils.book_new();
+    const headers=["Name","Primary Position","Secondary Position",isHS?"Grade":"Club/Team","Notes"];
+    const sample=[["Alex Johnson","CM","W",isHS?"10":"FC United","Strong in transition"]];
+    const ws=XLSX.utils.aoa_to_sheet([headers,...sample]);
+    ws["!cols"]=[{wch:22},{wch:18},{wch:18},{wch:14},{wch:28}];
+    XLSX.utils.book_append_sheet(wb,ws,"Candidates");
+    const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+    const url=URL.createObjectURL(new Blob([buf],{type:"application/octet-stream"}));
+    const a=document.createElement("a");a.href=url;a.download="TryoutCandidates_Template.xlsx";a.click();
+  }
+
+  async function handleImport(e){
+    const file=e.target.files?.[0]; if(!file)return;
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    const isHS=tryout?.teamType==="highschool";
+    try{
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      const data=rows.slice(1).filter(r=>r[0]?.toString().trim());
+      const customStatVals={};
+      (tryout?.customStats||[]).forEach(s=>{ customStatVals[s.id]=""; });
+      const newCands=data.map(r=>{
+        const primary=(r[1]?.toString().trim().toUpperCase())||"CM";
+        const secondary=(r[2]?.toString().trim().toUpperCase())||"";
+        const positions=[primary,...(secondary&&secondary!==primary?[secondary]:[])];
+        return{
+          id:`c${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          name:r[0].toString().trim(),
+          positions,primaryPos:primary,
+          grade:isHS?(r[3]?.toString().trim()||""):"",
+          club:!isHS?(r[3]?.toString().trim()||""):"",
+          notes:r[4]?.toString().trim()||"",
+          scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
+          customStats:{...customStatVals},
+          status:"prospect",coachNote:""
+        };
+      });
+      upd(t=>({candidates:[...t.candidates,...newCands]}));
+      setImportMsg({type:"ok",text:`✓ Imported ${newCands.length} candidates`});
+    }catch(err){
+      setImportMsg({type:"err",text:`✗ ${err.message}`});
+    }
+    e.target.value="";
+    setTimeout(()=>setImportMsg(null),4000);
+  }
+
+  const iS=(extra={})=>({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
     borderRadius:8,color:C.text,fontSize:13,outline:"none",
     fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",width:"100%",...extra});
 
-  // ── Tryout list ──────────────────────────────────────────────────────────
+  // ── TRYOUT LIST ──────────────────────────────────────────────────────────
   if(!selTryout) return(
     <div style={{padding:20,maxWidth:800,margin:"0 auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
@@ -4347,8 +4467,7 @@ function TryoutsView({tryouts, setTryouts}){
         </div>
         <button onClick={()=>setCreating(true)}
           style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
-            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-            fontFamily:"'Oswald',sans-serif"}}>
+            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
           <Plus size={15}/>New Tryout
         </button>
       </div>
@@ -4356,7 +4475,6 @@ function TryoutsView({tryouts, setTryouts}){
       {creating&&(
         <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW TRYOUT SESSION</div>
-          {/* Team type selector */}
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             {[{k:"highschool",label:"High School"},{k:"club",label:"Club"}].map(opt=>(
               <button key={opt.k} onClick={()=>setTForm(f=>({...f,teamType:opt.k}))}
@@ -4370,35 +4488,30 @@ function TryoutsView({tryouts, setTryouts}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10,marginBottom:12}}>
             <input value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))}
               placeholder={tForm.teamType==="highschool"?"e.g. Varsity 2025-26":"e.g. U16 Spring Tryouts"} style={iS()}/>
-            <input value={tForm.year} onChange={e=>setTForm(f=>({...f,year:e.target.value}))}
-              placeholder="Year" style={iS()}/>
+            <input value={tForm.year} onChange={e=>setTForm(f=>({...f,year:e.target.value}))} placeholder="Year" style={iS()}/>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={createTryout} disabled={!tForm.name.trim()}
               style={{padding:"9px 20px",background:tForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
-                color:tForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>
-              Create
-            </button>
+                color:tForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>Create</button>
             <button onClick={()=>setCreating(false)}
-              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
-              Cancel
-            </button>
+              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
           </div>
         </div>
       )}
 
       {tryouts.length===0&&!creating
-        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+        ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
             <ClipboardCheck size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
             <div style={{color:C.text,fontSize:15,fontWeight:600}}>No tryout sessions yet</div>
             <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create your first tryout to start evaluating candidates</div>
           </div>
-        : tryouts.map(t=>{
-            const signed = t.candidates.filter(c=>c.status==="signed").length;
-            const offered= t.candidates.filter(c=>c.status==="offered").length;
-            const cut    = t.candidates.filter(c=>c.status==="cut").length;
+        :tryouts.map(t=>{
+            const signed=t.candidates.filter(c=>c.status==="varsity").length;
+            const jv=t.candidates.filter(c=>c.status==="jv").length;
+            const cut=t.candidates.filter(c=>c.status==="cut").length;
             return(
-              <div key={t.id} onClick={()=>setSelTryout(t.id)}
+              <div key={t.id} onClick={()=>{setSelTryout(t.id);setActiveTab("candidates");setSelCand(null);}}
                 style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
                   padding:"16px 20px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
@@ -4409,12 +4522,12 @@ function TryoutsView({tryouts, setTryouts}){
                 </div>
                 <div style={{flex:1}}>
                   <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{t.name}</div>
-                  <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                     <span style={{color:C.muted,fontSize:12}}>{t.year}</span>
                     <span style={{color:C.muted,fontSize:12,background:C.surface,padding:"1px 7px",borderRadius:5,border:`1px solid ${C.border}`}}>{t.teamType==="club"?"Club":"High School"}</span>
                     <span style={{color:C.muted,fontSize:12}}>{t.candidates.length} candidates</span>
-                    {signed>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{signed} signed</span>}
-                    {offered>0&&<span style={{color:"#66bb6a",fontSize:12,fontWeight:700}}>{offered} offered</span>}
+                    {signed>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{signed} varsity</span>}
+                    {jv>0&&<span style={{color:"#ffb300",fontSize:12,fontWeight:700}}>{jv} JV</span>}
                     {cut>0&&<span style={{color:C.danger,fontSize:12,fontWeight:700}}>{cut} cut</span>}
                   </div>
                 </div>
@@ -4433,230 +4546,510 @@ function TryoutsView({tryouts, setTryouts}){
     </div>
   );
 
-  // ── Tryout detail ────────────────────────────────────────────────────────
-  const tryout = tryouts.find(t=>t.id===selTryout);
+  // ── TRYOUT DETAIL ────────────────────────────────────────────────────────
+  const tryout=tryouts.find(t=>t.id===selTryout);
   if(!tryout) return null;
-
-  const STATUS_OPTS = tryout.teamType==="club" ? CLUB_STATUS : HS_STATUS;
-  const sorted = [...tryout.candidates].sort((a,b)=>avgScore(b.scores)-avgScore(a.scores));
-  const selCandObj = selCand ? tryout.candidates.find(c=>c.id===selCand) : null;
+  const STATUS_OPTS=tryout.teamType==="club"?CLUB_STATUS:HS_STATUS;
+  const sorted=[...tryout.candidates].sort((a,b)=>avgScore(b.scores)-avgScore(a.scores));
+  const selCandObj=selCand?tryout.candidates.find(c=>c.id===selCand):null;
+  const customStats=tryout.customStats||[];
+  const lineups=tryout.lineups||{};
+  const curLineup=lineups[lineupTeam]||{formation:"4-3-3",slots:{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]}};
 
   return(
-    <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
+    <div style={{padding:20,maxWidth:1200,margin:"0 auto"}}>
+
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <button onClick={()=>{setSelTryout(null);setSelCand(null);}}
           style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
         <div style={{flex:1}}>
-          <div style={{color:C.muted,fontSize:12}}>{tryout.year}</div>
+          <div style={{color:C.muted,fontSize:12}}>{tryout.year} · {tryout.teamType==="club"?"Club":"High School"}</div>
           <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>{tryout.name}</h2>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          {/* Open/Close toggle */}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={()=>setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:t.status==="open"?"closed":"open"}:t))}
             style={{padding:"8px 14px",background:tryout.status==="open"?C.accent+"22":"#2a1000",
               border:`1px solid ${tryout.status==="open"?C.accent:C.border}`,borderRadius:8,
               color:tryout.status==="open"?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             {tryout.status==="open"?"Close Tryout":"Reopen"}
           </button>
-          <button onClick={()=>setAddingCand(true)}
-            style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.accent,
-              border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
-            <Plus size={14}/>Add Candidate
-          </button>
           <button onClick={()=>{if(window.confirm("Delete this tryout?"))setTryouts(prev=>prev.filter(t=>t.id!==selTryout));setSelTryout(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",
-              color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
+              color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12}}>
             <Trash2 size={13}/>
           </button>
         </div>
       </div>
 
-      {/* Add candidate form */}
-      {addingCand&&(
-        <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW CANDIDATE</div>
-          <div style={{display:"grid",gridTemplateColumns:tryout.teamType==="club"?"2fr 1fr 1fr 1fr":"2fr 1fr 1fr",gap:10,marginBottom:10}}>
-            <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))}
-              placeholder="Full Name *" style={iS()}/>
-            {/* Grade dropdown for HS, Club input for Club */}
-            {tryout.teamType==="highschool" ? (
-              <select value={cForm.grade} onChange={e=>setCForm(f=>({...f,grade:e.target.value}))} style={iS()}>
-                <option value="9">Grade 9</option>
-                <option value="10">Grade 10</option>
-                <option value="11">Grade 11</option>
-                <option value="12">Grade 12</option>
-              </select>
-            ) : (
-              <input value={cForm.club} onChange={e=>setCForm(f=>({...f,club:e.target.value}))}
-                placeholder="Club / Team" style={iS()}/>
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:6,marginBottom:18,borderBottom:`1px solid ${C.border}`,paddingBottom:0}}>
+        {[{k:"candidates",label:"Candidates"},
+          {k:"lineups",   label:"Lineup Builder"},
+          {k:"stats",     label:"Custom Stats"},
+        ].map(tab=>(
+          <button key={tab.k} onClick={()=>setActiveTab(tab.k)}
+            style={{padding:"9px 18px",background:"transparent",border:"none",cursor:"pointer",
+              color:activeTab===tab.k?C.accent:C.muted,fontWeight:700,fontSize:13,
+              borderBottom:activeTab===tab.k?`2px solid ${C.accent}`:"2px solid transparent",
+              marginBottom:-1,transition:"all .12s"}}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CANDIDATES TAB ─────────────────────────────────────────────── */}
+      {activeTab==="candidates"&&(
+        <div>
+          {/* Toolbar */}
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>setAddingCand(true)}
+              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.accent,
+                border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              <Plus size={14}/>Add Candidate
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.csv" style={{display:"none"}} onChange={handleImport}/>
+            <button onClick={()=>fileRef.current?.click()}
+              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+              <Upload size={14}/>Import Excel
+            </button>
+            <button onClick={downloadTemplate}
+              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+              <Download size={14}/>Template
+            </button>
+            {importMsg&&(
+              <span style={{color:importMsg.type==="ok"?C.accent:C.danger,fontSize:13,fontWeight:600}}>{importMsg.text}</span>
             )}
-            <select value={cForm.position} onChange={e=>setCForm(f=>({...f,position:e.target.value}))} style={iS()}>
-              {["GK","CB","FB","DM","CM","W","ST"].map(p=><option key={p}>{p}</option>)}
-            </select>
           </div>
-          <div style={{marginBottom:12}}>
-            <input value={cForm.notes} onChange={e=>setCForm(f=>({...f,notes:e.target.value}))}
-              placeholder="Initial notes (optional)" style={iS()}/>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={addCandidate} disabled={!cForm.name.trim()}
-              style={{padding:"9px 20px",background:cForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
-                color:cForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>
-              Add
-            </button>
-            <button onClick={()=>setAddingCand(false)}
-              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
-              Cancel
-            </button>
+
+          {/* Add candidate form */}
+          {addingCand&&(
+            <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW CANDIDATE</div>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))}
+                  placeholder="Full Name *" style={iS()}/>
+                {/* Primary position */}
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>PRIMARY POS</label>
+                  <select value={cForm.primaryPos} onChange={e=>setCForm(f=>({...f,primaryPos:e.target.value}))} style={iS()}>
+                    {POSITIONS.map(p=><option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                {/* Secondary position */}
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>SECONDARY POS</label>
+                  <select value={cForm.secondaryPos} onChange={e=>setCForm(f=>({...f,secondaryPos:e.target.value}))} style={iS()}>
+                    <option value="">None</option>
+                    {POSITIONS.filter(p=>p!==cForm.primaryPos).map(p=><option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                {/* Grade or Club */}
+                {tryout.teamType==="highschool"?(
+                  <div>
+                    <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>GRADE</label>
+                    <select value={cForm.grade} onChange={e=>setCForm(f=>({...f,grade:e.target.value}))} style={iS()}>
+                      <option value="9">Grade 9</option><option value="10">Grade 10</option>
+                      <option value="11">Grade 11</option><option value="12">Grade 12</option>
+                    </select>
+                  </div>
+                ):(
+                  <div>
+                    <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>CLUB/TEAM</label>
+                    <input value={cForm.club} onChange={e=>setCForm(f=>({...f,club:e.target.value}))} placeholder="e.g. FC United" style={iS()}/>
+                  </div>
+                )}
+              </div>
+              <div style={{marginBottom:12}}>
+                <input value={cForm.notes} onChange={e=>setCForm(f=>({...f,notes:e.target.value}))}
+                  placeholder="Initial notes (optional)" style={iS()}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={addCandidate} disabled={!cForm.name.trim()}
+                  style={{padding:"9px 20px",background:cForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
+                    color:cForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>Add</button>
+                <button onClick={()=>setAddingCand(false)}
+                  style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16}}>
+            {/* Ranked list */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,maxHeight:"calc(100vh - 280px)",overflowY:"auto"}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
+                CANDIDATES ({tryout.candidates.length})
+              </div>
+              {sorted.length===0
+                ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No candidates yet</div>
+                :sorted.map((c,rank)=>{
+                    const avg=avgScore(c.scores);
+                    const sc=STATUS_OPTS.find(s=>s.k===c.status);
+                    const isSel=selCand===c.id;
+                    const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");
+                    const positions=c.positions||[c.primaryPos||"CM"];
+                    return(
+                      <div key={c.id} onClick={()=>setSelCand(isSel?null:c.id)}
+                        style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",
+                          borderRadius:10,marginBottom:5,cursor:"pointer",transition:"all .12s",
+                          background:isSel?C.accent+"18":C.surface,border:`1px solid ${isSel?C.accent:C.border}`}}>
+                        <div style={{width:20,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:13,textAlign:"center",flexShrink:0}}>{rank+1}</div>
+                        <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc+"22",
+                          border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:11}}>
+                          {positions[0]}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                          <div style={{color:C.muted,fontSize:10}}>
+                            {positions.length>1&&<span style={{marginRight:4}}>{positions.join(" / ")}</span>}
+                            {tryout.teamType==="highschool"?(c.grade?`Gr.${c.grade}`:""):(c.club||"")}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          {avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</div>}
+                          <div style={{color:sc?.color||C.muted,fontSize:9,fontWeight:700,letterSpacing:.5}}>{sc?.label}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+
+            {/* Scoring panel */}
+            {selCandObj?(
+              <div style={{display:"flex",flexDirection:"column",gap:12,maxHeight:"calc(100vh - 280px)",overflowY:"auto"}}>
+                {/* Candidate header */}
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    {(selCandObj.positions||[selCandObj.primaryPos||"CM"]).map((pos,i)=>(
+                      <div key={pos} style={{width:i===0?52:36,height:i===0?52:36,borderRadius:i===0?12:8,
+                        background:posColor(pos)+"22",border:`2px solid ${posColor(pos)}44`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:i===0?18:13,
+                        opacity:i===0?1:.7}}>
+                        {pos}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div>
+                    <div style={{color:C.muted,fontSize:13,marginTop:2}}>
+                      {tryout.teamType==="highschool"?(selCandObj.grade?`Grade ${selCandObj.grade}`:""):(selCandObj.club||"")}
+                    </div>
+                  </div>
+                  {avgScore(selCandObj.scores)>0&&(
+                    <div style={{textAlign:"center",flexShrink:0}}>
+                      <div style={{color:rColor(avgScore(selCandObj.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:40,lineHeight:1}}>
+                        {avgScore(selCandObj.scores).toFixed(1)}
+                      </div>
+                      <div style={{color:C.muted,fontSize:10,fontWeight:600}}>OVERALL</div>
+                    </div>
+                  )}
+                  <button onClick={()=>deleteCandidate(selCandObj.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}><Trash2 size={15}/></button>
+                </div>
+
+                {/* Status */}
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>STATUS</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {STATUS_OPTS.map(opt=>(
+                      <button key={opt.k} onClick={()=>updateCandField(selCandObj.id,"status",opt.k)}
+                        style={{padding:"7px 16px",background:selCandObj.status===opt.k?opt.color+"22":C.surface,
+                          border:`1.5px solid ${selCandObj.status===opt.k?opt.color:C.border}`,
+                          borderRadius:8,color:selCandObj.status===opt.k?opt.color:C.muted,
+                          cursor:"pointer",fontWeight:700,fontSize:13,transition:"all .12s"}}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Score sliders */}
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>EVALUATION (1–10)</div>
+                  {SCORE_CATS.map(cat=>{
+                    const val=selCandObj.scores[cat.k]||0;
+                    return(
+                      <div key={cat.k} style={{marginBottom:14}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                          <div>
+                            <span style={{color:cat.color,fontWeight:700,fontSize:13}}>{cat.label}</span>
+                            <span style={{color:C.muted,fontSize:11,marginLeft:8}}>{cat.desc}</span>
+                          </div>
+                          <span style={{color:val>0?cat.color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>{val>0?val:"-"}</span>
+                        </div>
+                        <div style={{display:"flex",gap:3}}>
+                          {[1,2,3,4,5,6,7,8,9,10].map(n=>(
+                            <button key={n} onClick={()=>updateScore(selCandObj.id,cat.k,n===val?0:n)}
+                              style={{flex:1,height:26,borderRadius:5,
+                                border:`1.5px solid ${n<=val?cat.color:C.border}`,
+                                background:n<=val?cat.color+"22":"transparent",
+                                color:n<=val?cat.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:11,transition:"all .08s"}}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Custom stats */}
+                {customStats.length>0&&(
+                  <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                    <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>MEASURABLES</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+                      {customStats.map(stat=>(
+                        <div key={stat.id}>
+                          <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>
+                            {stat.label}{stat.unit&&<span style={{color:C.muted,fontWeight:400}}> ({stat.unit})</span>}
+                          </label>
+                          <input type="number" step="any"
+                            value={selCandObj.customStats?.[stat.id]||""}
+                            onChange={e=>updateCustomStat(selCandObj.id,stat.id,e.target.value)}
+                            placeholder="—"
+                            style={iS({textAlign:"center",fontWeight:700,fontSize:15})}/>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Coach note */}
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>COACH NOTES</div>
+                  <textarea value={selCandObj.coachNote||""} rows={3}
+                    onChange={e=>updateCandField(selCandObj.id,"coachNote",e.target.value)}
+                    placeholder="Observations, strengths, areas of concern..."
+                    style={iS({resize:"vertical"})}/>
+                </div>
+              </div>
+            ):(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:48,
+                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+                <ClipboardCheck size={40} style={{color:C.muted,opacity:.3}}/>
+                <div style={{color:C.muted,fontSize:14}}>Select a candidate to evaluate</div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"340px 1fr",gap:16}}>
-
-        {/* Ranked candidate list */}
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
-            CANDIDATES ({tryout.candidates.length})
-          </div>
-          {sorted.length===0
-            ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No candidates yet</div>
-            : sorted.map((c,rank)=>{
-                const avg=avgScore(c.scores);
-                const sc=STATUS_OPTS.find(s=>s.k===c.status);
-                const isSel=selCand===c.id;
-                const pc=posColor(c.position);
-                return(
-                  <div key={c.id} onClick={()=>setSelCand(isSel?null:c.id)}
-                    style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
-                      borderRadius:10,marginBottom:6,cursor:"pointer",transition:"all .12s",
-                      background:isSel?C.accent+"18":C.surface,
-                      border:`1px solid ${isSel?C.accent:C.border}`}}>
-                    {/* Rank */}
-                    <div style={{width:22,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:14,textAlign:"center",flexShrink:0}}>
-                      {rank+1}
-                    </div>
-                    {/* Position badge */}
-                    <div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:pc+"22",
-                      border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
-                      {c.position}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                      <div style={{color:C.muted,fontSize:11}}>{tryout.teamType==="highschool"?(c.grade?`Grade ${c.grade}`:""):(c.club||"")}</div>
-                    </div>
-                    <div style={{textAlign:"right",flexShrink:0}}>
-                      {avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{avg.toFixed(1)}</div>}
-                      <div style={{color:sc?.color||C.muted,fontSize:10,fontWeight:700}}>{sc?.label}</div>
-                    </div>
-                  </div>
-                );
-              })
-          }
-        </div>
-
-        {/* Candidate scoring panel */}
-        {selCandObj ? (
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-
-            {/* Candidate header */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
-              <div style={{width:54,height:54,borderRadius:12,flexShrink:0,
-                background:posColor(selCandObj.position)+"22",border:`2px solid ${posColor(selCandObj.position)}44`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(selCandObj.position),fontSize:18}}>
-                {selCandObj.position}
-              </div>
-              <div style={{flex:1}}>
-                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div>
-                <div style={{color:C.muted,fontSize:13,marginTop:2}}>
-                  {tryout.teamType==="highschool"
-                    ? selCandObj.grade ? `Grade ${selCandObj.grade}` : ""
-                    : selCandObj.club || ""}
+      {/* ── LINEUP BUILDER TAB ──────────────────────────────────────────── */}
+      {activeTab==="lineups"&&(
+        <div>
+          {/* Picker modal */}
+          {pickingSlot&&(
+            <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:22,width:"100%",maxWidth:380,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700}}>Select Player</h3>
+                  <button onClick={()=>setPickingSlot(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={16}/></button>
                 </div>
-              </div>
-              {/* Overall score */}
-              {avgScore(selCandObj.scores)>0&&(
-                <div style={{textAlign:"center",flexShrink:0}}>
-                  <div style={{color:rColor(avgScore(selCandObj.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:42,lineHeight:1}}>
-                    {avgScore(selCandObj.scores).toFixed(1)}
+                <div style={{overflowY:"auto",flex:1}}>
+                  <div onClick={()=>assignLineupSlot(lineupTeam,pickingSlot.zone,pickingSlot.idx,null)}
+                    style={{padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",
+                      background:"#1a0800",border:`1px solid ${C.border}`,color:C.muted,fontSize:13}}>
+                    — Clear slot
                   </div>
-                  <div style={{color:C.muted,fontSize:11,fontWeight:600}}>OVERALL</div>
-                </div>
-              )}
-              <button onClick={()=>deleteCandidate(selCandObj.id)}
-                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}>
-                <Trash2 size={15}/>
-              </button>
-            </div>
-
-            {/* Status selector */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>STATUS</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {STATUS_OPTS.map(opt=>(
-                  <button key={opt.k} onClick={()=>updateCandField(selCandObj.id,"status",opt.k)}
-                    style={{padding:"8px 18px",background:selCandObj.status===opt.k?opt.color+"22":C.surface,
-                      border:`1.5px solid ${selCandObj.status===opt.k?opt.color:C.border}`,
-                      borderRadius:8,color:selCandObj.status===opt.k?opt.color:C.muted,
-                      cursor:"pointer",fontWeight:700,fontSize:13,transition:"all .12s"}}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Score sliders */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:16}}>EVALUATION SCORES (1-10)</div>
-              <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                {SCORE_CATS.map(cat=>{
-                  const val=selCandObj.scores[cat.k]||0;
-                  return(
-                    <div key={cat.k}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                        <div>
-                          <span style={{color:cat.color,fontWeight:700,fontSize:13}}>{cat.label}</span>
-                          <span style={{color:C.muted,fontSize:11,marginLeft:8}}>{cat.desc}</span>
+                  {sorted.map(c=>{
+                    const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");
+                    const positions=c.positions||[c.primaryPos||"CM"];
+                    return(
+                      <div key={c.id} onClick={()=>assignLineupSlot(lineupTeam,pickingSlot.zone,pickingSlot.idx,c.id)}
+                        style={{padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",
+                          background:"#1a0800",border:`1px solid ${pc}33`,display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:28,height:28,borderRadius:7,background:pc+"22",border:`1.5px solid ${pc}44`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12,flexShrink:0}}>
+                          {positions[0]}
                         </div>
-                        <span style={{color:val>0?cat.color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{val>0?val:"-"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:13}}>{c.name}</div>
+                          <div style={{color:C.muted,fontSize:11}}>{positions.join(" / ")}</div>
+                        </div>
+                        {avgScore(c.scores)>0&&<span style={{color:rColor(avgScore(c.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avgScore(c.scores).toFixed(1)}</span>}
                       </div>
-                      {/* Score buttons 1-10 */}
-                      <div style={{display:"flex",gap:4}}>
-                        {[1,2,3,4,5,6,7,8,9,10].map(n=>(
-                          <button key={n} onClick={()=>updateScore(selCandObj.id,cat.k,n===val?0:n)}
-                            style={{flex:1,height:28,borderRadius:5,border:`1.5px solid ${n<=val?cat.color:C.border}`,
-                              background:n<=val?cat.color+"22":"transparent",
-                              color:n<=val?cat.color:C.muted,cursor:"pointer",
-                              fontWeight:700,fontSize:11,transition:"all .08s"}}>
-                            {n}
-                          </button>
-                        ))}
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Team tabs */}
+          <div style={{display:"flex",gap:8,marginBottom:18}}>
+            {LINEUP_TEAMS.map(t=>(
+              <button key={t.k} onClick={()=>setLineupTeam(t.k)}
+                style={{padding:"8px 20px",background:lineupTeam===t.k?t.color+"22":C.surface,
+                  border:`1.5px solid ${lineupTeam===t.k?t.color:C.border}`,borderRadius:9,
+                  color:lineupTeam===t.k?t.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:14}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:16}}>
+            {/* Formation + slots */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
+              {/* Formation picker */}
+              <div style={{marginBottom:16}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>FORMATION</div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                  {FORMATIONS.map(f=>(
+                    <button key={f} onClick={()=>setLineupFormation(lineupTeam,f)}
+                      style={{padding:"7px 14px",background:curLineup.formation===f?C.accent+"22":C.surface,
+                        border:`1px solid ${curLineup.formation===f?C.accent:C.border}`,borderRadius:8,
+                        color:curLineup.formation===f?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Zone slots */}
+              {ZONES.map(zone=>(
+                <div key={zone.key} style={{marginBottom:14}}>
+                  <div style={{color:zone.color,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>{zone.label.toUpperCase()}</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {(curLineup.slots[zone.key]||[]).map((candId,idx)=>{
+                      const cand=candId?tryout.candidates.find(c=>c.id===candId):null;
+                      const pc=cand?posColor(cand.primaryPos||cand.positions?.[0]||"CM"):"transparent";
+                      return(
+                        <div key={idx} onClick={()=>setPickingSlot({zone:zone.key,idx})}
+                          style={{flex:"1 1 90px",minWidth:80,padding:"10px 6px",borderRadius:10,cursor:"pointer",
+                            background:cand?"#1a0800":C.surface,
+                            border:`1.5px solid ${cand?zone.color+"66":C.border}`,
+                            display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .12s"}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor=zone.color}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor=cand?zone.color+"66":C.border}>
+                          {cand?<>
+                            <div style={{width:34,height:34,borderRadius:8,background:pc+"22",border:`2px solid ${pc}44`,
+                              display:"flex",alignItems:"center",justifyContent:"center",
+                              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:15}}>
+                              {(cand.positions||[cand.primaryPos||"CM"])[0]}
+                            </div>
+                            <div style={{color:C.text,fontSize:10,fontWeight:700,textAlign:"center",lineHeight:1.2}}>
+                              {cand.name.split(" ")[1]||cand.name.split(" ")[0]}
+                            </div>
+                            {avgScore(cand.scores)>0&&<div style={{color:rColor(avgScore(cand.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:12}}>{avgScore(cand.scores).toFixed(1)}</div>}
+                          </>:<>
+                            <div style={{width:34,height:34,borderRadius:8,background:C.border,
+                              display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:18}}>+</div>
+                            <div style={{color:C.muted,fontSize:10}}>Empty</div>
+                          </>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Unassigned candidates pool */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>CANDIDATE POOL</div>
+              <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:500,overflowY:"auto"}}>
+                {sorted.map(c=>{
+                  const positions=c.positions||[c.primaryPos||"CM"];
+                  const pc=posColor(positions[0]);
+                  const inLineup=Object.values(curLineup.slots).flat().includes(c.id);
+                  return(
+                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
+                      background:inLineup?C.accent+"11":C.surface,
+                      border:`1px solid ${inLineup?C.accent+"44":C.border}`,
+                      borderRadius:8,opacity:inLineup?.7:1}}>
+                      <div style={{width:24,height:24,borderRadius:6,flexShrink:0,background:pc+"22",
+                        border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:10}}>
+                        {positions[0]}
                       </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:C.text,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                        {positions.length>1&&<div style={{color:C.muted,fontSize:10}}>{positions.join(" / ")}</div>}
+                      </div>
+                      {inLineup&&<span style={{color:C.accent,fontSize:9,fontWeight:700,flexShrink:0}}>✓ IN</span>}
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Coach note */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>COACH NOTES</div>
-              <textarea value={selCandObj.coachNote||""} rows={3}
-                onChange={e=>updateCandField(selCandObj.id,"coachNote",e.target.value)}
-                placeholder="Observations, strengths, areas of concern..."
-                style={iS({resize:"vertical"})}/>
+      {/* ── CUSTOM STATS TAB ─────────────────────────────────────────────── */}
+      {activeTab==="stats"&&(
+        <div style={{maxWidth:700}}>
+          <div style={{color:C.muted,fontSize:13,marginBottom:18}}>
+            Define measurable stats for this tryout. These appear on every candidate's scoring panel.
+          </div>
+
+          {/* Add stat form */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>ADD MEASURABLE</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"flex-end"}}>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>STAT NAME</label>
+                <input value={newStatLabel} onChange={e=>setNewStatLabel(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&addCustomStat()}
+                  placeholder="e.g. Mile Time, 40m Sprint" style={iS()}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>UNIT</label>
+                <input value={newStatUnit} onChange={e=>setNewStatUnit(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&addCustomStat()}
+                  placeholder="e.g. min, sec, inches" style={iS()}/>
+              </div>
+              <button onClick={addCustomStat} disabled={!newStatLabel.trim()}
+                style={{padding:"9px 18px",background:newStatLabel.trim()?C.accent:"#2a1000",border:"none",borderRadius:8,
+                  color:newStatLabel.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>
+                + Add
+              </button>
             </div>
           </div>
-        ) : (
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:48,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
-            <ClipboardCheck size={40} style={{color:C.muted,opacity:.3}}/>
-            <div style={{color:C.muted,fontSize:14,textAlign:"center"}}>Select a candidate to score them</div>
-          </div>
-        )}
-      </div>
+
+          {/* Stat list */}
+          {customStats.length===0
+            ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"32px 24px",textAlign:"center"}}>
+                <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No custom stats defined yet</div>
+                <div style={{color:C.muted,fontSize:12,marginTop:6}}>Add stats like Mile Time, Vertical Jump, 40m Sprint above</div>
+              </div>
+            :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {customStats.map(stat=>(
+                  <div key={stat.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,
+                    padding:"14px 18px",display:"flex",alignItems:"center",gap:14}}>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:14}}>{stat.label}</div>
+                      {stat.unit&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>Unit: {stat.unit}</div>}
+                    </div>
+                    {/* Show top scores */}
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[...tryout.candidates]
+                        .filter(c=>c.customStats?.[stat.id]!==undefined&&c.customStats[stat.id]!=="")
+                        .sort((a,b)=>parseFloat(a.customStats[stat.id])-parseFloat(b.customStats[stat.id]))
+                        .slice(0,3)
+                        .map((c,i)=>(
+                          <div key={c.id} style={{textAlign:"center"}}>
+                            <div style={{color:i===0?C.accent:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{c.customStats[stat.id]}</div>
+                            <div style={{color:C.muted,fontSize:10}}>{c.name.split(" ")[0]}</div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                    <button onClick={()=>removeCustomStat(stat.id)}
+                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}>
+                      <X size={14}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      )}
     </div>
   );
 }
