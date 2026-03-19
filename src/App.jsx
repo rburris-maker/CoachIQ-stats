@@ -72,10 +72,10 @@ const THEMES = {
     sidebar:"#080808", sidebarBorder:"#2a1000", topbar:"#080808",
   },
   light: {
-    bg:"#f5f0eb", surface:"#ffffff", card:"#ffffff",
-    border:"#e8d5c0", accent:"#d45500", accent2:"#b34000",
-    danger:"#cc1100", warning:"#d4700a", text:"#1a0d00", muted:"#8a6040",
-    sidebar:"#1a0d05", sidebarBorder:"#2a1500", topbar:"#ffffff",
+    bg:"#f4ede4", surface:"#ffffff", card:"#fdf8f4",
+    border:"#ddc9b0", accent:"#c94d00", accent2:"#a33800",
+    danger:"#bb1100", warning:"#c4620a", text:"#180c00", muted:"#6b3d1e",
+    sidebar:"#18090a", sidebarBorder:"#2a1200", topbar:"#ffffff",
   },
 };
 // C is set dynamically in the App shell and mutated on theme change
@@ -645,7 +645,7 @@ function DashboardView({games,setView,teamName}){
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
       <div style={{marginBottom:22}}>
-        <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>SEASON OVERVIEW</div>
+        <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SEASON OVERVIEW</div>
         <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:800,lineHeight:1.1,marginTop:4}}>Marion FC Dashboard</h1>
       </div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
@@ -667,7 +667,7 @@ function DashboardView({games,setView,teamName}){
               </defs>
               <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
               <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}}/>
               <Area type="monotone" dataKey="goalsFor"     stroke={C.accent} fill="url(#gf)" strokeWidth={2} name="Scored"/>
               <Area type="monotone" dataKey="goalsAgainst" stroke={C.danger} fill="url(#ga)" strokeWidth={2} name="Conceded"/>
             </AreaChart>
@@ -679,7 +679,7 @@ function DashboardView({games,setView,teamName}){
             <BarChart data={scorers} layout="vertical" margin={{top:0,right:4,left:4,bottom:0}}>
               <XAxis type="number" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
               <YAxis type="category" dataKey="name" tick={{fill:C.text,fontSize:11}} axisLine={false} tickLine={false} width={70}/>
-              <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}}/>
               <Bar dataKey="goals" fill={C.accent} radius={[0,4,4,0]} name="Goals"/>
             </BarChart>
           </ResponsiveContainer>
@@ -903,7 +903,7 @@ function GamesView({games,setGames}){
                     </div>
                   </div>
                   {open&&(
-                    <div style={{background:"#0e0600",border:`1px solid ${C.border}`,borderTop:"none",borderRadius:"0 0 10px 10px",padding:"14px 16px 14px 60px"}}>
+                    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:"none",borderRadius:"0 0 10px 10px",padding:"14px 16px 14px 60px"}}>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                         <div>
                           <div style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,marginBottom:10}}>SCORE BREAKDOWN (base 6.0)</div>
@@ -1209,7 +1209,7 @@ function LiveTrackView({games,setGames}){
   if(!live) return(
     <div style={{padding:24,maxWidth:500,margin:"0 auto"}}>
       <div style={{marginBottom:22}}>
-        <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>LIVE TRACKER</div>
+        <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>LIVE TRACKER</div>
         <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>New Game</h1>
       </div>
       <div style={{marginBottom:14}}>
@@ -1560,7 +1560,7 @@ function PlayersView({games}){
                 <defs><linearGradient id="rt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff6b00" stopOpacity={.4}/><stop offset="100%" stopColor="#ff6b00" stopOpacity={0}/></linearGradient></defs>
                 <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
                 <YAxis domain={[4,10]} tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
-                <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}} formatter={v=>[`${v}/10`,"Rating"]}/>
+                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}} formatter={v=>[`${v}/10`,"Rating"]}/>
                 <Area type="monotone" dataKey="rating" stroke={C.accent} fill="url(#rt)" strokeWidth={2}/>
               </AreaChart>
             </ResponsiveContainer>
@@ -1619,7 +1619,7 @@ function PlayersView({games}){
           return(
             <div key={p.id} onClick={()=>setSel(p.id)}
               style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px",cursor:"pointer",transition:"all .15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background="#152040";}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.background=C.surface;}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.card;}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1673,7 +1673,7 @@ function AnalyticsView({games}){
             <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
             <XAxis dataKey="label" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
-            <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+            <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}}/>
             <Legend wrapperStyle={{color:C.muted,fontSize:12}}/>
             <Bar dataKey="goalsFor"     name="Goals Scored"   fill={C.accent} radius={[4,4,0,0]}/>
             <Bar dataKey="goalsAgainst" name="Goals Conceded" fill={C.danger} radius={[4,4,0,0]}/>
@@ -1688,7 +1688,7 @@ function AnalyticsView({games}){
               <defs><linearGradient id="pa" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff9500" stopOpacity={.35}/><stop offset="100%" stopColor="#ff9500" stopOpacity={0}/></linearGradient></defs>
               <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
               <YAxis domain={[60,95]} tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}} formatter={v=>[`${v}%`,"Pass Acc."]}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}} formatter={v=>[`${v}%`,"Pass Acc."]}/>
               <Area type="monotone" dataKey="passAcc" stroke="#ff9500" fill="url(#pa)" strokeWidth={2}/>
             </AreaChart>
           </ResponsiveContainer>
@@ -1700,7 +1700,7 @@ function AnalyticsView({games}){
               <defs><linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff9500" stopOpacity={.35}/><stop offset="100%" stopColor="#ff9500" stopOpacity={0}/></linearGradient></defs>
               <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
               <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}}/>
               <Area type="monotone" dataKey="shots" stroke={C.warning} fill="url(#sh)" strokeWidth={2} name="Shots"/>
             </AreaChart>
           </ResponsiveContainer>
@@ -1712,7 +1712,7 @@ function AnalyticsView({games}){
           <BarChart data={squad} layout="vertical" margin={{top:0,right:50,left:76,bottom:0}}>
             <XAxis type="number" domain={[0,10]} tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
             <YAxis type="category" dataKey="name" tick={{fill:C.text,fontSize:12}} axisLine={false} tickLine={false}/>
-            <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}} formatter={v=>[`${v}/10`,"Rating"]}/>
+            <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}} formatter={v=>[`${v}/10`,"Rating"]}/>
             <Bar dataKey="rating" radius={[0,4,4,0]} label={{position:"right",fill:C.muted,fontSize:11,formatter:v=>v.toFixed(1)}}>
               {squad.map((e,i)=><rect key={i} fill={posColor(e.position)}/>)}
             </Bar>
@@ -1948,7 +1948,7 @@ function RosterView({players, setPlayers, teamName}){
 
       {/* Header */}
       <div style={{marginBottom:20}}>
-        <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>SQUAD MANAGEMENT</div>
+        <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SQUAD MANAGEMENT</div>
         <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Roster</h1>
       </div>
 
@@ -2053,7 +2053,7 @@ function RosterView({players, setPlayers, teamName}){
                   {/* Edit button */}
                   <button onClick={()=>setEditPlayer(p)}
                     style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",
-                      background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:8,
+                      background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
                       color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer",
                       transition:"all .15s"}}
                     onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
@@ -2122,7 +2122,7 @@ function MoreMenu({view, setView, secondaryInActive}){
           <div onClick={()=>setOpen(false)}
             style={{position:"fixed",inset:0,zIndex:199}}/>
           <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,minWidth:180,
-            background:"#111",border:`1px solid ${C.border}`,borderRadius:12,
+            background:C.card,border:`1px solid ${C.border}`,borderRadius:12,
             boxShadow:"0 16px 40px #00000088",zIndex:200,overflow:"hidden",padding:6}}>
             {NAV_SECONDARY.map(v=>{
               const Icon=v.icon,active=view===v.id;
@@ -2183,7 +2183,7 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
           <div onClick={()=>{setOpen(false);setAdding(false);setEditing(null);}}
             style={{position:"fixed",inset:0,zIndex:199}}/>
           <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,minWidth:220,
-            background:"#111",border:`1px solid ${C.border}`,borderRadius:12,
+            background:C.card,border:`1px solid ${C.border}`,borderRadius:12,
             boxShadow:"0 16px 40px #00000088",zIndex:200,overflow:"hidden"}}>
 
             {/* Team list */}
@@ -2340,7 +2340,7 @@ export default function CoachIQStats(){
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         .sidebar-item:hover{background:#ff6b0018 !important;}
-        .card-hover:hover{border-color:#ff6b0055 !important;background:#110800 !important;}
+        .card-hover:hover{border-color:#ff6b0055 !important;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
 
@@ -2378,7 +2378,7 @@ export default function CoachIQStats(){
                 </div>
                 {/* Collapse button — always visible when expanded */}
                 <button onClick={()=>setSidebarCollapsed(true)}
-                  style={{background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:7,
+                  style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
                     color:C.muted,cursor:"pointer",padding:"5px 7px",flexShrink:0,
                     display:"flex",alignItems:"center",justifyContent:"center"}}
                   title="Collapse sidebar">
@@ -2583,7 +2583,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
         {QUICK.map(a=>{const Icon=a.icon;return(
           <button key={a.view} onClick={()=>setView(a.view)}
             style={{background:C.card,border:`1px solid ${a.color}22`,borderRadius:13,padding:"16px 18px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"all .15s",position:"relative"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=a.color+"77";e.currentTarget.style.background="#1a0800";}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=a.color+"77";e.currentTarget.style.background=C.surface;}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor=a.color+"22";e.currentTarget.style.background=C.card;}}>
             <div style={{width:40,height:40,borderRadius:10,background:a.color+"22",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <Icon size={19} color={a.color}/>
@@ -2647,7 +2647,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
                 <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
                 <div style={{flex:1}}>
                   <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</div>
-                  <div style={{height:4,background:"#1a0800",borderRadius:99,marginTop:4,overflow:"hidden"}}>
+                  <div style={{height:4,background:C.border,borderRadius:99,marginTop:4,overflow:"hidden"}}>
                     <div style={{width:`${Math.min(((p.avg-5)/5)*100,100)}%`,height:"100%",background:rColor(p.avg),borderRadius:99}}/>
                   </div>
                 </div>
@@ -2801,7 +2801,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
           <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
-            style={{background:"#1a0800",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+            style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Trash2 size={13}/>Delete
           </button>
         </div>
@@ -2816,7 +2816,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
               </div>
               <div style={{overflowY:"auto",flex:1}}>
                 <div onClick={()=>{assignSlot(picking.zone,picking.idx,null);setPicking(null);}}
-                  style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:"#1a0800",border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
+                  style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:C.surface,border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
                   — Clear slot
                 </div>
                 {roster.map(p=>{
@@ -2824,7 +2824,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
                   return(
                     <div key={p.id} onClick={()=>{assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
                       style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
-                        background:inUse?"#111":"#1a0800",border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
+                        background:inUse?C.surface:C.bg,border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
                         opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
                       <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
                       <div style={{flex:1}}>
@@ -2980,7 +2980,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
     <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>PREPARATION</div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>PREPARATION</div>
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Game Plans</h1>
         </div>
         <button onClick={()=>setCreating(true)}
@@ -3194,7 +3194,7 @@ function PracticeView({practices, setPractices, gamePlans, roster}){
     <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2}}>TRAINING</div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice Log</h1>
         </div>
         <button onClick={()=>setCreating(true)}
