@@ -649,7 +649,6 @@ function DashboardView({games,setView,teamName}){
         <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:800,lineHeight:1.1,marginTop:4}}>Marion FC Dashboard</h1>
       </div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-        <Badge label="Points"     value={ts.points}       icon={Trophy} accent={C.accent}/>
         <Badge label="Wins"       value={ts.wins}          accent={C.accent}/>
         <Badge label="Draws"      value={ts.draws}         accent={C.warning}/>
         <Badge label="Losses"     value={ts.losses}        accent={C.danger}/>
@@ -855,7 +854,7 @@ function GamesView({games,setGames}){
           <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
             {[["Shots",tSh],["On Target",tSoT],["Pass Acc.",`${pacc}%`],["Passes",tPC]].map(([l,v])=>(
               <div key={l} style={{background:"#ffffff08",borderRadius:8,padding:"8px 14px"}}>
-                <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{l}</div>
+                <div style={{color:"#ffffff66",fontSize:10,fontWeight:600}}>{l}</div>
                 <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700}}>{v}</div>
               </div>
             ))}
@@ -2371,7 +2370,7 @@ export default function CoachIQStats(){
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <AppLogo size={38} glow={true}/>
                   <div>
-                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:13,letterSpacing:1,whiteSpace:"nowrap",textTransform:"uppercase"}}>
+                    <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:13,letterSpacing:1,whiteSpace:"nowrap",textTransform:"uppercase"}}>
                       COACHIQ <span style={{color:C.accent}}>STATS</span>
                     </div>
                   </div>
@@ -2465,12 +2464,12 @@ export default function CoachIQStats(){
             const ts=teamSum(games);
             return(
               <div style={{padding:"12px 16px",borderTop:`1px solid ${C.sidebarBorder}`}}>
-                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>THIS SEASON</div>
+                <div style={{color:"#ffffff88",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>THIS SEASON</div>
                 <div style={{display:"flex",gap:10}}>
                   {[["W",ts.wins,C.accent],["D",ts.draws,C.warning],["L",ts.losses,C.danger]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,textAlign:"center"}}>
                       <div style={{color:c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{v}</div>
-                      <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{l}</div>
+                      <div style={{color:"#ffffff66",fontSize:10,fontWeight:600}}>{l}</div>
                     </div>
                   ))}
                 </div>
@@ -2550,20 +2549,19 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
       {/* Hero */}
       <div style={{background:"linear-gradient(135deg,#0d0400,#1a0600)",border:"1px solid #3a1a00",borderRadius:18,padding:"28px 32px",marginBottom:22,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",right:-20,top:-20,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,#ff6b0012,transparent)"}}/>
-        <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:6}}>WELCOME BACK</div>
-        <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:34,fontWeight:900,lineHeight:1.1,marginBottom:18}}>
+        <div style={{color:"#ffffff88",fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:6}}>WELCOME BACK</div>
+        <h1 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:34,fontWeight:900,lineHeight:1.1,marginBottom:18}}>
           {teamName||"Your Team"} <span style={{color:C.accent}}>Season</span>
         </h1>
         <div style={{display:"flex",gap:28,flexWrap:"wrap",alignItems:"flex-end"}}>
           <div>
-            <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>{ts.points}</div>
-            <div style={{color:C.muted,fontSize:12,fontWeight:600,marginTop:2}}>Points</div>
+            <div style={{color:"#ffffff88",fontSize:12,fontWeight:600,marginTop:2}}>Points</div>
           </div>
           <div>
             <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>
-              {ts.wins}<span style={{color:C.muted,fontSize:22}}>-{ts.draws}-{ts.losses}</span>
+              {ts.wins}<span style={{color:"#ffffff88",fontSize:22}}>-{ts.draws}-{ts.losses}</span>
             </div>
-            <div style={{color:C.muted,fontSize:12,fontWeight:600,marginTop:2}}>W-D-L · {ts.played} played</div>
+            <div style={{color:"#ffffff88",fontSize:12,fontWeight:600,marginTop:2}}>W-D-L · {ts.played} played</div>
           </div>
           {form5.length>0&&(
             <div>
@@ -2572,7 +2570,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
                   <div key={i} style={{width:30,height:30,borderRadius:7,background:c+"25",border:`1.5px solid ${c}`,display:"flex",alignItems:"center",justifyContent:"center",color:c,fontWeight:900,fontSize:12}}>{r}</div>
                 );})}
               </div>
-              <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Last {form5.length} results</div>
+              <div style={{color:"#ffffff88",fontSize:12,fontWeight:600}}>Last {form5.length} results</div>
             </div>
           )}
         </div>
