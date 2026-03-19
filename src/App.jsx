@@ -4260,8 +4260,8 @@ function TryoutsView({tryouts, setTryouts}){
   const [selCand,   setSelCand]     = useState(null);
   const [creating,  setCreating]    = useState(false);
   const [addingCand,setAddingCand]  = useState(false);
-  const [tForm,     setTForm]       = useState({name:"",year:new Date().getFullYear().toString()});
-  const [cForm,     setCForm]       = useState({name:"",age:"",school:"",position:"CM",notes:""});
+  const [tForm,     setTForm]       = useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
+  const [cForm,     setCForm]       = useState({name:"",grade:"9",club:"",position:"CM",notes:""});
 
   const SCORE_CATS = [
     {k:"technical",  label:"Technical",   desc:"Ball control, passing, first touch",color:"#ff6b00"},
@@ -4271,10 +4271,19 @@ function TryoutsView({tryouts, setTryouts}){
     {k:"positional", label:"Positional",  desc:"Quality in their specific role",    color:"#7c6af5"},
   ];
 
-  const STATUS_OPTS = [
+  // Status options differ by team type — stored on the tryout itself
+  const HS_STATUS = [
     {k:"prospect", label:"Prospect", color:C.muted},
-    {k:"offered",  label:"Offered",  color:"#66bb6a"},
-    {k:"signed",   label:"Signed",   color:C.accent},
+    {k:"varsity",  label:"Varsity",  color:C.accent},
+    {k:"jv",       label:"JV",       color:"#ffb300"},
+    {k:"jvb",      label:"JVB",      color:"#42a5f5"},
+    {k:"cut",      label:"Cut",      color:C.danger},
+  ];
+  const CLUB_STATUS = [
+    {k:"prospect", label:"Prospect", color:C.muted},
+    {k:"varsity",  label:"Varsity",  color:C.accent},
+    {k:"jv",       label:"JV",       color:"#ffb300"},
+    {k:"jvb",      label:"JVB",      color:"#42a5f5"},
     {k:"cut",      label:"Cut",      color:C.danger},
   ];
 
@@ -4286,19 +4295,21 @@ function TryoutsView({tryouts, setTryouts}){
   function createTryout(){
     if(!tForm.name.trim()) return;
     const t={id:`try${Date.now()}`,name:tForm.name.trim(),year:tForm.year,
-      status:"open",candidates:[],createdAt:new Date().toISOString()};
+      teamType:tForm.teamType||"highschool",status:"open",candidates:[],createdAt:new Date().toISOString()};
     setTryouts(prev=>[t,...prev]);
     setSelTryout(t.id); setCreating(false);
   }
 
   function addCandidate(){
     if(!cForm.name.trim()) return;
-    const c={id:`c${Date.now()}`,name:cForm.name.trim(),age:cForm.age,
-      school:cForm.school,position:cForm.position,
+    const c={id:`c${Date.now()}`,name:cForm.name.trim(),
+      grade: tryout?.teamType==="highschool" ? cForm.grade : "",
+      club:  tryout?.teamType==="club" ? cForm.club : "",
+      position:cForm.position,
       scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
       status:"prospect",notes:cForm.notes,coachNote:""};
     setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,candidates:[...t.candidates,c]}:t));
-    setCForm({name:"",age:"",school:"",position:"CM",notes:""});
+    setCForm({name:"",grade:"9",club:"",position:"CM",notes:""});
     setAddingCand(false);
     setSelCand(c.id);
   }
@@ -4345,9 +4356,20 @@ function TryoutsView({tryouts, setTryouts}){
       {creating&&(
         <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW TRYOUT SESSION</div>
+          {/* Team type selector */}
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[{k:"highschool",label:"High School"},{k:"club",label:"Club"}].map(opt=>(
+              <button key={opt.k} onClick={()=>setTForm(f=>({...f,teamType:opt.k}))}
+                style={{flex:1,padding:"9px",background:tForm.teamType===opt.k?C.accent+"22":C.surface,
+                  border:`1px solid ${tForm.teamType===opt.k?C.accent:C.border}`,borderRadius:9,
+                  color:tForm.teamType===opt.k?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10,marginBottom:12}}>
             <input value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))}
-              placeholder="e.g. Varsity 2025-26 Tryouts" style={iS()}/>
+              placeholder={tForm.teamType==="highschool"?"e.g. Varsity 2025-26":"e.g. U16 Spring Tryouts"} style={iS()}/>
             <input value={tForm.year} onChange={e=>setTForm(f=>({...f,year:e.target.value}))}
               placeholder="Year" style={iS()}/>
           </div>
@@ -4389,6 +4411,7 @@ function TryoutsView({tryouts, setTryouts}){
                   <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{t.name}</div>
                   <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
                     <span style={{color:C.muted,fontSize:12}}>{t.year}</span>
+                    <span style={{color:C.muted,fontSize:12,background:C.surface,padding:"1px 7px",borderRadius:5,border:`1px solid ${C.border}`}}>{t.teamType==="club"?"Club":"High School"}</span>
                     <span style={{color:C.muted,fontSize:12}}>{t.candidates.length} candidates</span>
                     {signed>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{signed} signed</span>}
                     {offered>0&&<span style={{color:"#66bb6a",fontSize:12,fontWeight:700}}>{offered} offered</span>}
@@ -4414,6 +4437,7 @@ function TryoutsView({tryouts, setTryouts}){
   const tryout = tryouts.find(t=>t.id===selTryout);
   if(!tryout) return null;
 
+  const STATUS_OPTS = tryout.teamType==="club" ? CLUB_STATUS : HS_STATUS;
   const sorted = [...tryout.candidates].sort((a,b)=>avgScore(b.scores)-avgScore(a.scores));
   const selCandObj = selCand ? tryout.candidates.find(c=>c.id===selCand) : null;
 
@@ -4452,13 +4476,21 @@ function TryoutsView({tryouts, setTryouts}){
       {addingCand&&(
         <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW CANDIDATE</div>
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+          <div style={{display:"grid",gridTemplateColumns:tryout.teamType==="club"?"2fr 1fr 1fr 1fr":"2fr 1fr 1fr",gap:10,marginBottom:10}}>
             <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))}
               placeholder="Full Name *" style={iS()}/>
-            <input value={cForm.age} onChange={e=>setCForm(f=>({...f,age:e.target.value}))}
-              placeholder="Age/Grade" style={iS()}/>
-            <input value={cForm.school} onChange={e=>setCForm(f=>({...f,school:e.target.value}))}
-              placeholder="School/Club" style={iS()}/>
+            {/* Grade dropdown for HS, Club input for Club */}
+            {tryout.teamType==="highschool" ? (
+              <select value={cForm.grade} onChange={e=>setCForm(f=>({...f,grade:e.target.value}))} style={iS()}>
+                <option value="9">Grade 9</option>
+                <option value="10">Grade 10</option>
+                <option value="11">Grade 11</option>
+                <option value="12">Grade 12</option>
+              </select>
+            ) : (
+              <input value={cForm.club} onChange={e=>setCForm(f=>({...f,club:e.target.value}))}
+                placeholder="Club / Team" style={iS()}/>
+            )}
             <select value={cForm.position} onChange={e=>setCForm(f=>({...f,position:e.target.value}))} style={iS()}>
               {["GK","CB","FB","DM","CM","W","ST"].map(p=><option key={p}>{p}</option>)}
             </select>
@@ -4513,7 +4545,7 @@ function TryoutsView({tryouts, setTryouts}){
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                      <div style={{color:C.muted,fontSize:11}}>{c.age&&`${c.age} · `}{c.school}</div>
+                      <div style={{color:C.muted,fontSize:11}}>{tryout.teamType==="highschool"?(c.grade?`Grade ${c.grade}`:""):(c.club||"")}</div>
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
                       {avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{avg.toFixed(1)}</div>}
@@ -4540,9 +4572,9 @@ function TryoutsView({tryouts, setTryouts}){
               <div style={{flex:1}}>
                 <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div>
                 <div style={{color:C.muted,fontSize:13,marginTop:2}}>
-                  {selCandObj.age&&`Age/Grade: ${selCandObj.age}`}
-                  {selCandObj.age&&selCandObj.school&&" · "}
-                  {selCandObj.school}
+                  {tryout.teamType==="highschool"
+                    ? selCandObj.grade ? `Grade ${selCandObj.grade}` : ""
+                    : selCandObj.club || ""}
                 </div>
               </div>
               {/* Overall score */}
