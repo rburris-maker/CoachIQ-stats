@@ -2551,14 +2551,11 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
         <div style={{position:"absolute",right:-20,top:-20,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,#ff6b0012,transparent)"}}/>
         <div style={{color:"#ffffff88",fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:6}}>WELCOME BACK</div>
         <h1 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:34,fontWeight:900,lineHeight:1.1,marginBottom:18}}>
-          {teamName||"Your Team"} <span style={{color:C.accent}}>Season</span>
+          {teamName||"Your Team"}
         </h1>
         <div style={{display:"flex",gap:28,flexWrap:"wrap",alignItems:"flex-end"}}>
           <div>
-            <div style={{color:"#ffffff88",fontSize:12,fontWeight:600,marginTop:2}}>Points</div>
-          </div>
-          <div>
-            <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>
+            <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:44,fontWeight:900,lineHeight:1}}>
               {ts.wins}<span style={{color:"#ffffff88",fontSize:22}}>-{ts.draws}-{ts.losses}</span>
             </div>
             <div style={{color:"#ffffff88",fontSize:12,fontWeight:600,marginTop:2}}>W-D-L · {ts.played} played</div>
