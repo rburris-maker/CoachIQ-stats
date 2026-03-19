@@ -2757,34 +2757,75 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>NEXT GAME PLAN</div>
             <button onClick={()=>setView("gameplan")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>View all →</button>
           </div>
-          {upcoming?(
+          {upcoming ? (
             <div>
-              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:4}}>vs {upcoming.opponent}</div>
-              <div style={{display:"flex",gap:12,color:C.muted,fontSize:12,marginBottom:14,flexWrap:"wrap"}}>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{upcoming.date}</span>
-                <span>{upcoming.location}</span><span>{upcoming.formation}</span>
+              {/* Opponent + meta */}
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:6,
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                vs {upcoming.opponent}
               </div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+                <span style={{display:"flex",alignItems:"center",gap:4,color:C.muted,fontSize:12}}>
+                  <Calendar size={11}/>{upcoming.date}
+                </span>
+                {upcoming.location&&<span style={{color:C.muted,fontSize:12}}>{upcoming.location}</span>}
+                {upcoming.formation&&<span style={{color:C.muted,fontSize:12}}>{upcoming.formation}</span>}
+              </div>
+
+              {/* Lineup preview — safe guard against missing lineup */}
               {(()=>{
-                const assigned=Object.values(upcoming.lineup).flat().filter(Boolean);
-                const total=Object.values(upcoming.lineup).flat().length;
+                const lineup = upcoming.lineup || {};
+                const allSlots = Object.values(lineup).flat();
+                const assigned = allSlots.filter(Boolean);
+                const total    = allSlots.length;
+                if(total === 0) return(
+                  <div style={{color:C.muted,fontSize:12,fontStyle:"italic"}}>Lineup not set yet</div>
+                );
                 return(
                   <div>
-                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
-                      {assigned.slice(0,9).map(pid=>{const p=roster.find(r=>r.id===pid);if(!p)return null;return(
-                        <div key={pid} style={{width:28,height:28,borderRadius:6,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:12}}>{p.number}</div>
-                      );})}
-                      {assigned.length>9&&<div style={{width:28,height:28,borderRadius:6,background:C.surface,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:10,fontWeight:700}}>+{assigned.length-9}</div>}
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+                      {assigned.slice(0,10).map(pid=>{
+                        const p=roster.find(r=>r.id===pid);
+                        if(!p) return null;
+                        const pc=posColor(primaryPos(p));
+                        return(
+                          <div key={pid} style={{width:30,height:30,borderRadius:7,
+                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
+                            {p.number}
+                          </div>
+                        );
+                      })}
+                      {assigned.length>10&&(
+                        <div style={{width:30,height:30,borderRadius:7,background:C.surface,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          color:C.muted,fontSize:10,fontWeight:700}}>
+                          +{assigned.length-10}
+                        </div>
+                      )}
                     </div>
-                    <div style={{color:C.muted,fontSize:12}}>{assigned}/{total} set · {upcoming.subs.length} subs planned</div>
+                    <div style={{display:"flex",gap:14,color:C.muted,fontSize:12}}>
+                      <span style={{color:assigned.length===total?C.accent:C.warning,fontWeight:600}}>
+                        {assigned.length}/{total} set
+                      </span>
+                      {(upcoming.subs||[]).length>0&&(
+                        <span>{(upcoming.subs||[]).length} sub{(upcoming.subs||[]).length!==1?"s":""} planned</span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
             </div>
-          ):(
-            <div style={{textAlign:"center",padding:"20px 0"}}>
-              <BookOpen size={28} style={{color:C.muted,opacity:.3,marginBottom:8}}/>
-              <div style={{color:C.muted,fontSize:13,marginBottom:10}}>No upcoming game plan</div>
-              <button onClick={()=>setView("gameplan")} style={{padding:"7px 16px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>Create one →</button>
+          ) : (
+            <div style={{textAlign:"center",padding:"24px 0"}}>
+              <BookOpen size={28} style={{color:C.muted,opacity:.3,marginBottom:10}}/>
+              <div style={{color:C.muted,fontSize:13,marginBottom:12}}>No upcoming game plan</div>
+              <button onClick={()=>setView("gameplan")}
+                style={{padding:"7px 16px",background:C.accent+"22",border:`1px solid ${C.accent}44`,
+                  borderRadius:8,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                Create one →
+              </button>
             </div>
           )}
         </div>
