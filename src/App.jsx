@@ -2389,12 +2389,14 @@ export default function CoachIQStats(){
   const [allGames,     setAllGames]     = useLocalStorage("coachiq_games",     {[INIT_TEAM_ID]: GAMES});
   const [allGamePlans, setAllGamePlans] = useLocalStorage("coachiq_gameplans", {[INIT_TEAM_ID]: []});
   const [allPractices, setAllPractices] = useLocalStorage("coachiq_practices", {[INIT_TEAM_ID]: []});
+  const [allDrills,    setAllDrills]    = useLocalStorage("coachiq_drills",    {[INIT_TEAM_ID]: []});
 
   const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
   const roster    = allRosters[safeTeamId]   || DEFAULT_PLAYERS;
   const games     = allGames[safeTeamId]     || [];
   const gamePlans = allGamePlans[safeTeamId] || [];
   const practices = allPractices[safeTeamId] || [];
+  const drills    = allDrills[safeTeamId]     || [];
 
   // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
@@ -2415,6 +2417,10 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(practices) : val;
     setAllPractices(prev=>({...prev,[safeTeamId]:resolved}));
   }
+  function setDrills(val){
+    const resolved = typeof val==="function" ? val(drills) : val;
+    setAllDrills(prev=>({...prev,[safeTeamId]:resolved}));
+  }
 
   // ── Team management ───────────────────────────────────────────────────────
   function addTeam(name){
@@ -2424,6 +2430,7 @@ export default function CoachIQStats(){
     setAllGames(prev=>({...prev,[id]:[]}));
     setAllGamePlans(prev=>({...prev,[id]:[]}));
     setAllPractices(prev=>({...prev,[id]:[]}));
+    setAllDrills(prev=>({...prev,[id]:[]}));
     setActiveTeamId(id);
     setView("home");
   }
@@ -2441,6 +2448,7 @@ export default function CoachIQStats(){
     setAllGames(prev=>{const n={...prev};delete n[id];return n;});
     setAllGamePlans(prev=>{const n={...prev};delete n[id];return n;});
     setAllPractices(prev=>{const n={...prev};delete n[id];return n;});
+    setAllDrills(prev=>{const n={...prev};delete n[id];return n;});
     if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
   }
 
@@ -2638,7 +2646,7 @@ export default function CoachIQStats(){
             {view==="analytics" &&<AnalyticsView games={games}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
-            {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster}/>}
+            {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
           </div>
@@ -3155,6 +3163,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [selPlayer,setSelPlayer] = useState("");
   const [noteText,setNoteText]   = useState("");
   const [drillName,setDrillName] = useState("");
+  const planRef = useRef(null);
 
   const FOCUS_TAGS   = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
   const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
@@ -3254,7 +3263,26 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim()}]);
       setDrillName("");
     }
-    function insertDrill(name){ upd(s=>({plan:(s.plan?s.plan+"\n":"")+name})); }
+    function insertDrill(name){
+      const ta = planRef.current;
+      if(ta){
+        const start = ta.selectionStart;
+        const end   = ta.selectionEnd;
+        const cur   = session.plan||"";
+        const before = cur.slice(0,start);
+        const after  = cur.slice(end);
+        const insert = (before&&!before.endsWith("\n")?"\n":"")+name+"\n";
+        const newVal = before+insert+after;
+        upd(()=>({plan:newVal}));
+        // restore cursor after inserted text
+        setTimeout(()=>{
+          ta.focus();
+          ta.setSelectionRange(start+insert.length,start+insert.length);
+        },10);
+      } else {
+        upd(s=>({plan:(s.plan?s.plan+"\n":"")+name}));
+      }
+    }
 
     const ATT=[{k:"present",label:"✓",color:C.accent},{k:"absent",label:"✗",color:C.danger},{k:"injured",label:"⚕",color:C.warning}];
 
@@ -3306,7 +3334,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         <div style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>SESSION PLAN</div>
-            <textarea value={session.plan||""} onChange={e=>upd(()=>({plan:e.target.value}))} rows={10}
+            <textarea ref={planRef} value={session.plan||""} onChange={e=>upd(()=>({plan:e.target.value}))} rows={10}
               placeholder="Write your session plan here..." style={iS({resize:"vertical"})}/>
           </div>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:10}}>
