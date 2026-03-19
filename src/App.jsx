@@ -1342,50 +1342,67 @@ function LiveTrackView({games,setGames}){
             const isFlashing = flash?.pid===player.id;
             const canLog = !!activeStat && !(STAT_BTNS.find(b=>b.k===activeStat)?.gkOnly && !allPos(player).includes("GK"));
 
+            // Calculate minutes on pitch
+            const minsOnPitch = (()=>{
+              const pm = playerMins[player.id];
+              if(!pm) return 0;
+              const start = pm.startMin ?? 0;
+              const acc   = pm.totalMins || 0;
+              return acc + (min - start);
+            })();
+
             return(
               <div key={player.id}
-                onClick={()=>canLog&&logStat(player.id)}
-                style={{borderRadius:12,padding:"10px 6px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-                  cursor:canLog?"pointer":"default",transition:"all .1s",
+                style={{borderRadius:12,padding:"8px 6px 6px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                  position:"relative",transition:"all .1s",
                   background: isFlashing ? (activeStat_def?.color||C.accent)+"44" : activeStat&&canLog ? "#1a0800" : C.card,
                   border: `2px solid ${isFlashing ? (activeStat_def?.color||C.accent) : activeStat&&canLog ? (activeStat_def?.color||C.accent)+"44" : C.border}`,
                   transform: isFlashing ? "scale(0.95)" : "scale(1)",
                   opacity: canLog||!activeStat ? 1 : 0.35}}>
 
-                {/* Jersey number */}
-                <div style={{width:44,height:44,borderRadius:10,
-                  background:pc+"22",border:`2px solid ${pc}55`,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:22}}>
-                  {player.number}
-                </div>
+                {/* Bench button — top-right corner */}
+                <button
+                  onClick={e=>toggleBench(player.id,e)}
+                  title="Move to bench"
+                  style={{position:"absolute",top:4,right:4,width:18,height:18,borderRadius:4,
+                    background:"#2a1000",border:`1px solid ${C.border}`,
+                    color:C.muted,cursor:"pointer",fontSize:10,fontWeight:900,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    lineHeight:1,zIndex:2}}
+                  onMouseEnter={e=>{e.currentTarget.style.background=C.warning+"33";e.currentTarget.style.color=C.warning;e.currentTarget.style.borderColor=C.warning;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="#2a1000";e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>
+                  ↓
+                </button>
 
-                {/* Name */}
-                <div style={{color:C.text,fontWeight:700,fontSize:11,textAlign:"center",lineHeight:1.2,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {player.name.split(" ")[1]||player.name}
-                </div>
+                {/* Tap zone — jersey + name + rating */}
+                <div onClick={()=>canLog&&logStat(player.id)}
+                  style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                    cursor:canLog?"pointer":"default",width:"100%"}}>
 
-                {/* Rating + active stat count + mins */}
-                <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  <span style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{rating.toFixed(1)}</span>
-                  {val!==null&&val>0&&(
-                    <span style={{background:(activeStat_def?.color||C.accent)+"33",color:activeStat_def?.color||C.accent,borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>{val}</span>
-                  )}
-                </div>
-                <div style={{color:C.muted,fontSize:9,fontWeight:600}}>
-                  {(()=>{
-                    const pm = playerMins[player.id];
-                    if(!pm) return `0'`;
-                    const start = pm.startMin ?? 0;
-                    const acc   = pm.totalMins || 0;
-                    const live_ = !benched.has(player.id) ? (min - start) : 0;
-                    return `${acc + live_}'`;
-                  })()}
-                </div>
+                  {/* Jersey number */}
+                  <div style={{width:44,height:44,borderRadius:10,
+                    background:pc+"22",border:`2px solid ${pc}55`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:22}}>
+                    {player.number}
+                  </div>
 
-                {/* Bench button */}
-                <button onClick={e=>toggleBench(player.id,e)}
-                  style={{position:"absolute",display:"none"}} aria-hidden/>
+                  {/* Name */}
+                  <div style={{color:C.text,fontWeight:700,fontSize:11,textAlign:"center",lineHeight:1.2,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {player.name.split(" ")[1]||player.name}
+                  </div>
+
+                  {/* Rating + stat count */}
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{rating.toFixed(1)}</span>
+                    {val!==null&&val>0&&(
+                      <span style={{background:(activeStat_def?.color||C.accent)+"33",color:activeStat_def?.color||C.accent,borderRadius:4,padding:"0 4px",fontSize:10,fontWeight:800}}>{val}</span>
+                    )}
+                  </div>
+
+                  {/* Minutes on pitch */}
+                  <div style={{color:C.warning,fontSize:9,fontWeight:700}}>{minsOnPitch}'</div>
+                </div>
               </div>
             );
           })}
@@ -1405,14 +1422,20 @@ function LiveTrackView({games,setGames}){
                   <div key={player.id}
                     onClick={()=>toggleBench(player.id,{stopPropagation:()=>{}})}
                     style={{borderRadius:10,padding:"8px 4px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,
-                      cursor:"pointer",opacity:.45,background:C.card,border:`1px solid ${C.border}`}}>
+                      cursor:"pointer",background:C.card,border:`1px solid ${C.border}`,
+                      opacity:.6,transition:"opacity .15s"}}
+                    onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                    onMouseLeave={e=>e.currentTarget.style.opacity=".6"}>
                     <div style={{width:34,height:34,borderRadius:8,background:pc+"22",border:`2px solid ${pc}44`,
                       display:"flex",alignItems:"center",justifyContent:"center",
                       fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:17}}>
                       {player.number}
                     </div>
                     <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{player.name.split(" ")[1]||player.name}</div>
-                    <div style={{color:C.accent,fontSize:9,fontWeight:700}}>TAP TO SUB ON</div>
+                    <div style={{color:C.muted,fontSize:9,fontWeight:700}}>
+                      {(()=>{const pm=playerMins[player.id];return `${pm?.totalMins||0}'`})()}
+                    </div>
+                    <div style={{color:C.accent,fontSize:9,fontWeight:700,letterSpacing:.5}}>↑ SUB ON</div>
                   </div>
                 );
               })}
