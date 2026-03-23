@@ -933,7 +933,7 @@ function parseGameSpreadsheet(file) {
 }
 
 // ─── GAMES VIEW ───────────────────────────────────────────────────────────────
-function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster}){
+function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam}){
   const [sel,setSel]=useState(null);
   const [aiTxt,setAiTxt]=useState("");
   const [loading,setLoading]=useState(false);
@@ -2217,6 +2217,43 @@ function AnalyticsView({games, roster, practices}){
 }
 // ─── APP SHELL ────────────────────────────────────────────────────────────────
 
+
+// ─── TEAM BAR ─────────────────────────────────────────────────────────────────
+// Quick-switch bar shown at top of Roster and Games pages
+function TeamBar({teams, activeTeamId, onSwitchTeam}){
+  if(!teams || teams.length <= 1) return null;
+  const TYPE_COLORS = {varsity:"#ff6b00",jv:"#ffb300",jvb:"#42a5f5",other:"#7c6af5"};
+  // Sort: varsity first, then jv, jvb, other
+  const ORDER = {varsity:0,jv:1,jvb:2,other:3};
+  const sorted = [...teams].sort((a,b)=>(ORDER[a.type||"other"]||0)-(ORDER[b.type||"other"]||0));
+  return(
+    <div style={{display:"flex",gap:8,padding:"12px 20px 0",flexWrap:"wrap"}}>
+      {sorted.map(t=>{
+        const col = TYPE_COLORS[t.type||"other"];
+        const isActive = t.id===activeTeamId;
+        return(
+          <button key={t.id} onClick={()=>!isActive&&onSwitchTeam(t.id)}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"8px 16px",
+              background:isActive?col+"22":C.card,
+              border:`1.5px solid ${isActive?col:C.border}`,
+              borderRadius:10,cursor:isActive?"default":"pointer",
+              fontWeight:isActive?700:500,fontSize:13,
+              color:isActive?col:C.muted,transition:"all .15s"}}>
+            {t.type&&t.type!=="other"&&(
+              <span style={{fontSize:9,fontWeight:800,padding:"2px 6px",
+                borderRadius:4,background:col+"22",color:col,letterSpacing:.5}}>
+                {t.type.toUpperCase()}
+              </span>
+            )}
+            {t.name}
+            {isActive&&<span style={{width:6,height:6,borderRadius:"50%",background:col,marginLeft:2}}/>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── ROSTER VIEW ──────────────────────────────────────────────────────────────
 // ── Shared input style ────────────────────────────────────────────────────────
 const iStyle = (extra={}) => ({
@@ -2425,7 +2462,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   );
 }
 
-function RosterView({players, setPlayers, teamName}){
+function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam}){
   const [msg,setMsg]             = useState(null);
   const [importing,setImporting] = useState(false);
   const [confirmClear,setConfirmClear] = useState(false);
@@ -2693,17 +2730,27 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
   const [open,setOpen]     = useState(false);
   const [adding,setAdding] = useState(false);
   const [newName,setNewName]= useState("");
-  const [editing,setEditing]= useState(null); // {id,name}
+  const [newType,setNewType]= useState("varsity");
+  const [editing,setEditing]= useState(null); // {id,name,type}
   const activeTeam = teams.find(t=>t.id===activeTeamId) || teams[0];
+
+  const TYPE_OPTS = [
+    {k:"varsity",label:"Varsity",color:"#ff6b00"},
+    {k:"jv",     label:"JV",     color:"#ffb300"},
+    {k:"jvb",    label:"JVB",    color:"#42a5f5"},
+    {k:"other",  label:"Other",  color:"#7c6af5"},
+  ];
+  const typeColor = k => TYPE_OPTS.find(t=>t.k===k)?.color||"#7c6af5";
+  const typeLabel = k => TYPE_OPTS.find(t=>t.k===k)?.label||"";
 
   function addTeam(){
     if(!newName.trim()) return;
-    onAdd(newName.trim());
-    setNewName(""); setAdding(false);
+    onAdd(newName.trim(), newType);
+    setNewName(""); setNewType("varsity"); setAdding(false);
   }
   function saveRename(){
     if(!editing.name.trim()) return;
-    onRename(editing.id, editing.name.trim());
+    onRename(editing.id, editing.name.trim(), editing.type||'other');
     setEditing(null);
   }
 
@@ -2735,23 +2782,38 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
                   background:t.id===activeTeamId?"#ff6b0012":"transparent",
                   borderBottom:`1px solid ${C.border}`}}>
                 {editing?.id===t.id ? (
-                  <>
+                  <div style={{display:"flex",flexDirection:"column",gap:5,flex:1}}>
                     <input value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})}
                       onKeyDown={e=>e.key==="Enter"&&saveRename()}
                       autoFocus
                       style={{flex:1,background:C.surface,border:`1px solid ${C.accent}`,borderRadius:6,
-                        color:C.text,fontSize:13,padding:"4px 8px",outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
-                    <button onClick={saveRename} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",padding:2,fontSize:11,fontWeight:700}}>Save</button>
-                    <button onClick={()=>setEditing(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2}}><X size={12}/></button>
-                  </>
+                        color:C.text,fontSize:13,padding:"4px 8px",outline:"none",fontFamily:"'Outfit',sans-serif",width:"100%"}}/>
+                    <div style={{display:"flex",gap:4}}>
+                      {TYPE_OPTS.map(opt=>(
+                        <button key={opt.k} onClick={()=>setEditing({...editing,type:opt.k})}
+                          style={{flex:1,padding:"3px 0",fontSize:10,fontWeight:700,cursor:"pointer",
+                            border:`1px solid ${editing.type===opt.k?opt.color:C.border}`,borderRadius:4,
+                            background:editing.type===opt.k?opt.color+"22":"transparent",
+                            color:editing.type===opt.k?opt.color:C.muted}}>{opt.label}</button>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:4}}>
+                      <button onClick={saveRename} style={{flex:1,padding:"4px",background:C.accent,border:"none",borderRadius:5,color:"#000",fontWeight:700,fontSize:11,cursor:"pointer"}}>Save</button>
+                      <button onClick={()=>setEditing(null)} style={{padding:"4px 7px",background:"none",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,cursor:"pointer",fontSize:11}}>Cancel</button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <span onClick={()=>{onSwitch(t.id);setOpen(false);}}
                       style={{flex:1,color:t.id===activeTeamId?C.accent:C.text,fontWeight:t.id===activeTeamId?700:500,
-                        fontSize:13,cursor:"pointer"}}>
-                      {t.id===activeTeamId&&<span style={{color:C.accent,marginRight:6}}>✓</span>}{t.name}
+                        fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:7}}>
+                      {t.id===activeTeamId&&<span style={{color:C.accent}}>✓</span>}
+                      <span>{t.name}</span>
+                      {t.type&&t.type!=="other"&&<span style={{fontSize:9,fontWeight:700,padding:"1px 6px",
+                        borderRadius:4,background:typeColor(t.type)+"22",color:typeColor(t.type),
+                        letterSpacing:.5}}>{typeLabel(t.type).toUpperCase()}</span>}
                     </span>
-                    <button onClick={()=>setEditing({id:t.id,name:t.name})}
+                    <button onClick={()=>setEditing({id:t.id,name:t.name,type:t.type||"other"})}
                       style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,opacity:.7}}
                       title="Rename"><Pencil size={11}/></button>
                     {teams.length>1&&(
@@ -2767,17 +2829,28 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
             {/* Add team */}
             <div style={{padding:"10px 14px"}}>
               {adding ? (
-                <div style={{display:"flex",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   <input value={newName} onChange={e=>setNewName(e.target.value)}
                     onKeyDown={e=>e.key==="Enter"&&addTeam()}
                     placeholder="Team name…" autoFocus
-                    style={{flex:1,background:C.surface,border:`1px solid ${C.accent}`,borderRadius:6,
-                      color:C.text,fontSize:13,padding:"5px 8px",outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
-                  <button onClick={addTeam}
-                    style={{padding:"5px 10px",background:C.accent,border:"none",borderRadius:6,
-                      color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
-                  <button onClick={()=>{setAdding(false);setNewName("");}}
-                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+                    style={{width:"100%",background:C.surface,border:`1px solid ${C.accent}`,borderRadius:6,
+                      color:C.text,fontSize:13,padding:"5px 8px",outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",gap:4}}>
+                    {TYPE_OPTS.map(opt=>(
+                      <button key={opt.k} onClick={()=>setNewType(opt.k)}
+                        style={{flex:1,padding:"4px 0",fontSize:10,fontWeight:700,cursor:"pointer",
+                          border:`1px solid ${newType===opt.k?opt.color:C.border}`,borderRadius:4,
+                          background:newType===opt.k?opt.color+"22":"transparent",
+                          color:newType===opt.k?opt.color:C.muted}}>{opt.label}</button>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:4}}>
+                    <button onClick={addTeam}
+                      style={{flex:1,padding:"5px",background:C.accent,border:"none",borderRadius:6,
+                        color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
+                    <button onClick={()=>{setAdding(false);setNewName("");setNewType("varsity");}}
+                      style={{padding:"5px 9px",background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,cursor:"pointer",fontSize:12}}>Cancel</button>
+                  </div>
                 </div>
               ) : (
                 <button onClick={()=>setAdding(true)}
@@ -2966,13 +3039,13 @@ export default function CoachIQStats(){
     try{
       // Load teams
       const {data:teamsData} = await supabase.from("teams").select("*");
-      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,supaId:t.id}));
+      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id}));
 
       if(myTeams.length===0){
         // First login — create default team with empty roster
-        const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",user_id:userId});
+        const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId});
         if(newTeam?.[0]){
-          myTeams.push({id:newTeam[0].id,name:newTeam[0].name,supaId:newTeam[0].id});
+          myTeams.push({id:newTeam[0].id,name:newTeam[0].name,type:newTeam[0].type||'varsity',supaId:newTeam[0].id});
         }
       }
       setTeamsState(myTeams);
@@ -3102,11 +3175,11 @@ export default function CoachIQStats(){
   }
 
   // ── Team management ───────────────────────────────────────────────────────
-  async function addTeam(name){
-    const {data} = await supabase.from("teams").insert({name,user_id:userId});
+  async function addTeam(name, type='other'){
+    const {data} = await supabase.from("teams").insert({name,type,user_id:userId});
     const newTeam = data?.[0];
     if(!newTeam) return;
-    setTeamsState(prev=>[...prev,{id:newTeam.id,name:newTeam.name}]);
+    setTeamsState(prev=>[...prev,{id:newTeam.id,name:newTeam.name,type:newTeam.type||type}]);
     setActiveTeamId(newTeam.id);
     setRosterState([]);
     setGamesState([]); setGamePlansState([]); setPracticesState([]);
@@ -3122,9 +3195,9 @@ export default function CoachIQStats(){
     setDataLoading(false);
   }
 
-  async function renameTeam(id,name){
-    setTeamsState(prev=>prev.map(t=>t.id===id?{...t,name}:t));
-    await supabase.from("teams").update({name},{id});
+  async function renameTeam(id,name,type){
+    setTeamsState(prev=>prev.map(t=>t.id===id?{...t,name,type:type||t.type}:t));
+    await supabase.from("teams").update({name,...(type?{type}:{})},{id});
   }
 
   async function deleteTeam(id){
@@ -3424,15 +3497,15 @@ export default function CoachIQStats(){
               if(player) setRoster(prev=>[...prev,player]);
               setOnboarded(true);
             }}/>}
-            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster}/>}
+            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
             {view==="players"   &&<PlayersView   games={games}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
-            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
+            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
-            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster}/>}
+            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
@@ -5028,7 +5101,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
 }
 
 // ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
-function TryoutsView({tryouts, setTryouts, roster, setRoster}){
+function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamId, onSwitchTeam}){
   const [selTryout,  setSelTryout]  = useState(null);
   const [selCand,    setSelCand]    = useState(null);
   const [activeTab,  setActiveTab]  = useState("candidates"); // candidates | lineups
@@ -5037,6 +5110,8 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster}){
   const [addingCand, setAddingCand] = useState(false);
   const [pickingSlot,setPickingSlot]= useState(null); // {zone,idx}
   const [importMsg,  setImportMsg]  = useState(null);
+  const [rosterPrompt, setRosterPrompt] = useState(null); // {cand, newPlayer, teams, defaultTeam}
+  const [promptTeam,   setPromptTeam]   = useState(null);
   const fileRef = useRef(null);
 
   const [tForm, setTForm] = useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
@@ -5133,28 +5208,32 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster}){
     if(key==="status" && ["varsity","jv","jvb"].includes(val)){
       const tryout = tryouts.find(t=>t.id===selTryout);
       const cand   = tryout?.candidates.find(c=>c.id===candId);
-      if(cand && setRoster){
-        const already = (roster||[]).find(p=>
-          p.name.trim().toLowerCase()===cand.name.trim().toLowerCase()
-        );
-        if(!already){
-          const label = val==="varsity"?"Varsity":val==="jv"?"JV":"JVB";
-          if(window.confirm(`Add ${cand.name} to your ${label} roster?`)){
-            const positions = cand.positions||[cand.primaryPos||"CM"];
-            const newPlayer = {
-              id:   `p${Date.now()}`,
-              name: cand.name,
-              number: 1,  // coach can edit after
-              position: positions,
-              captain:  false,
-              email:    "",
-              availability: "available",
-              availNote:    "",
-              returnDate:   "",
-              profilePin:   "",
-            };
-            setRoster(prev=>[...prev, newPlayer]);
-          }
+      if(cand){
+        const positions = cand.positions||[cand.primaryPos||"CM"];
+        const newPlayer = {
+          id:   `p${Date.now()}`,
+          name: cand.name,
+          number: 1,
+          position: positions,
+          captain:  false,
+          email:    "",
+          availability: "available",
+          availNote:    "",
+          returnDate:   "",
+          profilePin:   "",
+        };
+        // Find matching team by type, or ask which team
+        const matchingTeams = (teams||[]).filter(t=>t.type===val);
+        if(matchingTeams.length===1){
+          // Exactly one team of this type — offer to add directly
+          const team = matchingTeams[0];
+          setRosterPrompt({cand, newPlayer, teams:matchingTeams, defaultTeam:team});
+        } else if(matchingTeams.length>1){
+          // Multiple teams of this type — let coach pick
+          setRosterPrompt({cand, newPlayer, teams:matchingTeams, defaultTeam:matchingTeams[0]});
+        } else {
+          // No matching team — offer any team
+          setRosterPrompt({cand, newPlayer, teams:(teams||[]), defaultTeam:(teams||[])[0]});
         }
       }
     }
@@ -5258,6 +5337,85 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster}){
   const iS=(extra={})=>({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
     borderRadius:8,color:C.text,fontSize:13,outline:"none",
     fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",width:"100%",...extra});
+
+  // ── ROSTER ADD PROMPT MODAL ─────────────────────────────────────────────────
+  if(rosterPrompt){
+    const {cand, newPlayer, teams:promptTeams} = rosterPrompt;
+    const selTeam = promptTeam || rosterPrompt.defaultTeam;
+    const TYPE_COLORS = {varsity:"#ff6b00",jv:"#ffb300",jvb:"#42a5f5",other:"#7c6af5"};
+    return(
+      <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+        display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Outfit',sans-serif"}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+          padding:28,width:"100%",maxWidth:400}}>
+          <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,marginBottom:6}}>
+            Add to Roster
+          </h3>
+          <p style={{color:C.muted,fontSize:13,marginBottom:20}}>
+            Add <strong style={{color:C.text}}>{cand.name}</strong> to which team roster?
+          </p>
+          {promptTeams.length>1&&(
+            <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
+              {promptTeams.map(t=>{
+                const col = TYPE_COLORS[t.type||"other"];
+                const isSel = selTeam?.id===t.id;
+                return(
+                  <button key={t.id} onClick={()=>setPromptTeam(t)}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+                      background:isSel?col+"22":C.surface,
+                      border:`1.5px solid ${isSel?col:C.border}`,borderRadius:10,cursor:"pointer",
+                      textAlign:"left",transition:"all .12s"}}>
+                    {t.type&&t.type!=="other"&&(
+                      <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:4,
+                        background:col+"33",color:col,letterSpacing:.5,flexShrink:0}}>
+                        {t.type.toUpperCase()}
+                      </span>
+                    )}
+                    <span style={{color:isSel?col:C.text,fontWeight:isSel?700:500,fontSize:14}}>{t.name}</span>
+                    {isSel&&<span style={{marginLeft:"auto",color:col,fontSize:16}}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {promptTeams.length===1&&(
+            <div style={{background:C.surface,borderRadius:10,padding:"12px 16px",marginBottom:18,
+              border:`1px solid ${TYPE_COLORS[promptTeams[0].type||"other"]}44`}}>
+              <div style={{color:C.text,fontWeight:600,fontSize:14}}>{promptTeams[0].name}</div>
+              {promptTeams[0].type&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{promptTeams[0].type.toUpperCase()}</div>}
+            </div>
+          )}
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>{
+              if(!selTeam) return;
+              // Switch to that team and add the player
+              if(onSwitchTeam) onSwitchTeam(selTeam.id);
+              // Add via setRoster — but setRoster operates on active team
+              // We need to add to the target team's roster
+              // Since we switch team first, setRoster will apply to that team
+              setTimeout(()=>{
+                if(setRoster) setRoster(prev=>{
+                  const already = prev.find(p=>p.name.trim().toLowerCase()===newPlayer.name.trim().toLowerCase());
+                  if(already) return prev;
+                  return [...prev, newPlayer];
+                });
+              }, 300);
+              setRosterPrompt(null); setPromptTeam(null);
+            }}
+              style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,
+                color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              Add to Roster
+            </button>
+            <button onClick={()=>{setRosterPrompt(null);setPromptTeam(null);}}
+              style={{padding:"11px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+              Skip
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── TRYOUT LIST ──────────────────────────────────────────────────────────
   if(!selTryout) return(
