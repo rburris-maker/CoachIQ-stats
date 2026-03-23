@@ -5132,8 +5132,7 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
   const [addingCand, setAddingCand] = useState(false);
   const [pickingSlot,setPickingSlot]= useState(null); // {zone,idx}
   const [importMsg,  setImportMsg]  = useState(null);
-  const [rosterPrompt, setRosterPrompt] = useState(null); // {cand, newPlayer, teams, defaultTeam}
-  const [promptTeam,   setPromptTeam]   = useState(null);
+  const [closeWizard, setCloseWizard] = useState(false); // shows 3-step close+submit wizard
   const fileRef = useRef(null);
 
   const [tForm, setTForm] = useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
@@ -5226,39 +5225,6 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
   }
   function updateCandField(candId,key,val){
     upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})}));
-    // If status set to a team (varsity/jv/jvb), offer to add to roster
-    if(key==="status" && ["varsity","jv","jvb"].includes(val)){
-      const tryout = tryouts.find(t=>t.id===selTryout);
-      const cand   = tryout?.candidates.find(c=>c.id===candId);
-      if(cand){
-        const positions = cand.positions||[cand.primaryPos||"CM"];
-        const newPlayer = {
-          id:   `p${Date.now()}`,
-          name: cand.name,
-          number: 1,
-          position: positions,
-          captain:  false,
-          email:    "",
-          availability: "available",
-          availNote:    "",
-          returnDate:   "",
-          profilePin:   "",
-        };
-        // Find matching team by type, or ask which team
-        const matchingTeams = (teams||[]).filter(t=>t.type===val);
-        if(matchingTeams.length===1){
-          // Exactly one team of this type — offer to add directly
-          const team = matchingTeams[0];
-          setRosterPrompt({cand, newPlayer, teams:matchingTeams, defaultTeam:team});
-        } else if(matchingTeams.length>1){
-          // Multiple teams of this type — let coach pick
-          setRosterPrompt({cand, newPlayer, teams:matchingTeams, defaultTeam:matchingTeams[0]});
-        } else {
-          // No matching team — offer any team
-          setRosterPrompt({cand, newPlayer, teams:(teams||[]), defaultTeam:(teams||[])[0]});
-        }
-      }
-    }
   }
   function updateCustomStat(candId,statId,val){
     upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,customStats:{...c.customStats,[statId]:val}})}));
@@ -5361,73 +5327,7 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
     fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",width:"100%",...extra});
 
   // ── ROSTER ADD PROMPT MODAL ─────────────────────────────────────────────────
-  if(rosterPrompt){
-    const {cand, newPlayer, teams:promptTeams} = rosterPrompt;
-    const selTeam = promptTeam || rosterPrompt.defaultTeam;
-    const TYPE_COLORS = {varsity:"#ff6b00",jv:"#ffb300",jvb:"#42a5f5",other:"#7c6af5"};
-    return(
-      <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
-        display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Outfit',sans-serif"}}>
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
-          padding:28,width:"100%",maxWidth:400}}>
-          <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,marginBottom:6}}>
-            Add to Roster
-          </h3>
-          <p style={{color:C.muted,fontSize:13,marginBottom:20}}>
-            Add <strong style={{color:C.text}}>{cand.name}</strong> to which team roster?
-          </p>
-          {promptTeams.length>1&&(
-            <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
-              {promptTeams.map(t=>{
-                const col = TYPE_COLORS[t.type||"other"];
-                const isSel = selTeam?.id===t.id;
-                return(
-                  <button key={t.id} onClick={()=>setPromptTeam(t)}
-                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
-                      background:isSel?col+"22":C.surface,
-                      border:`1.5px solid ${isSel?col:C.border}`,borderRadius:10,cursor:"pointer",
-                      textAlign:"left",transition:"all .12s"}}>
-                    {t.type&&t.type!=="other"&&(
-                      <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:4,
-                        background:col+"33",color:col,letterSpacing:.5,flexShrink:0}}>
-                        {t.type.toUpperCase()}
-                      </span>
-                    )}
-                    <span style={{color:isSel?col:C.text,fontWeight:isSel?700:500,fontSize:14}}>{t.name}</span>
-                    {isSel&&<span style={{marginLeft:"auto",color:col,fontSize:16}}>✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {promptTeams.length===1&&(
-            <div style={{background:C.surface,borderRadius:10,padding:"12px 16px",marginBottom:18,
-              border:`1px solid ${TYPE_COLORS[promptTeams[0].type||"other"]}44`}}>
-              <div style={{color:C.text,fontWeight:600,fontSize:14}}>{promptTeams[0].name}</div>
-              {promptTeams[0].type&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{promptTeams[0].type.toUpperCase()}</div>}
-            </div>
-          )}
-          <div style={{display:"flex",gap:10}}>
-            <button onClick={async ()=>{
-              if(!selTeam) return;
-              // Write directly to the target team's roster via Supabase
-              await addPlayerToTeam(selTeam.id, newPlayer);
-              setRosterPrompt(null); setPromptTeam(null);
-            }}
-              style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,
-                color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-              Add to Roster
-            </button>
-            <button onClick={()=>{setRosterPrompt(null);setPromptTeam(null);}}
-              style={{padding:"11px 16px",background:C.surface,border:`1px solid ${C.border}`,
-                borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
-              Skip
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   // ── TRYOUT LIST ──────────────────────────────────────────────────────────
   if(!selTryout) return(
@@ -5517,6 +5417,24 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
       }
     </div>
   );
+
+  // ── CLOSE WIZARD ─────────────────────────────────────────────────────────
+  if(closeWizard && selTryout){
+    const tryout = tryouts.find(t=>t.id===selTryout);
+    if(tryout) return(
+      <TryoutCloseWizard
+        tryout={tryout}
+        teams={teams||[]}
+        addPlayerToTeam={addPlayerToTeam}
+        onClose={()=>setCloseWizard(false)}
+        onDone={()=>{
+          // Mark tryout as closed
+          setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:"closed"}:t));
+          setCloseWizard(false);
+        }}
+      />
+    );
+  }
 
   // ── TRYOUT DETAIL ────────────────────────────────────────────────────────
   const tryout=tryouts.find(t=>t.id===selTryout);
@@ -6545,6 +6463,388 @@ function PlayerProfilePage(){
             {loading?"LOADING…":"VIEW PROFILE →"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TRYOUT CLOSE WIZARD ──────────────────────────────────────────────────────
+function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
+  const TYPE_COLORS = {varsity:"#ff6b00",jv:"#ffb300",jvb:"#42a5f5",other:"#7c6af5"};
+  const TEAM_STATUSES = ["varsity","jv","jvb"];
+
+  // Build initial state: candidates with a team status, with their assigned team
+  const [step, setStep] = useState(1); // 1=review, 2=numbers, 3=confirm
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null); // {added:[], warned:[], skipped:[]}
+
+  // Editable candidate list for step 1
+  const [candidates, setCandidates] = useState(()=>
+    tryout.candidates.map(c=>({...c, assignedTeamId: (() => {
+      if(!TEAM_STATUSES.includes(c.status)) return null;
+      const match = (teams||[]).filter(t=>t.type===c.status);
+      return match[0]?.id || null;
+    })()}))
+  );
+
+  // Numbers state for step 2 — only for those going to a team
+  const [numbers, setNumbers] = useState(()=>{
+    const n = {};
+    tryout.candidates.forEach(c=>{ n[c.id] = ""; });
+    return n;
+  });
+
+  const toTransfer = candidates.filter(c=>TEAM_STATUSES.includes(c.status) && c.assignedTeamId);
+  const unresolved = candidates.filter(c=>c.status==="prospect");
+  const cuts       = candidates.filter(c=>c.status==="cut");
+
+  const iS = (extra={}) => ({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",
+    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",...extra});
+
+  // Group by status for step 1
+  const grouped = {
+    varsity: candidates.filter(c=>c.status==="varsity"),
+    jv:      candidates.filter(c=>c.status==="jv"),
+    jvb:     candidates.filter(c=>c.status==="jvb"),
+    cut:     candidates.filter(c=>c.status==="cut"),
+    prospect:candidates.filter(c=>c.status==="prospect"),
+  };
+
+  // Group to-transfer by target team for step 2
+  const byTeam = {};
+  toTransfer.forEach(c=>{
+    if(!byTeam[c.assignedTeamId]) byTeam[c.assignedTeamId] = [];
+    byTeam[c.assignedTeamId].push(c);
+  });
+
+  async function submitRosters(){
+    setSubmitting(true);
+    const added=[], warned=[], skipped=[];
+
+    for(const cand of toTransfer){
+      const num = parseInt(numbers[cand.id])||1;
+      const positions = cand.positions||[cand.primaryPos||"CM"];
+      const newPlayer = {
+        id:   `p${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name: cand.name,
+        number: num,
+        position: positions,
+        captain:  false,
+        email:    "",
+        availability:"available",
+        availNote:"",returnDate:"",profilePin:"",
+      };
+
+      // Check for duplicate by fetching target roster
+      const {data} = await supabase.from("rosters").select("*",{filter:{team_id:cand.assignedTeamId}});
+      const existing = (data?.[0]?.players||[]).find(p=>
+        p.name.trim().toLowerCase()===cand.name.trim().toLowerCase()
+      );
+
+      if(existing){
+        warned.push({cand, teamId:cand.assignedTeamId});
+      } else {
+        await addPlayerToTeam(cand.assignedTeamId, newPlayer);
+        added.push({cand, teamId:cand.assignedTeamId});
+      }
+    }
+
+    setResult({added, warned, skipped});
+    setSubmitting(false);
+    setStep(4); // done screen
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:1000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16,
+      fontFamily:"'Outfit',sans-serif",overflowY:"auto"}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+        width:"100%",maxWidth:600,maxHeight:"90vh",display:"flex",flexDirection:"column",
+        overflow:"hidden"}}>
+
+        {/* Header */}
+        <div style={{padding:"22px 28px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900}}>
+              {step===1&&"Review Selections"}
+              {step===2&&"Assign Jersey Numbers"}
+              {step===3&&"Confirm & Submit"}
+              {step===4&&"Tryout Closed ✓"}
+            </h2>
+            {step<4&&(
+              <button onClick={onClose}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:18}}>✕</button>
+            )}
+          </div>
+          {/* Progress */}
+          {step<4&&(
+            <div style={{display:"flex",gap:6,marginTop:12}}>
+              {[1,2,3].map(n=>(
+                <div key={n} style={{flex:1,height:4,borderRadius:99,
+                  background:n<=step?C.accent:C.border,transition:"background .3s"}}/>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1,overflowY:"auto",padding:"20px 28px"}}>
+
+          {/* ── STEP 1: Review ─────────────────────────────────────────── */}
+          {step===1&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Review your decisions before closing. You can still change any status here.
+                {unresolved.length>0&&<span style={{color:C.warning,fontWeight:600}}> {unresolved.length} player{unresolved.length!==1?"s":""} still marked Prospect.</span>}
+              </p>
+
+              {[
+                {key:"varsity",label:"Varsity",color:TYPE_COLORS.varsity},
+                {key:"jv",     label:"JV",     color:TYPE_COLORS.jv},
+                {key:"jvb",    label:"JVB",    color:TYPE_COLORS.jvb},
+                {key:"cut",    label:"Cut",    color:C.danger},
+                {key:"prospect",label:"Prospect (unresolved)",color:C.muted},
+              ].filter(g=>grouped[g.key]?.length>0).map(group=>(
+                <div key={group.key} style={{marginBottom:18}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <div style={{width:10,height:10,borderRadius:3,background:group.color,flexShrink:0}}/>
+                    <div style={{color:group.color,fontSize:11,fontWeight:700,letterSpacing:1}}>
+                      {group.label.toUpperCase()} ({grouped[group.key].length})
+                    </div>
+                  </div>
+                  {grouped[group.key].map(c=>{
+                    const pc = posColor(c.primaryPos||c.positions?.[0]||"CM");
+                    const matchingTeams=(teams||[]).filter(t=>t.type===c.status);
+                    const sel=candidates.find(x=>x.id===c.id);
+                    return(
+                      <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"8px 12px",background:C.surface,borderRadius:9,marginBottom:5,
+                        border:`1px solid ${C.border}`}}>
+                        <div style={{width:28,height:28,borderRadius:7,flexShrink:0,
+                          background:pc+"22",border:`1.5px solid ${pc}44`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
+                          {(c.positions||[c.primaryPos||"CM"])[0]}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontWeight:600,fontSize:13}}>{c.name}</div>
+                          {c.grade&&<div style={{color:C.muted,fontSize:11}}>Grade {c.grade}</div>}
+                        </div>
+                        {/* Status selector inline */}
+                        <select value={sel?.status||c.status}
+                          onChange={e=>setCandidates(prev=>prev.map(x=>x.id===c.id?{...x,
+                            status:e.target.value,
+                            assignedTeamId:(()=>{
+                              const mt=(teams||[]).filter(t=>t.type===e.target.value);
+                              return mt[0]?.id||null;
+                            })()
+                          }:x))}
+                          style={{...iS({width:"auto",fontSize:11,padding:"4px 8px"})}}>
+                          <option value="prospect">Prospect</option>
+                          <option value="varsity">Varsity</option>
+                          <option value="jv">JV</option>
+                          <option value="jvb">JVB</option>
+                          <option value="cut">Cut</option>
+                        </select>
+                        {/* Team picker if multiple teams match */}
+                        {TEAM_STATUSES.includes(sel?.status||c.status)&&matchingTeams.length>1&&(
+                          <select value={sel?.assignedTeamId||""}
+                            onChange={e=>setCandidates(prev=>prev.map(x=>x.id===c.id?{...x,assignedTeamId:e.target.value}:x))}
+                            style={{...iS({width:"auto",fontSize:11,padding:"4px 8px"})}}>
+                            {matchingTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {toTransfer.length===0&&(
+                <div style={{background:C.surface,borderRadius:10,padding:"16px",textAlign:"center",color:C.muted,fontSize:13}}>
+                  No players assigned to a team yet. You can still close without moving anyone.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 2: Jersey numbers ──────────────────────────────────── */}
+          {step===2&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Assign jersey numbers for players being added to rosters. You can change these in the Roster tab later.
+              </p>
+              {Object.entries(byTeam).map(([teamId,cands])=>{
+                const team=(teams||[]).find(t=>t.id===teamId);
+                const col=TYPE_COLORS[team?.type||"other"];
+                return(
+                  <div key={teamId} style={{marginBottom:22}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,
+                      paddingBottom:8,borderBottom:`2px solid ${col}44`}}>
+                      <span style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:4,
+                        background:col+"22",color:col,letterSpacing:.5}}>
+                        {team?.type?.toUpperCase()||"TEAM"}
+                      </span>
+                      <span style={{color:C.text,fontWeight:700,fontSize:14}}>{team?.name}</span>
+                      <span style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{cands.length} player{cands.length!==1?"s":""}</span>
+                    </div>
+                    {cands.map(c=>{
+                      const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");
+                      return(
+                        <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,
+                          padding:"9px 12px",background:C.surface,borderRadius:9,marginBottom:6,
+                          border:`1px solid ${C.border}`}}>
+                          <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
+                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:13}}>
+                            {(c.positions||[c.primaryPos||"CM"])[0]}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{color:C.text,fontWeight:600,fontSize:14}}>{c.name}</div>
+                            {c.grade&&<div style={{color:C.muted,fontSize:11}}>Grade {c.grade}</div>}
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                            <label style={{color:C.muted,fontSize:11,fontWeight:600}}>JERSEY #</label>
+                            <input type="number" min="1" max="99"
+                              value={numbers[c.id]||""}
+                              onChange={e=>setNumbers(prev=>({...prev,[c.id]:e.target.value}))}
+                              placeholder="—"
+                              style={{...iS({width:64,textAlign:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,fontSize:18,padding:"6px 8px"})}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {toTransfer.length===0&&(
+                <div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"24px 0"}}>
+                  No players to transfer — skipping to confirmation.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 3: Confirm ─────────────────────────────────────────── */}
+          {step===3&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Review the final summary. Once submitted, the tryout will be archived and players added to their rosters.
+              </p>
+              {toTransfer.length>0&&(
+                <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>
+                    MOVING TO ROSTERS ({toTransfer.length})
+                  </div>
+                  {Object.entries(byTeam).map(([teamId,cands])=>{
+                    const team=(teams||[]).find(t=>t.id===teamId);
+                    const col=TYPE_COLORS[team?.type||"other"];
+                    return(
+                      <div key={teamId} style={{marginBottom:10}}>
+                        <div style={{color:col,fontSize:12,fontWeight:700,marginBottom:5}}>{team?.name}</div>
+                        {cands.map(c=>(
+                          <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,
+                            padding:"5px 8px",borderRadius:7,marginBottom:3,background:C.bg}}>
+                            <span style={{color:C.text,fontSize:13,flex:1}}>{c.name}</span>
+                            <span style={{color:C.muted,fontSize:12,fontFamily:"'Oswald',sans-serif",fontWeight:700}}>
+                              #{numbers[c.id]||"?"}
+                            </span>
+                            <span style={{color:posColor(c.primaryPos||"CM"),fontSize:11,fontWeight:700}}>
+                              {(c.positions||[c.primaryPos||"CM"])[0]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {cuts.length>0&&(
+                <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.danger,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>
+                    CUT ({cuts.length})
+                  </div>
+                  <div style={{color:C.muted,fontSize:12}}>
+                    {cuts.map(c=>c.name).join(", ")}
+                  </div>
+                </div>
+              )}
+              {unresolved.length>0&&(
+                <div style={{background:C.warning+"11",border:`1px solid ${C.warning}44`,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>
+                    ⚠ UNRESOLVED ({unresolved.length})
+                  </div>
+                  <div style={{color:C.muted,fontSize:12}}>
+                    {unresolved.map(c=>c.name).join(", ")} — still marked Prospect, will remain in archived tryout.
+                  </div>
+                </div>
+              )}
+              <div style={{color:C.muted,fontSize:12,lineHeight:1.6,marginTop:8}}>
+                The tryout record will be archived and can be referenced in future years.
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 4: Done ────────────────────────────────────────────── */}
+          {step===4&&result&&(
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+              <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900,marginBottom:8}}>
+                Tryout Archived
+              </h3>
+              <p style={{color:C.muted,fontSize:14,marginBottom:24,lineHeight:1.6}}>
+                {result.added.length>0&&`${result.added.length} player${result.added.length!==1?"s":""} added to their rosters. `}
+                {result.warned.length>0&&<span style={{color:C.warning}}>{result.warned.length} skipped (name already on roster). </span>}
+                The tryout is now archived.
+              </p>
+              {result.warned.length>0&&(
+                <div style={{background:C.warning+"11",border:`1px solid ${C.warning}44`,borderRadius:10,
+                  padding:"12px 16px",marginBottom:16,textAlign:"left"}}>
+                  <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>SKIPPED — ALREADY ON ROSTER</div>
+                  {result.warned.map(({cand,teamId})=>{
+                    const t=(teams||[]).find(x=>x.id===teamId);
+                    return <div key={cand.id} style={{color:C.muted,fontSize:12}}>{cand.name} → {t?.name}</div>;
+                  })}
+                </div>
+              )}
+              <button onClick={onDone}
+                style={{padding:"12px 32px",background:C.accent,border:"none",borderRadius:10,
+                  color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+                DONE
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer nav */}
+        {step<4&&(
+          <div style={{padding:"16px 28px",borderTop:`1px solid ${C.border}`,
+            display:"flex",justifyContent:"space-between",flexShrink:0}}>
+            <button onClick={()=>step>1?setStep(s=>s-1):onClose()}
+              style={{padding:"10px 20px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:9,color:C.muted,cursor:"pointer",fontWeight:600,fontSize:13}}>
+              {step===1?"Cancel":"← Back"}
+            </button>
+            {step<3&&(
+              <button onClick={()=>setStep(s=>s+1)}
+                style={{padding:"10px 24px",background:C.accent,border:"none",borderRadius:9,
+                  color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                {step===1?"Next: Assign Numbers →":"Next: Confirm →"}
+              </button>
+            )}
+            {step===3&&(
+              <button onClick={submitRosters} disabled={submitting}
+                style={{padding:"10px 24px",background:submitting?C.muted:C.accent,border:"none",borderRadius:9,
+                  color:submitting?C.bg:"#000",fontWeight:800,fontSize:14,cursor:submitting?"default":"pointer",
+                  fontFamily:"'Oswald',sans-serif"}}>
+                {submitting?"Submitting…":"Submit & Archive →"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
