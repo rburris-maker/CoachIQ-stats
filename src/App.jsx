@@ -1754,20 +1754,22 @@ function LiveTrackView({games,setGames}){
 
 
 // ─── PLAYERS VIEW ─────────────────────────────────────────────────────────────
-function PlayersView({games}){
+function PlayersView({games, roster, setRoster}){
   const [sel,setSel]=useState(null);
   const [search,setSearch]=useState("");
   const [pos,setPos]=useState("ALL");
+  const [editingPlayer, setEditingPlayer]=useState(null);
+  const PLIST = roster&&roster.length>0 ? roster : PLAYERS;
 
   const list=useMemo(()=>
-    PLAYERS.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()))
+    PLIST.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()))
            .filter(p=>pos==="ALL"||allPos(p).includes(pos))
            .map(p=>({...p,avg:avgRating(p.id,games)}))
            .sort((a,b)=>b.avg-a.avg)
   ,[games,search,pos]);
 
   if(sel){
-    const player=PLAYERS.find(p=>p.id===sel);
+    const player=(roster&&roster.length>0?roster:PLAYERS).find(p=>p.id===sel);
     const hist=getHistory(sel,games);
     const avg=avgRating(sel,games);
     const tots=hist.reduce((acc,h)=>{["goals","assists","shots","shotsOnTarget","keyPasses","tackles","interceptions","saves"].forEach(k=>{acc[k]=(acc[k]||0)+(h[k]||0);});return acc;},{});
@@ -1783,7 +1785,45 @@ function PlayersView({games}){
     ];
     return(
       <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
-        <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+        <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}/>
+          {setRoster&&<>
+            <button onClick={()=>setEditingPlayer({...player})}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 14px",
+                background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
+              <Pencil size={13}/>Edit
+            </button>
+            <button onClick={()=>{
+              if(window.confirm(`Remove ${player.name} from roster?`)){
+                setRoster(prev=>prev.filter(p=>p.id!==player.id));
+                setSel(null);
+              }
+            }}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",
+                background:C.surface,border:`1px solid ${C.danger}33`,borderRadius:8,
+                color:C.danger,cursor:"pointer",fontSize:12,fontWeight:600}}>
+              <Trash2 size={13}/>Remove
+            </button>
+          </>}
+        </div>
+        {editingPlayer&&(
+          <PlayerModal
+            player={editingPlayer}
+            onSave={updated=>{
+              setRoster(prev=>prev.map(p=>p.id===updated.id?updated:p));
+              setEditingPlayer(null);
+            }}
+            onDelete={()=>{
+              if(window.confirm(`Remove ${editingPlayer.name} from roster?`)){
+                setRoster(prev=>prev.filter(p=>p.id!==editingPlayer.id));
+                setEditingPlayer(null); setSel(null);
+              }
+            }}
+            onClose={()=>setEditingPlayer(null)}
+          />
+        )}
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",gap:18,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{width:68,height:68,borderRadius:14,background:posColor(primaryPos(player))+"22",border:`3px solid ${posColor(primaryPos(player))}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(primaryPos(player)),fontSize:28,flexShrink:0}}>{player.number}</div>
@@ -3577,7 +3617,7 @@ export default function CoachIQStats(){
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
-            {view==="players"   &&<PlayersView   games={games}/>}
+            {view==="players"   &&<PlayersView   games={games} roster={roster} setRoster={setRoster}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
@@ -5514,11 +5554,11 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
           <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>{tryout.name}</h2>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <button onClick={()=>setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:t.status==="open"?"closed":"open"}:t))}
+          <button onClick={()=>tryout.status==="open"?setCloseWizard(true):setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:"open"}:t))}
             style={{padding:"8px 14px",background:tryout.status==="open"?C.accent+"22":"#2a1000",
               border:`1px solid ${tryout.status==="open"?C.accent:C.border}`,borderRadius:8,
               color:tryout.status==="open"?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
-            {tryout.status==="open"?"Close Tryout":"Reopen"}
+            {tryout.status==="open"?"Close & Submit":"Reopen"}
           </button>
           <button onClick={()=>{if(window.confirm("Delete this tryout?"))setTryouts(prev=>prev.filter(t=>t.id!==selTryout));setSelTryout(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",
