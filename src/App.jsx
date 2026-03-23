@@ -2650,7 +2650,7 @@ export default function CoachIQStats(){
   // ── Supabase data state ───────────────────────────────────────────────────
   const [teams,       setTeamsState]    = useState([]);
   const [activeTeamId,setActiveTeamId]  = useState(null);
-  const [roster,      setRosterState]   = useState(DEFAULT_PLAYERS);
+  const [roster,      setRosterState]   = useState([]);
   const [games,       setGamesState]    = useState([]);
   const [gamePlans,   setGamePlansState]= useState([]);
   const [practices,   setPracticesState]= useState([]);
@@ -2681,7 +2681,7 @@ export default function CoachIQStats(){
       const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,supaId:t.id}));
 
       if(myTeams.length===0){
-        // First login — create default team
+        // First login — create default team with empty roster
         const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",user_id:userId});
         if(newTeam?.[0]){
           myTeams.push({id:newTeam[0].id,name:newTeam[0].name,supaId:newTeam[0].id});
@@ -2724,7 +2724,7 @@ export default function CoachIQStats(){
       supabase.from("tryouts").select("*",{filter:{team_id:tid}}),
     ]);
 
-    setRosterState((r.data?.[0]?.players) || DEFAULT_PLAYERS);
+    setRosterState((r.data?.[0]?.players) || []);
     setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
     setGamePlansState((gp.data||[]).map(x=>x.data));
     setPracticesState((pr.data||[]).map(x=>x.data));
@@ -2811,7 +2811,7 @@ export default function CoachIQStats(){
     if(!newTeam) return;
     setTeamsState(prev=>[...prev,{id:newTeam.id,name:newTeam.name}]);
     setActiveTeamId(newTeam.id);
-    setRosterState(DEFAULT_PLAYERS);
+    setRosterState([]);
     setGamesState([]); setGamePlansState([]); setPracticesState([]);
     setDrillsState([]); setTemplatesState([]); setScheduleState([]); setTryoutsState([]);
     setView("home");
@@ -2849,7 +2849,7 @@ export default function CoachIQStats(){
   async function handleSignOut(){
     await supabase.auth.signOut();
     setSession(null);
-    setTeamsState([]); setGamesState([]); setRosterState(DEFAULT_PLAYERS);
+    setTeamsState([]); setGamesState([]); setRosterState([]);
   }
 
   // ── Show auth screen if not logged in ────────────────────────────────────
