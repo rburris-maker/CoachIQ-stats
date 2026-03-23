@@ -16,113 +16,131 @@ import * as XLSX from "xlsx";
 const SUPABASE_URL = "https://lfhbkvdfxlawwwxtvwmj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L";
 
-// Minimal Supabase client — no npm package needed
 const supabase = (() => {
-  const headers = {
+  const baseHeaders = {
     "Content-Type": "application/json",
     "apikey": SUPABASE_KEY,
-    "Authorization": `Bearer ${SUPABASE_KEY}`,
   };
 
-  async function getAuthToken() {
-    const session = JSON.parse(localStorage.getItem("coachiq_session") || "null");
-    return session?.access_token || null;
+  function getToken() {
+    try {
+      const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
+      return s?.access_token || null;
+    } catch { return null; }
   }
 
-  async function authHeaders() {
-    const token = await getAuthToken();
-    return token
-      ? { ...headers, "Authorization": `Bearer ${token}` }
-      : headers;
+  function h(extra = {}) {
+    const token = getToken();
+    return {
+      ...baseHeaders,
+      "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+      ...extra,
+    };
+  }
+
+  function buildParams(filter = {}) {
+    const p = new URLSearchParams();
+    Object.entries(filter).forEach(([k, v]) => p.set(k, `eq.${v}`));
+    return p.toString() ? `?${p}` : "";
+  }
+
+  async function req(url, opts) {
+    const res = await fetch(url, opts);
+    // No content responses
+    if (res.status === 204 || res.status === 205) return { data: null, error: null };
+    let data;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      const msg = data?.message || data?.error || `HTTP ${res.status}`;
+      console.error(`Supabase error [${res.status}] ${url}:`, data);
+      return { data: null, error: { message: msg, status: res.status, details: data } };
+    }
+    return { data, error: null };
   }
 
   return {
     auth: {
       async signUp({ email, password }) {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-          method: "POST", headers,
+        const r = await req(`${SUPABASE_URL}/auth/v1/signup`, {
+          method: "POST", headers: h(),
           body: JSON.stringify({ email, password }),
         });
-        const data = await res.json();
-        if (data.access_token) localStorage.setItem("coachiq_session", JSON.stringify(data));
-        return { data, error: data.error || null };
+        if (r.data?.access_token) localStorage.setItem("coachiq_session", JSON.stringify(r.data));
+        return r;
       },
       async signInWithPassword({ email, password }) {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-          method: "POST", headers,
+        const r = await req(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: "POST", headers: h(),
           body: JSON.stringify({ email, password }),
         });
-        const data = await res.json();
-        if (data.access_token) localStorage.setItem("coachiq_session", JSON.stringify(data));
-        return { data, error: data.error_description ? { message: data.error_description } : null };
+        if (r.data?.access_token) localStorage.setItem("coachiq_session", JSON.stringify(r.data));
+        if (r.data?.error_description) return { data: r.data, error: { message: r.data.error_description } };
+        return r;
       },
       async signOut() {
-        const h = await authHeaders();
-        await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: "POST", headers: h });
+        await req(`${SUPABASE_URL}/auth/v1/logout`, { method: "POST", headers: h() });
         localStorage.removeItem("coachiq_session");
       },
       getSession() {
-        const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
-        return { data: { session: s } };
+        try {
+          const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
+          return { data: { session: s } };
+        } catch { return { data: { session: null } }; }
       },
       async resetPasswordForEmail(email) {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
-          method: "POST", headers,
+        return req(`${SUPABASE_URL}/auth/v1/recover`, {
+          method: "POST", headers: h(),
           body: JSON.stringify({ email }),
         });
-        return { error: null };
       },
     },
+
     from(table) {
       return {
+        // select with optional filter object e.g. {team_id: "abc"}
         async select(cols = "*", opts = {}) {
-          const h = await authHeaders();
-          const params = new URLSearchParams({ select: cols });
-          if (opts.filter) Object.entries(opts.filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: h });
-          const data = await res.json();
-          return { data: Array.isArray(data) ? data : [], error: data.error || null };
+          const p = new URLSearchParams({ select: cols });
+          if (opts.filter) Object.entries(opts.filter).forEach(([k,v]) => p.set(k, `eq.${v}`));
+          return req(`${SUPABASE_URL}/rest/v1/${table}?${p}`, { headers: h() });
         },
+
         async insert(rows) {
-          const h = await authHeaders();
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+          const body = Array.isArray(rows) ? rows : [rows];
+          return req(`${SUPABASE_URL}/rest/v1/${table}`, {
             method: "POST",
-            headers: { ...h, "Prefer": "return=representation" },
-            body: JSON.stringify(Array.isArray(rows) ? rows : [rows]),
+            headers: h({ "Prefer": "return=representation" }),
+            body: JSON.stringify(body),
           });
-          const data = await res.json();
-          return { data: Array.isArray(data) ? data : [data], error: data.error || null };
         },
-        async update(values, filter) {
-          const h = await authHeaders();
-          const params = new URLSearchParams();
-          if (filter) Object.entries(filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+
+        async update(values, filter = {}) {
+          return req(`${SUPABASE_URL}/rest/v1/${table}${buildParams(filter)}`, {
             method: "PATCH",
-            headers: { ...h, "Prefer": "return=representation" },
+            headers: h({ "Prefer": "return=representation" }),
             body: JSON.stringify(values),
           });
-          const data = await res.json();
-          return { data, error: data.error || null };
         },
+
         async upsert(rows, opts = {}) {
-          const h = await authHeaders();
-          const params = new URLSearchParams();
-          if (opts.onConflict) params.set("on_conflict", opts.onConflict);
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+          const p = new URLSearchParams();
+          if (opts.onConflict) p.set("on_conflict", opts.onConflict);
+          const qs = p.toString() ? `?${p}` : "";
+          const body = Array.isArray(rows) ? rows : [rows];
+          return req(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
             method: "POST",
-            headers: { ...h, "Prefer": "return=representation,resolution=merge-duplicates" },
-            body: JSON.stringify(Array.isArray(rows) ? rows : [rows]),
+            headers: h({ "Prefer": "return=representation,resolution=merge-duplicates" }),
+            body: JSON.stringify(body),
           });
-          const data = await res.json();
-          return { data: Array.isArray(data) ? data : [data], error: data.error || null };
         },
-        async delete(filter) {
-          const h = await authHeaders();
-          const params = new URLSearchParams();
-          if (filter) Object.entries(filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
-          await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { method: "DELETE", headers: h });
-          return { error: null };
+
+        // delete with filter object e.g. {team_id: "abc"} or {id: "xyz"}
+        async delete(filter = {}) {
+          const qs = buildParams(filter);
+          if (!qs) { console.warn("Supabase delete called without filter — skipping to prevent full table wipe"); return { error: null }; }
+          return req(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
+            method: "DELETE",
+            headers: h(),
+          });
         },
       };
     },
