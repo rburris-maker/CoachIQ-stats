@@ -3107,6 +3107,28 @@ export default function CoachIQStats(){
     );
   }
 
+  // Add a player directly to a specific team's roster (used by tryout flow)
+  async function addPlayerToTeam(teamId, newPlayer){
+    if(!teamId || !newPlayer) return;
+    // Fetch that team's current roster from Supabase
+    const {data} = await supabase.from("rosters").select("*",{filter:{team_id:teamId}});
+    const currentPlayers = data?.[0]?.players || [];
+    // Don't add duplicates
+    const already = currentPlayers.find(p=>
+      p.name.trim().toLowerCase()===newPlayer.name.trim().toLowerCase()
+    );
+    if(already) return;
+    const updated = [...currentPlayers, newPlayer];
+    await supabase.from("rosters").upsert(
+      {team_id:teamId, user_id:userId, players:updated, updated_at:new Date().toISOString()},
+      {onConflict:"team_id"}
+    );
+    // If this is the active team, also update local state
+    if(teamId===safeTeamId){
+      setRosterState(updated);
+    }
+  }
+
   async function setGames(val){
     const resolved = typeof val==="function" ? val(games) : val;
     setGamesState(resolved);
@@ -3505,7 +3527,7 @@ export default function CoachIQStats(){
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
-            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
+            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
@@ -5101,7 +5123,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
 }
 
 // ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
-function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamId, onSwitchTeam}){
+function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamId, onSwitchTeam, addPlayerToTeam}){
   const [selTryout,  setSelTryout]  = useState(null);
   const [selCand,    setSelCand]    = useState(null);
   const [activeTab,  setActiveTab]  = useState("candidates"); // candidates | lineups
@@ -5386,21 +5408,13 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
             </div>
           )}
           <div style={{display:"flex",gap:10}}>
-            <button onClick={()=>{
+            <button onClick={async ()=>{
               if(!selTeam) return;
-              // Switch to that team and add the player
-              if(onSwitchTeam) onSwitchTeam(selTeam.id);
-              // Add via setRoster — but setRoster operates on active team
-              // We need to add to the target team's roster
-              // Since we switch team first, setRoster will apply to that team
-              setTimeout(()=>{
-                if(setRoster) setRoster(prev=>{
-                  const already = prev.find(p=>p.name.trim().toLowerCase()===newPlayer.name.trim().toLowerCase());
-                  if(already) return prev;
-                  return [...prev, newPlayer];
-                });
-              }, 300);
+              // Write directly to the target team's roster via Supabase
+              await addPlayerToTeam(selTeam.id, newPlayer);
               setRosterPrompt(null); setPromptTeam(null);
+              // Switch to that team so coach can see the new player
+              if(onSwitchTeam && selTeam.id !== activeTeamId) onSwitchTeam(selTeam.id);
             }}
               style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,
                 color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
