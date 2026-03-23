@@ -2637,6 +2637,7 @@ export default function CoachIQStats(){
   const [session,       setSession]       = useState(()=>supabase.auth.getSession().data.session);
   const [authLoading,   setAuthLoading]   = useState(!supabase.auth.getSession().data.session);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [theme,         setTheme]         = useLocalStorage("coachiq_theme","dark");
   Object.assign(C, THEMES[theme] || THEMES.dark);
 
@@ -2645,6 +2646,10 @@ export default function CoachIQStats(){
     const s = supabase.auth.getSession().data.session;
     setSession(s);
     setAuthLoading(false);
+    // Ensure proper mobile viewport
+    let meta = document.querySelector('meta[name=viewport]');
+    if(!meta){ meta=document.createElement('meta'); meta.name='viewport'; document.head.appendChild(meta); }
+    meta.content='width=device-width, initial-scale=1, maximum-scale=1';
   },[]);
 
   // ── Supabase data state ───────────────────────────────────────────────────
@@ -2886,8 +2891,52 @@ export default function CoachIQStats(){
 
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",transition:"background .3s"}}>
 
-        {/* ═══ SIDEBAR ═══════════════════════════════════════════════════ */}
-        <div style={{
+        {/* ═══ MOBILE SIDEBAR OVERLAY ════════════════════════════════════ */}
+        {mobileSidebarOpen&&(
+          <>
+            <div className="sidebar-overlay" onClick={()=>setMobileSidebarOpen(false)}/>
+            <div style={{position:"fixed",top:0,left:0,height:"100vh",width:240,
+              background:C.sidebar,borderRight:`1px solid ${C.sidebarBorder}`,
+              display:"flex",flexDirection:"column",zIndex:200,overflowY:"auto"}}>
+              {/* Mobile close button */}
+              <div style={{display:"flex",justifyContent:"flex-end",padding:"12px 14px"}}>
+                <button onClick={()=>setMobileSidebarOpen(false)}
+                  style={{background:"none",border:"none",color:"#ffffff88",cursor:"pointer",fontSize:20}}>✕</button>
+              </div>
+              {/* Team label */}
+              <div style={{padding:"8px 16px 12px",borderBottom:`1px solid ${C.sidebarBorder}`}}>
+                <div style={{color:"#ffffff88",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>TEAM</div>
+                <div style={{color:"#ffffff",fontWeight:700,fontSize:14}}>{activeTeam?.name||"My Team"}</div>
+              </div>
+              {/* Nav */}
+              <nav style={{flex:1,padding:"8px 0"}}>
+                {SIDEBAR_GROUPS.map(group=>(
+                  <div key={group.label}>
+                    <div style={{color:"#5a3020",fontSize:9,fontWeight:700,letterSpacing:2,padding:"10px 16px 4px",textTransform:"uppercase"}}>{group.label}</div>
+                    {group.items.map(item=>{
+                      const Icon=item.icon;
+                      const active=view===item.id;
+                      return(
+                        <button key={item.id}
+                          onClick={()=>{setView(item.id);setMobileSidebarOpen(false);}}
+                          style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",
+                            background:active?"#ff6b0018":"transparent",border:"none",
+                            borderLeft:active?`3px solid ${C.accent}`:"3px solid transparent",
+                            color:active?C.accent:"#ffffffaa",cursor:"pointer",fontWeight:active?700:500,fontSize:14}}>
+                          <Icon size={16}/><span>{item.label}</span>
+                          {item.id==="live"&&<span style={{width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite",marginLeft:2}}/>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </nav>
+            </div>
+          </>
+        )}
+
+        {/* ═══ SIDEBAR (desktop) ══════════════════════════════════════════ */}
+        <div className="sidebar-desktop" style={{
           width: sidebarCollapsed ? 60 : 220,
           flexShrink:0,
           background:C.sidebar,
@@ -3025,12 +3074,25 @@ export default function CoachIQStats(){
           {/* Top bar — slim, no nav */}
           <div style={{height:52,background:C.topbar,borderBottom:`1px solid ${C.border}`,
             display:"flex",alignItems:"center",justifyContent:"space-between",
-            padding:"0 20px",flexShrink:0}}>
+            padding:"0 14px",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {/* Hamburger — mobile only */}
+              <button className="mobile-nav"
+                onClick={()=>setMobileSidebarOpen(true)}
+                style={{background:"none",border:"none",color:C.text,cursor:"pointer",padding:6,
+                  display:"none",alignItems:"center",justifyContent:"center"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <div style={{width:20,height:2,background:C.text,borderRadius:1}}/>
+                  <div style={{width:20,height:2,background:C.text,borderRadius:1}}/>
+                  <div style={{width:14,height:2,background:C.text,borderRadius:1}}/>
+                </div>
+              </button>
             <div style={{color:C.muted,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
               <span>{activeTeam?.name}</span>
               <span style={{color:C.border}}>·</span>
               <span style={{color:C.text}}>{NAV.find(n=>n.id===view)?.label||"Home"}</span>
-              {session?.user?.email&&<span style={{color:C.muted,fontSize:10,marginLeft:4}}>({session.user.email})</span>}
+              {session?.user?.email&&<span style={{color:C.muted,fontSize:10,marginLeft:4}} className="hide-mobile">({session.user.email})</span>}
+            </div>
             </div>
             {/* Right side: date + theme + sign out */}
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3126,7 +3188,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
       </div>
 
       {/* Quick actions */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10,marginBottom:22}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,200px),1fr))",gap:10,marginBottom:22}}>
         {QUICK.map(a=>{const Icon=a.icon;return(
           <button key={a.view} onClick={()=>setView(a.view)}
             style={{background:C.card,border:`1px solid ${a.color}22`,borderRadius:13,padding:"16px 18px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"all .15s",position:"relative"}}
@@ -3143,7 +3205,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
         );})}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,420px),1fr))",gap:16}}>
         {/* Upcoming game plan */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -3430,7 +3492,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
           </div>
         )}
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,400px),1fr))",gap:14}}>
 
           {/* ── Lineup builder ─────────────────────────────────────── */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
@@ -4040,7 +4102,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         )}
 
         {/* Row 1: Objectives + Rating */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,300px),1fr))",gap:14,marginBottom:14}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>SESSION OBJECTIVES</div>
             <input value={session.objectives||""} onChange={e=>upd(()=>({objectives:e.target.value}))}
@@ -4064,7 +4126,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
 
         {/* Row 2: Session blocks + Drill library */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 230px",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,360px),1fr))",gap:14,marginBottom:14}}>
 
           {/* Session plan blocks */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -4520,7 +4582,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:20}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,360px),1fr))",gap:16}}>
         {/* Calendar grid */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
           {/* Month nav */}
@@ -5069,7 +5131,7 @@ function TryoutsView({tryouts, setTryouts}){
             </div>
           )}
 
-          <div style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,320px),1fr))",gap:16}}>
             {/* Ranked list */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,maxHeight:"calc(100vh - 280px)",overflowY:"auto"}}>
               <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
@@ -5285,7 +5347,7 @@ function TryoutsView({tryouts, setTryouts}){
             ))}
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,320px),1fr))",gap:16}}>
             {/* Formation + slots */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
               {/* Formation picker */}
