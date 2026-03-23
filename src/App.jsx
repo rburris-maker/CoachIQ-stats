@@ -12,6 +12,125 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
+// ─── SUPABASE CLIENT ──────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://lfhbkvdfxlawwwxtvwmj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L";
+
+// Minimal Supabase client — no npm package needed
+const supabase = (() => {
+  const headers = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_KEY,
+    "Authorization": `Bearer ${SUPABASE_KEY}`,
+  };
+
+  async function getAuthToken() {
+    const session = JSON.parse(localStorage.getItem("coachiq_session") || "null");
+    return session?.access_token || null;
+  }
+
+  async function authHeaders() {
+    const token = await getAuthToken();
+    return token
+      ? { ...headers, "Authorization": `Bearer ${token}` }
+      : headers;
+  }
+
+  return {
+    auth: {
+      async signUp({ email, password }) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+          method: "POST", headers,
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (data.access_token) localStorage.setItem("coachiq_session", JSON.stringify(data));
+        return { data, error: data.error || null };
+      },
+      async signInWithPassword({ email, password }) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: "POST", headers,
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (data.access_token) localStorage.setItem("coachiq_session", JSON.stringify(data));
+        return { data, error: data.error_description ? { message: data.error_description } : null };
+      },
+      async signOut() {
+        const h = await authHeaders();
+        await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: "POST", headers: h });
+        localStorage.removeItem("coachiq_session");
+      },
+      getSession() {
+        const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
+        return { data: { session: s } };
+      },
+      async resetPasswordForEmail(email) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+          method: "POST", headers,
+          body: JSON.stringify({ email }),
+        });
+        return { error: null };
+      },
+    },
+    from(table) {
+      return {
+        async select(cols = "*", opts = {}) {
+          const h = await authHeaders();
+          const params = new URLSearchParams({ select: cols });
+          if (opts.filter) Object.entries(opts.filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: h });
+          const data = await res.json();
+          return { data: Array.isArray(data) ? data : [], error: data.error || null };
+        },
+        async insert(rows) {
+          const h = await authHeaders();
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+            method: "POST",
+            headers: { ...h, "Prefer": "return=representation" },
+            body: JSON.stringify(Array.isArray(rows) ? rows : [rows]),
+          });
+          const data = await res.json();
+          return { data: Array.isArray(data) ? data : [data], error: data.error || null };
+        },
+        async update(values, filter) {
+          const h = await authHeaders();
+          const params = new URLSearchParams();
+          if (filter) Object.entries(filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+            method: "PATCH",
+            headers: { ...h, "Prefer": "return=representation" },
+            body: JSON.stringify(values),
+          });
+          const data = await res.json();
+          return { data, error: data.error || null };
+        },
+        async upsert(rows, opts = {}) {
+          const h = await authHeaders();
+          const params = new URLSearchParams();
+          if (opts.onConflict) params.set("on_conflict", opts.onConflict);
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+            method: "POST",
+            headers: { ...h, "Prefer": "return=representation,resolution=merge-duplicates" },
+            body: JSON.stringify(Array.isArray(rows) ? rows : [rows]),
+          });
+          const data = await res.json();
+          return { data: Array.isArray(data) ? data : [data], error: data.error || null };
+        },
+        async delete(filter) {
+          const h = await authHeaders();
+          const params = new URLSearchParams();
+          if (filter) Object.entries(filter).forEach(([k, v]) => params.set(k, `eq.${v}`));
+          await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { method: "DELETE", headers: h });
+          return { error: null };
+        },
+      };
+    },
+  };
+})();
+
+
+
 // ─── EMAILJS CONFIG ───────────────────────────────────────────────────────────
 const EJS_SERVICE  = "service_67o2kbq";
 const EJS_TEMPLATE = "template_xlcc4wg";
@@ -2376,114 +2495,361 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
   );
 }
 
+// ─── AUTH VIEWS ───────────────────────────────────────────────────────────────
+function AuthView({ onAuth }) {
+  const [mode, setMode]       = useState("login"); // login | signup | reset
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+  const [msg, setMsg]         = useState("");
+
+  const iS = {
+    width:"100%", padding:"12px 16px",
+    background:"#181818", border:"1px solid #3a1a00",
+    borderRadius:10, color:"#fff0e0", fontSize:15,
+    outline:"none", fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",
+  };
+
+  async function handleSubmit() {
+    if (!email.trim() || (!password && mode !== "reset")) return;
+    setLoading(true); setError(""); setMsg("");
+    try {
+      if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) { setError(error.message); }
+        else if (data?.access_token || data?.user) { onAuth(data); }
+        else { setError("Login failed — check your credentials."); }
+      } else if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (error) { setError(error.message); }
+        else { setMsg("Account created! Check your email to confirm, then log in."); setMode("login"); }
+      } else if (mode === "reset") {
+        await supabase.auth.resetPasswordForEmail(email.trim());
+        setMsg("Password reset email sent. Check your inbox.");
+      }
+    } catch(e) {
+      setError("Connection error — check your internet and try again.");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",
+      backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)",
+      fontFamily:"'Outfit',sans-serif",padding:20}}>
+      <div style={{width:"100%",maxWidth:420}}>
+
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <AppLogo size={64} glow={true}/>
+          <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,
+            letterSpacing:1,marginTop:14}}>
+            COACHIQ <span style={{color:"#ff6b00"}}>STATS</span>
+          </div>
+          <div style={{color:"#7a4a2a",fontSize:14,marginTop:4}}>Soccer Analytics Platform</div>
+        </div>
+
+        {/* Card */}
+        <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:16,padding:32}}>
+          <h2 style={{color:"#fff0e0",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:22,marginBottom:24}}>
+            {mode==="login"?"Sign In":mode==="signup"?"Create Account":"Reset Password"}
+          </h2>
+
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+              placeholder="Email address" style={iS}/>
+
+            {mode!=="reset"&&(
+              <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+                placeholder="Password" style={iS}/>
+            )}
+          </div>
+
+          {error&&<div style={{color:"#ff4444",fontSize:13,marginTop:12,fontWeight:600}}>{error}</div>}
+          {msg&&<div style={{color:"#66bb6a",fontSize:13,marginTop:12,fontWeight:600}}>{msg}</div>}
+
+          <button onClick={handleSubmit} disabled={loading}
+            style={{width:"100%",marginTop:20,padding:"13px",
+              background:loading?"#2a1000":"#ff6b00",
+              border:"none",borderRadius:10,color:"#000",
+              fontWeight:900,fontSize:16,cursor:loading?"default":"pointer",
+              fontFamily:"'Oswald',sans-serif",letterSpacing:1,transition:"all .2s"}}>
+            {loading?"..."
+              :mode==="login"?"SIGN IN →"
+              :mode==="signup"?"CREATE ACCOUNT →"
+              :"SEND RESET EMAIL →"}
+          </button>
+
+          {/* Mode switcher */}
+          <div style={{marginTop:20,display:"flex",flexDirection:"column",gap:8,alignItems:"center"}}>
+            {mode==="login"&&(<>
+              <button onClick={()=>{setMode("signup");setError("");setMsg("");}}
+                style={{background:"none",border:"none",color:"#ff6b00",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                No account? Sign up free
+              </button>
+              <button onClick={()=>{setMode("reset");setError("");setMsg("");}}
+                style={{background:"none",border:"none",color:"#7a4a2a",cursor:"pointer",fontSize:12}}>
+                Forgot password?
+              </button>
+            </>)}
+            {mode!=="login"&&(
+              <button onClick={()=>{setMode("login");setError("");setMsg("");}}
+                style={{background:"none",border:"none",color:"#ff6b00",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                ← Back to sign in
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{textAlign:"center",marginTop:20,color:"#3a1a00",fontSize:11}}>
+          CoachIQ Stats · Soccer Analytics Platform
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function CoachIQStats(){
-  const [view,setView] = useState("home");
+  const [view,          setView]          = useState("home");
+  const [session,       setSession]       = useState(()=>supabase.auth.getSession().data.session);
+  const [authLoading,   setAuthLoading]   = useState(!supabase.auth.getSession().data.session);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme,         setTheme]         = useLocalStorage("coachiq_theme","dark");
+  Object.assign(C, THEMES[theme] || THEMES.dark);
 
-  // ── Persistent teams ──────────────────────────────────────────────────────
-  const INIT_TEAM_ID = "t_default";
-  const [teams, setTeams] = useLocalStorage("coachiq_teams", [
-    {id: INIT_TEAM_ID, name: "Marion FC"}
-  ]);
-  const [activeTeamId, setActiveTeamId] = useLocalStorage("coachiq_active_team", INIT_TEAM_ID);
+  // ── Auth session check on mount ───────────────────────────────────────────
+  useEffect(()=>{
+    const s = supabase.auth.getSession().data.session;
+    setSession(s);
+    setAuthLoading(false);
+  },[]);
 
-  // ── Per-team rosters & games & plans ─────────────────────────────────────
-  const [allRosters,   setAllRosters]   = useLocalStorage("coachiq_rosters",   {[INIT_TEAM_ID]: DEFAULT_PLAYERS});
-  const [allGames,     setAllGames]     = useLocalStorage("coachiq_games",     {[INIT_TEAM_ID]: GAMES});
-  const [allGamePlans, setAllGamePlans] = useLocalStorage("coachiq_gameplans", {[INIT_TEAM_ID]: []});
-  const [allPractices, setAllPractices] = useLocalStorage("coachiq_practices", {[INIT_TEAM_ID]: []});
-  const [allDrills,    setAllDrills]    = useLocalStorage("coachiq_drills",    {[INIT_TEAM_ID]: []});
-  const [allTemplates, setAllTemplates] = useLocalStorage("coachiq_templates", {[INIT_TEAM_ID]: []});
-  const [allSchedule,  setAllSchedule]  = useLocalStorage("coachiq_schedule",  {[INIT_TEAM_ID]: []});
-  const [allTryouts,   setAllTryouts]   = useLocalStorage("coachiq_tryouts",   {[INIT_TEAM_ID]: []});
+  // ── Supabase data state ───────────────────────────────────────────────────
+  const [teams,       setTeamsState]    = useState([]);
+  const [activeTeamId,setActiveTeamId]  = useState(null);
+  const [roster,      setRosterState]   = useState(DEFAULT_PLAYERS);
+  const [games,       setGamesState]    = useState([]);
+  const [gamePlans,   setGamePlansState]= useState([]);
+  const [practices,   setPracticesState]= useState([]);
+  const [drills,      setDrillsState]   = useState([]);
+  const [templates,   setTemplatesState]= useState([]);
+  const [schedule,    setScheduleState] = useState([]);
+  const [tryouts,     setTryoutsState]  = useState([]);
+  const [dataLoading, setDataLoading]   = useState(false);
+  const [saveQueue,   setSaveQueue]     = useState({});
 
-  const safeTeamId = teams.find(t=>t.id===activeTeamId) ? activeTeamId : teams[0]?.id;
-  const roster    = allRosters[safeTeamId]   || DEFAULT_PLAYERS;
-  const games     = allGames[safeTeamId]     || [];
-  const gamePlans = allGamePlans[safeTeamId] || [];
-  const practices = allPractices[safeTeamId] || [];
-  const drills    = allDrills[safeTeamId]     || [];
-  const templates = allTemplates[safeTeamId]  || [];
-  const schedule  = allSchedule[safeTeamId]   || [];
-  const tryouts   = allTryouts[safeTeamId]    || [];
-
-  // Sync module-level PLAYERS so all helper functions see the current squad
   PLAYERS = roster;
 
-  function setRoster(val){
+  const userId = session?.user?.id;
+  const safeTeamId = activeTeamId;
+  const activeTeam = teams.find(t=>t.id===activeTeamId) || teams[0];
+
+  // ── Load all data when session exists ─────────────────────────────────────
+  useEffect(()=>{
+    if(!userId) return;
+    loadAllData();
+  },[userId]);
+
+  async function loadAllData(){
+    setDataLoading(true);
+    try{
+      // Load teams
+      const {data:teamsData} = await supabase.from("teams").select("*");
+      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,supaId:t.id}));
+
+      if(myTeams.length===0){
+        // First login — create default team
+        const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",user_id:userId});
+        if(newTeam?.[0]){
+          myTeams.push({id:newTeam[0].id,name:newTeam[0].name,supaId:newTeam[0].id});
+        }
+      }
+      setTeamsState(myTeams);
+      const tid = myTeams[0]?.id;
+      setActiveTeamId(tid);
+
+      if(tid){
+        await loadTeamData(tid);
+      }
+    }catch(e){
+      console.error("Load error",e);
+    }
+    setDataLoading(false);
+  }
+
+  async function loadTeamData(tid){
+    if(!tid||!userId) return;
+    const fetches = [
+      supabase.from("rosters").select("*").filter,
+      supabase.from("games").select("*").filter,
+      supabase.from("game_plans").select("*").filter,
+      supabase.from("practices").select("*").filter,
+      supabase.from("drills").select("*").filter,
+      supabase.from("session_templates").select("*").filter,
+      supabase.from("schedule").select("*").filter,
+      supabase.from("tryouts").select("*").filter,
+    ];
+
+    const [r,g,gp,pr,dr,tp,sc,tr] = await Promise.all([
+      supabase.from("rosters").select("*",{filter:{team_id:tid}}),
+      supabase.from("games").select("*",{filter:{team_id:tid}}),
+      supabase.from("game_plans").select("*",{filter:{team_id:tid}}),
+      supabase.from("practices").select("*",{filter:{team_id:tid}}),
+      supabase.from("drills").select("*",{filter:{team_id:tid}}),
+      supabase.from("session_templates").select("*",{filter:{team_id:tid}}),
+      supabase.from("schedule").select("*",{filter:{team_id:tid}}),
+      supabase.from("tryouts").select("*",{filter:{team_id:tid}}),
+    ]);
+
+    setRosterState((r.data?.[0]?.players) || DEFAULT_PLAYERS);
+    setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
+    setGamePlansState((gp.data||[]).map(x=>x.data));
+    setPracticesState((pr.data||[]).map(x=>x.data));
+    setDrillsState((dr.data?.[0]?.data) || []);
+    setTemplatesState((tp.data?.[0]?.data) || []);
+    setScheduleState((sc.data||[]).map(x=>x.data));
+    setTryoutsState((tr.data||[]).map(x=>x.data));
+  }
+
+  // ── Data save helpers — write to Supabase ─────────────────────────────────
+  async function setRoster(val){
     const resolved = typeof val==="function" ? val(roster) : val;
-    setAllRosters(prev=>({...prev,[safeTeamId]:resolved}));
+    setRosterState(resolved);
+    await supabase.from("rosters").upsert(
+      {team_id:safeTeamId,user_id:userId,players:resolved,updated_at:new Date().toISOString()},
+      {onConflict:"team_id"}
+    );
   }
-  function setGames(val){
+
+  async function setGames(val){
     const resolved = typeof val==="function" ? val(games) : val;
-    setAllGames(prev=>({...prev,[safeTeamId]:resolved}));
+    setGamesState(resolved);
+    // Sync: upsert each game by its id
+    const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
+    if(newGame){
+      await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
+    } else {
+      // deletion or update — rebuild
+      await supabase.from("games").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+    }
   }
-  function setGamePlans(val){
+
+  async function setGamePlans(val){
     const resolved = typeof val==="function" ? val(gamePlans) : val;
-    setAllGamePlans(prev=>({...prev,[safeTeamId]:resolved}));
+    setGamePlansState(resolved);
+    await supabase.from("game_plans").delete({team_id:safeTeamId});
+    if(resolved.length) await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
   }
-  function setPractices(val){
+
+  async function setPractices(val){
     const resolved = typeof val==="function" ? val(practices) : val;
-    setAllPractices(prev=>({...prev,[safeTeamId]:resolved}));
+    setPracticesState(resolved);
+    await supabase.from("practices").delete({team_id:safeTeamId});
+    if(resolved.length) await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
   }
-  function setDrills(val){
+
+  async function setDrills(val){
     const resolved = typeof val==="function" ? val(drills) : val;
-    setAllDrills(prev=>({...prev,[safeTeamId]:resolved}));
+    setDrillsState(resolved);
+    await supabase.from("drills").upsert(
+      {team_id:safeTeamId,user_id:userId,data:resolved,updated_at:new Date().toISOString()},
+      {onConflict:"team_id"}
+    );
   }
-  function setTemplates(val){
+
+  async function setTemplates(val){
     const resolved = typeof val==="function" ? val(templates) : val;
-    setAllTemplates(prev=>({...prev,[safeTeamId]:resolved}));
+    setTemplatesState(resolved);
+    await supabase.from("session_templates").upsert(
+      {team_id:safeTeamId,user_id:userId,data:resolved,updated_at:new Date().toISOString()},
+      {onConflict:"team_id"}
+    );
   }
-  function setSchedule(val){
+
+  async function setSchedule(val){
     const resolved = typeof val==="function" ? val(schedule) : val;
-    setAllSchedule(prev=>({...prev,[safeTeamId]:resolved}));
+    setScheduleState(resolved);
+    await supabase.from("schedule").delete({team_id:safeTeamId});
+    if(resolved.length) await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
   }
-  function setTryouts(val){
+
+  async function setTryouts(val){
     const resolved = typeof val==="function" ? val(tryouts) : val;
-    setAllTryouts(prev=>({...prev,[safeTeamId]:resolved}));
+    setTryoutsState(resolved);
+    await supabase.from("tryouts").delete({team_id:safeTeamId});
+    if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
   }
 
   // ── Team management ───────────────────────────────────────────────────────
-  function addTeam(name){
-    const id = `t_${Date.now()}`;
-    setTeams(prev=>[...prev,{id,name}]);
-    setAllRosters(prev=>({...prev,[id]:DEFAULT_PLAYERS}));
-    setAllGames(prev=>({...prev,[id]:[]}));
-    setAllGamePlans(prev=>({...prev,[id]:[]}));
-    setAllPractices(prev=>({...prev,[id]:[]}));
-    setAllDrills(prev=>({...prev,[id]:[]}));
-    setAllTemplates(prev=>({...prev,[id]:[]}));
-    setAllSchedule(prev=>({...prev,[id]:[]}));
-    setAllTryouts(prev=>({...prev,[id]:[]}));
-    setActiveTeamId(id);
+  async function addTeam(name){
+    const {data} = await supabase.from("teams").insert({name,user_id:userId});
+    const newTeam = data?.[0];
+    if(!newTeam) return;
+    setTeamsState(prev=>[...prev,{id:newTeam.id,name:newTeam.name}]);
+    setActiveTeamId(newTeam.id);
+    setRosterState(DEFAULT_PLAYERS);
+    setGamesState([]); setGamePlansState([]); setPracticesState([]);
+    setDrillsState([]); setTemplatesState([]); setScheduleState([]); setTryoutsState([]);
     setView("home");
   }
-  function switchTeam(id){
+
+  async function switchTeam(id){
     setActiveTeamId(id);
     setView("home");
+    setDataLoading(true);
+    await loadTeamData(id);
+    setDataLoading(false);
   }
-  function renameTeam(id,name){
-    setTeams(prev=>prev.map(t=>t.id===id?{...t,name}:t));
+
+  async function renameTeam(id,name){
+    setTeamsState(prev=>prev.map(t=>t.id===id?{...t,name}:t));
+    await supabase.from("teams").update({name},{id});
   }
-  function deleteTeam(id){
+
+  async function deleteTeam(id){
     const remaining = teams.filter(t=>t.id!==id);
-    setTeams(remaining);
-    setAllRosters(prev=>{const n={...prev};delete n[id];return n;});
-    setAllGames(prev=>{const n={...prev};delete n[id];return n;});
-    setAllGamePlans(prev=>{const n={...prev};delete n[id];return n;});
-    setAllPractices(prev=>{const n={...prev};delete n[id];return n;});
-    setAllDrills(prev=>{const n={...prev};delete n[id];return n;});
-    setAllTemplates(prev=>{const n={...prev};delete n[id];return n;});
-    setAllSchedule(prev=>{const n={...prev};delete n[id];return n;});
-    setAllTryouts(prev=>{const n={...prev};delete n[id];return n;});
-    if(activeTeamId===id) setActiveTeamId(remaining[0]?.id);
+    setTeamsState(remaining);
+    await supabase.from("teams").delete({id});
+    if(activeTeamId===id){
+      const nextId = remaining[0]?.id;
+      setActiveTeamId(nextId);
+      if(nextId) await loadTeamData(nextId);
+    }
   }
 
-  const activeTeam = teams.find(t=>t.id===safeTeamId) || teams[0];
+  // ── Auth handlers ─────────────────────────────────────────────────────────
+  function handleAuth(data){
+    setSession(data);
+  }
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [theme, setTheme] = useLocalStorage("coachiq_theme","dark");
-  // Mutate C in place so all components pick up the right theme
-  Object.assign(C, THEMES[theme] || THEMES.dark);
+  async function handleSignOut(){
+    await supabase.auth.signOut();
+    setSession(null);
+    setTeamsState([]); setGamesState([]); setRosterState(DEFAULT_PLAYERS);
+  }
+
+  // ── Show auth screen if not logged in ────────────────────────────────────
+  if(authLoading) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{color:"#ff6b00",fontSize:14}}>Loading…</div>
+    </div>
+  );
+
+  if(!session) return <AuthView onAuth={handleAuth}/>;
+
+  // ── Show loading spinner while data loads ─────────────────────────────────
+  if(dataLoading) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <AppLogo size={60} glow={true}/>
+      <div style={{color:"#ff6b00",fontSize:14,fontFamily:"'Outfit',sans-serif"}}>Loading your data…</div>
+    </div>
+  );
 
   return(
     <>
@@ -2642,13 +3008,15 @@ export default function CoachIQStats(){
           <div style={{height:52,background:C.topbar,borderBottom:`1px solid ${C.border}`,
             display:"flex",alignItems:"center",justifyContent:"space-between",
             padding:"0 20px",flexShrink:0}}>
-            <div style={{color:C.muted,fontSize:12,fontWeight:600}}>
-              {activeTeam?.name} · <span style={{color:C.text}}>{NAV.find(n=>n.id===view)?.label||"Home"}</span>
+            <div style={{color:C.muted,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
+              <span>{activeTeam?.name}</span>
+              <span style={{color:C.border}}>·</span>
+              <span style={{color:C.text}}>{NAV.find(n=>n.id===view)?.label||"Home"}</span>
+              {session?.user?.email&&<span style={{color:C.muted,fontSize:10,marginLeft:4}}>({session.user.email})</span>}
             </div>
-            {/* Right side: date + theme toggle */}
-            <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {/* Right side: date + theme + sign out */}
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{color:C.muted,fontSize:11}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
-              {/* Theme toggle */}
               <button
                 onClick={()=>setTheme(t=>t==="dark"?"light":"dark")}
                 title={theme==="dark"?"Switch to Light Mode":"Switch to Dark Mode"}
@@ -2658,6 +3026,13 @@ export default function CoachIQStats(){
                   color:theme==="light"?"#ff9500":"#1a0d00",fontWeight:700,fontSize:11,
                   transition:"all .2s"}}>
                 {theme==="dark" ? "☀ Light" : "☾ Dark"}
+              </button>
+              <button onClick={handleSignOut}
+                title="Sign out"
+                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
+                  background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,
+                  color:C.muted,cursor:"pointer",fontWeight:600,fontSize:11,transition:"all .2s"}}>
+                Sign Out
               </button>
             </div>
           </div>
