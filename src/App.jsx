@@ -5413,8 +5413,6 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
               // Write directly to the target team's roster via Supabase
               await addPlayerToTeam(selTeam.id, newPlayer);
               setRosterPrompt(null); setPromptTeam(null);
-              // Switch to that team so coach can see the new player
-              if(onSwitchTeam && selTeam.id !== activeTeamId) onSwitchTeam(selTeam.id);
             }}
               style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,
                 color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
