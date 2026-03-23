@@ -812,7 +812,7 @@ function DashboardView({games,setView,teamName}){
         <Badge label="Goals For"  value={ts.goalsFor}     icon={Target} accent={C.accent2}/>
         <Badge label="Goals Agst" value={ts.goalsAgainst}  accent={C.muted}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px"}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>GOALS TREND</div>
           <ResponsiveContainer width="100%" height={145}>
@@ -841,7 +841,7 @@ function DashboardView({games,setView,teamName}){
           </ResponsiveContainer>
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>TOP PERFORMERS</div>
@@ -1155,7 +1155,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster})
                   </div>
                   {open&&(
                     <div style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:"none",borderRadius:"0 0 10px 10px",padding:"14px 16px 14px 60px"}}>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                         <div>
                           <div style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,marginBottom:10}}>SCORE BREAKDOWN (base 6.0)</div>
                           <BreakdownBars breakdown={row.breakdown}/>
@@ -1803,7 +1803,7 @@ function PlayersView({games}){
         <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
           {[["Goals",tots.goals||0],["Assists",tots.assists||0],["Shots",tots.shots||0],["Key Passes",tots.keyPasses||0],["Tackles",tots.tackles||0],["Games",hist.length]].map(([l,v])=><Badge key={l} label={l} value={v}/>)}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px"}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>RATING TREND</div>
             <ResponsiveContainer width="100%" height={145}>
@@ -1931,7 +1931,7 @@ function AnalyticsView({games}){
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px"}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>PASS ACCURACY</div>
           <ResponsiveContainer width="100%" height={145}>
@@ -3188,7 +3188,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
       </div>
 
       {/* Quick actions */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,200px),1fr))",gap:10,marginBottom:22}}>
+      <div className="resp-grid-actions" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:22}}>
         {QUICK.map(a=>{const Icon=a.icon;return(
           <button key={a.view} onClick={()=>setView(a.view)}
             style={{background:C.card,border:`1px solid ${a.color}22`,borderRadius:13,padding:"16px 18px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"all .15s",position:"relative"}}
@@ -3205,7 +3205,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
         );})}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,420px),1fr))",gap:16}}>
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         {/* Upcoming game plan */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -3492,7 +3492,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
           </div>
         )}
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,400px),1fr))",gap:14}}>
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
 
           {/* ── Lineup builder ─────────────────────────────────────── */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
@@ -3782,7 +3782,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
         <div>
           <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
           <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{...iS(),background:C.card}}/>
@@ -4102,7 +4102,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         )}
 
         {/* Row 1: Objectives + Rating */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,300px),1fr))",gap:14,marginBottom:14}}>
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14,marginBottom:14}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>SESSION OBJECTIVES</div>
             <input value={session.objectives||""} onChange={e=>upd(()=>({objectives:e.target.value}))}
@@ -4126,7 +4126,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
 
         {/* Row 2: Session blocks + Drill library */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,360px),1fr))",gap:14,marginBottom:14}}>
+        <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
 
           {/* Session plan blocks */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -4539,7 +4539,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
             </div>
 
             {/* Date + Time */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               <div>
                 <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
                 <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={iStyle()}/>
@@ -4582,7 +4582,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,360px),1fr))",gap:16}}>
+      <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:16}}>
         {/* Calendar grid */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
           {/* Month nav */}
@@ -5131,7 +5131,7 @@ function TryoutsView({tryouts, setTryouts}){
             </div>
           )}
 
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,320px),1fr))",gap:16}}>
+          <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16}}>
             {/* Ranked list */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,maxHeight:"calc(100vh - 280px)",overflowY:"auto"}}>
               <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
@@ -5347,7 +5347,7 @@ function TryoutsView({tryouts, setTryouts}){
             ))}
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,320px),1fr))",gap:16}}>
+          <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16}}>
             {/* Formation + slots */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20}}>
               {/* Formation picker */}
