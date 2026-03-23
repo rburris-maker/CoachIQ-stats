@@ -1898,8 +1898,21 @@ function PlayersView({games}){
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function AnalyticsView({games}){
+function AnalyticsView({games, roster, practices}){
+  const [analyticsTab, setAnalyticsTab] = useState("charts"); // charts | report
+  const [reportFrom,   setReportFrom]   = useState("");
+  const [reportTo,     setReportTo]     = useState("");
+
   const done=games.filter(g=>g.status==="completed");
+
+  // Filtered games for report
+  const reportGames = useMemo(()=>{
+    let g = done;
+    if(reportFrom) g=g.filter(x=>x.date>=reportFrom);
+    if(reportTo)   g=g.filter(x=>x.date<=reportTo);
+    return g;
+  },[done,reportFrom,reportTo]);
+
   const trend=useMemo(()=>done.slice().reverse().map((g,i)=>{
     const t=g.stats.reduce((a,s)=>({sh:a.sh+s.shots,pc:a.pc+s.passesCompleted,pa:a.pa+s.passesAttempted}),{sh:0,pc:0,pa:0});
     return{name:`G${i+1}`,label:`vs ${g.opponent.split(" ")[0]}`,goalsFor:g.ourScore,goalsAgainst:g.theirScore,shots:t.sh,passAcc:t.pa>0?Math.round((t.pc/t.pa)*100):0};
@@ -1914,9 +1927,222 @@ function AnalyticsView({games}){
     return{pos,label:meta.label,color:meta.color,avg:Math.round(av*10)/10,totalGoals:tg,players:pp.length};
   }),[games,done]);
 
+  // Season report stats
+  const reportStats = useMemo(()=>{
+    if(!reportGames.length) return null;
+    const w=reportGames.filter(g=>g.ourScore>g.theirScore).length;
+    const d=reportGames.filter(g=>g.ourScore===g.theirScore).length;
+    const l=reportGames.filter(g=>g.ourScore<g.theirScore).length;
+    const gf=reportGames.reduce((a,g)=>a+g.ourScore,0);
+    const ga=reportGames.reduce((a,g)=>a+g.theirScore,0);
+    // Top scorer
+    const playerGoals = PLAYERS.map(p=>({
+      player:p,
+      goals:  reportGames.reduce((a,g)=>a+(g.stats?.find(s=>s.playerId===p.id)?.goals||0),0),
+      assists:reportGames.reduce((a,g)=>a+(g.stats?.find(s=>s.playerId===p.id)?.assists||0),0),
+      avg:    avgRatingInGames(p.id, reportGames),
+      avgAll: avgRating(p.id, games),
+    })).filter(p=>p.goals>0||p.assists>0||p.avg>0);
+    const topScorer    = [...playerGoals].sort((a,b)=>b.goals-a.goals)[0];
+    const topAssister  = [...playerGoals].sort((a,b)=>b.assists-a.assists)[0];
+    const topRated     = PLAYERS.map(p=>({player:p,avg:avgRatingInGames(p.id,reportGames)}))
+                          .filter(p=>p.avg>0).sort((a,b)=>b.avg-a.avg)[0];
+    // Most improved: highest difference between first half and second half of date range
+    const sorted = [...reportGames].sort((a,b)=>a.date?.localeCompare(b.date||"")||0);
+    const half   = Math.floor(sorted.length/2);
+    const first  = sorted.slice(0,half);
+    const second = sorted.slice(half);
+    const improved = PLAYERS.map(p=>({
+      player:p,
+      diff: avgRatingInGames(p.id,second) - avgRatingInGames(p.id,first)
+    })).filter(p=>p.diff>0&&avgRatingInGames(p.id,first)>0).sort((a,b)=>b.diff-a.diff)[0];
+
+    return {w,d,l,gf,ga,played:reportGames.length,topScorer,topAssister,topRated,improved,playerGoals};
+  },[reportGames, games]);
+
+  function avgRatingInGames(pid, gs){
+    const vals = gs.map(g=>{
+      const st=g.stats?.find(s=>s.playerId===pid); if(!st) return null;
+      const cs=g.theirScore===0;
+      return calcRating(st,primaryPos(PLAYERS.find(p=>p.id===pid)||{position:["CM"]}),cs).rating;
+    }).filter(Boolean);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  }
+
+  function exportReport(){
+    const style=document.createElement("style");
+    style.id="coachiq-report-print";
+    style.innerHTML=`@media print{body>*{display:none!important;}#coachiq-report-portal{display:block!important;position:static!important;}@page{margin:18mm 14mm;size:A4 portrait;}}`;
+    document.head.appendChild(style);
+    const portal=document.createElement("div");
+    portal.id="coachiq-report-portal";
+    portal.style.cssText="display:none;position:absolute;top:0;left:0;width:100%;background:#fff;font-family:'Helvetica Neue',Arial,sans-serif;padding:32px;box-sizing:border-box;";
+    const rs=reportStats;
+    if(!rs){portal.innerHTML="<p>No data</p>";document.body.appendChild(portal);window.print();setTimeout(()=>{portal.remove();style.remove();},1000);return;}
+    portal.innerHTML=`
+      <div style="border-bottom:3px solid #ff6b00;padding-bottom:16px;margin-bottom:24px;">
+        <div style="font-size:11px;color:#cc4400;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Season Report ${reportFrom||""}${reportFrom&&reportTo?" – ":""}${reportTo||""}</div>
+        <div style="font-size:28px;font-weight:900;color:#1a0d00;">Season Summary</div>
+      </div>
+      <div style="display:flex;gap:32px;margin-bottom:28px;">
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#1a0d00;">${rs.played}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Games</div></div>
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#cc4400;">${rs.w}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Wins</div></div>
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#cc8800;">${rs.d}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Draws</div></div>
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#cc1100;">${rs.l}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Losses</div></div>
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#1a5fa8;">${rs.gf}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Goals For</div></div>
+        <div style="text-align:center;"><div style="font-size:40px;font-weight:900;color:#8a3020;">${rs.ga}</div><div style="font-size:11px;color:#8a6040;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Goals Against</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+        ${[
+          ["🥇 Top Scorer",    rs.topScorer,   p=>`${p.goals} goal${p.goals!==1?"s":""}`],
+          ["🅰️ Top Assister",  rs.topAssister, p=>`${p.assists} assist${p.assists!==1?"s":""}`],
+          ["⭐ Highest Rated", rs.topRated,    p=>`${p.avg.toFixed(1)} avg rating`],
+          ["📈 Most Improved", rs.improved,    p=>`+${p.diff.toFixed(1)} rating improvement`],
+        ].map(([title,data,fmt])=>data?`
+          <div style="background:#fdf8f4;border-radius:10px;padding:14px 18px;border:1px solid #e8d5c0;">
+            <div style="font-size:10px;color:#8a6040;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${title}</div>
+            <div style="font-size:17px;font-weight:800;color:#1a0d00;">${data.player.name}</div>
+            <div style="font-size:13px;color:#cc4400;font-weight:600;margin-top:2px;">${fmt(data)}</div>
+          </div>`:"").join("")}
+      </div>
+      <div style="font-size:10px;color:#c0c0c0;text-align:center;border-top:1px solid #e8d5c0;padding-top:12px;">Generated by CoachIQ Stats</div>
+    `;
+    document.body.appendChild(portal);
+    setTimeout(()=>{window.print();setTimeout(()=>{portal.remove();style.remove();},1000);},100);
+  }
+
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
-      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:700,marginBottom:20}}>Season Analytics</h2>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:700}}>Analytics</h2>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:6,marginBottom:18,borderBottom:`1px solid ${C.border}`,paddingBottom:0}}>
+        {[{k:"charts",label:"Charts"},{k:"report",label:"Season Report"}].map(tab=>(
+          <button key={tab.k} onClick={()=>setAnalyticsTab(tab.k)}
+            style={{padding:"9px 18px",background:"transparent",border:"none",cursor:"pointer",
+              color:analyticsTab===tab.k?C.accent:C.muted,fontWeight:700,fontSize:13,
+              borderBottom:analyticsTab===tab.k?`2px solid ${C.accent}`:"2px solid transparent",
+              marginBottom:-1,transition:"all .12s"}}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {analyticsTab==="report"&&(
+        <div>
+          {/* Date range */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>DATE RANGE</div>
+            <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>FROM</label>
+                <input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}
+                  style={{padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,
+                    color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>TO</label>
+                <input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}
+                  style={{padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,
+                    color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              </div>
+              <div style={{paddingTop:18}}>
+                <button onClick={()=>{setReportFrom("");setReportTo("");}}
+                  style={{padding:"9px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                    color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>
+              </div>
+              {reportStats&&(
+                <div style={{paddingTop:18,marginLeft:"auto"}}>
+                  <button onClick={exportReport}
+                    style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                      background:C.accent,border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                    ⬇ Export PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {!reportStats
+            ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+                <FileSpreadsheet size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+                <div style={{color:C.text,fontSize:15,fontWeight:600}}>No games in range</div>
+                <div style={{color:C.muted,fontSize:13,marginTop:6}}>{done.length===0?"Add some games first":"Select a date range to see your season report"}</div>
+              </div>
+            :<div>
+              {/* Summary row */}
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
+                {[["Games",reportStats.played,C.text],["Wins",reportStats.w,C.accent],
+                  ["Draws",reportStats.d,C.warning],["Losses",reportStats.l,C.danger],
+                  ["Goals For",reportStats.gf,C.accent],["Goals Against",reportStats.ga,C.muted]
+                ].map(([lbl,val,col])=>(
+                  <div key={lbl} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,
+                    padding:"14px 20px",flex:"1 1 80px",textAlign:"center"}}>
+                    <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,lineHeight:1}}>{val}</div>
+                    <div style={{color:C.muted,fontSize:11,fontWeight:600,marginTop:4}}>{lbl}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Award cards */}
+              <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                {[
+                  {title:"🥇 Top Scorer",    data:reportStats.topScorer,   fmt:p=>`${p.goals} goal${p.goals!==1?"s":""}`},
+                  {title:"🅰️ Top Assister",  data:reportStats.topAssister, fmt:p=>`${p.assists} assist${p.assists!==1?"s":""}`},
+                  {title:"⭐ Highest Rated", data:reportStats.topRated,    fmt:p=>`${p.avg.toFixed(1)} avg rating`},
+                  {title:"📈 Most Improved", data:reportStats.improved,    fmt:p=>`+${p.diff.toFixed(1)} rating improvement`},
+                ].filter(a=>a.data).map(award=>(
+                  <div key={award.title} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
+                    <div style={{width:48,height:48,borderRadius:11,background:posColor(primaryPos(award.data.player))+"22",
+                      border:`2px solid ${posColor(primaryPos(award.data.player))}44`,flexShrink:0,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(award.data.player)),fontSize:20}}>
+                      {award.data.player.number}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:4}}>{award.title}</div>
+                      <div style={{color:C.text,fontWeight:700,fontSize:15}}>{award.data.player.name}</div>
+                      <div style={{color:C.accent,fontSize:12,fontWeight:700,marginTop:2}}>{award.fmt(award.data)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Player stats table */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>PLAYER STATS</div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <thead>
+                      <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                        {["Player","Position","Rating","Goals","Assists"].map(h=>(
+                          <th key={h} style={{color:C.muted,fontWeight:700,padding:"6px 12px",textAlign:"left",fontSize:11,letterSpacing:.5}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportStats.playerGoals.sort((a,b)=>b.avg-a.avg).map(row=>(
+                        <tr key={row.player.id} style={{borderBottom:`1px solid ${C.border}22`}}>
+                          <td style={{padding:"8px 12px",color:C.text,fontWeight:600}}>{row.player.name}</td>
+                          <td style={{padding:"8px 12px"}}><Tag color={posColor(primaryPos(row.player))}>{primaryPos(row.player)}</Tag></td>
+                          <td style={{padding:"8px 12px",color:rColor(row.avg),fontFamily:"'Oswald',sans-serif",fontWeight:900}}>{row.avg>0?row.avg.toFixed(1):"—"}</td>
+                          <td style={{padding:"8px 12px",color:C.text,fontWeight:700}}>{row.goals}</td>
+                          <td style={{padding:"8px 12px",color:C.text,fontWeight:700}}>{row.assists}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      )}
+
+      {analyticsTab==="charts"&&(
+        <div>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px",marginBottom:14}}>
         <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>GOALS FOR vs AGAINST</div>
         <ResponsiveContainer width="100%" height={180}>
@@ -1983,11 +2209,12 @@ function AnalyticsView({games}){
             </div>
           ))}
         </div>
-      </div>
+        </div>
+        </div>
+      )}
     </div>
   );
 }
-
 // ─── APP SHELL ────────────────────────────────────────────────────────────────
 
 // ─── ROSTER VIEW ──────────────────────────────────────────────────────────────
@@ -2010,11 +2237,15 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   })();
   const [form,setForm] = useState({
     id:        player.id      || `p${Date.now()}`,
-    name:      player.name    || "",
-    number:    player.number  ?? "",
+    name:      player.name       || "",
+    number:    player.number     ?? "",
     positions: initPositions,
-    captain:   player.captain || false,
-    email:     player.email   || "",
+    captain:   player.captain    || false,
+    email:     player.email      || "",
+    availability: player.availability || "available",
+    availNote:    player.availNote    || "",
+    returnDate:   player.returnDate   || "",
+    profilePin:   player.profilePin   || "",
   });
   const [err,setErr] = useState("");
 
@@ -2023,7 +2254,9 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     if(!form.number && form.number!==0) return setErr("Jersey number is required");
     if(isNaN(parseInt(form.number))) return setErr("Jersey number must be a number");
     setErr("");
-    onSave({...form, number:parseInt(form.number), position:form.positions});
+    onSave({...form, number:parseInt(form.number), position:form.positions,
+      availability:form.availability, availNote:form.availNote,
+      returnDate:form.returnDate, profilePin:form.profilePin});
   }
 
   const primaryColor = POS_META[form.positions?.[0]]?.color || C.accent;
@@ -2100,6 +2333,53 @@ function PlayerModal({player, onSave, onDelete, onClose}){
             <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>EMAIL <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(for match reports)</span></label>
             <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
               placeholder="player@email.com" style={iStyle()}/>
+          </div>
+
+          {/* Availability */}
+          <div>
+            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>AVAILABILITY</label>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              {[{k:"available",label:"Available",color:C.accent},
+                {k:"doubtful", label:"Doubtful", color:C.warning},
+                {k:"injured",  label:"Injured",  color:C.danger},
+                {k:"suspended",label:"Suspended",color:"#7c6af5"},
+              ].map(opt=>(
+                <button key={opt.k} onClick={()=>setForm(f=>({...f,availability:opt.k}))}
+                  style={{padding:"6px 14px",background:form.availability===opt.k?opt.color+"22":C.surface,
+                    border:`1px solid ${form.availability===opt.k?opt.color:C.border}`,borderRadius:7,
+                    color:form.availability===opt.k?opt.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {form.availability!=="available"&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
+                <input value={form.availNote} onChange={e=>setForm(f=>({...f,availNote:e.target.value}))}
+                  placeholder="Note (e.g. hamstring)" style={iStyle()}/>
+                <input type="date" value={form.returnDate} onChange={e=>setForm(f=>({...f,returnDate:e.target.value}))}
+                  style={iStyle()}/>
+              </div>
+            )}
+          </div>
+
+          {/* Profile PIN */}
+          <div>
+            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>
+              PROFILE PIN <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(players enter this to view their stats)</span>
+            </label>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input value={form.profilePin} onChange={e=>setForm(f=>({...f,profilePin:e.target.value}))}
+                placeholder="e.g. 1234" maxLength={8} style={iStyle({width:120})}/>
+              <button onClick={()=>{
+                const link=`${window.location.origin}${window.location.pathname}#/player/${form.id}`;
+                navigator.clipboard?.writeText(link).then(()=>alert("Link copied to clipboard!")).catch(()=>alert(link));
+              }}
+                style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",
+                  background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                  color:C.muted,cursor:"pointer",fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>
+                ⎘ Copy Link
+              </button>
+            </div>
           </div>
 
           {/* Captain toggle */}
@@ -2341,10 +2621,11 @@ function RosterView({players, setPlayers, teamName}){
 // Sidebar nav groups
 const SIDEBAR_GROUPS = [
   { label:"MATCH", items:[
-    {id:"home",     label:"Home",      icon:LayoutDashboard},
-    {id:"games",    label:"Games",     icon:Trophy},
-    {id:"live",     label:"Live",      icon:Radio},
-    {id:"calendar", label:"Calendar",  icon:CalendarDays},
+    {id:"home",      label:"Home",      icon:LayoutDashboard},
+    {id:"games",     label:"Games",     icon:Trophy},
+    {id:"live",      label:"Live",      icon:Radio},
+    {id:"calendar",  label:"Calendar",  icon:CalendarDays},
+    {id:"opponents", label:"Opponents", icon:Award},
   ]},
   { label:"SQUAD", items:[
     {id:"players",  label:"Players",   icon:Users},
@@ -2663,7 +2944,9 @@ export default function CoachIQStats(){
   const [templates,   setTemplatesState]= useState([]);
   const [schedule,    setScheduleState] = useState([]);
   const [tryouts,     setTryoutsState]  = useState([]);
+  const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
+  const [onboarded,   setOnboarded]     = useLocalStorage("coachiq_onboarded", false);
   const [saveQueue,   setSaveQueue]     = useState({});
 
   PLAYERS = roster;
@@ -2718,7 +3001,7 @@ export default function CoachIQStats(){
       supabase.from("tryouts").select("*").filter,
     ];
 
-    const [r,g,gp,pr,dr,tp,sc,tr] = await Promise.all([
+    const [r,g,gp,pr,dr,tp,sc,tr,op] = await Promise.all([
       supabase.from("rosters").select("*",{filter:{team_id:tid}}),
       supabase.from("games").select("*",{filter:{team_id:tid}}),
       supabase.from("game_plans").select("*",{filter:{team_id:tid}}),
@@ -2727,6 +3010,7 @@ export default function CoachIQStats(){
       supabase.from("session_templates").select("*",{filter:{team_id:tid}}),
       supabase.from("schedule").select("*",{filter:{team_id:tid}}),
       supabase.from("tryouts").select("*",{filter:{team_id:tid}}),
+      supabase.from("opponents").select("*",{filter:{team_id:tid}}),
     ]);
 
     setRosterState((r.data?.[0]?.players) || []);
@@ -2737,6 +3021,7 @@ export default function CoachIQStats(){
     setTemplatesState((tp.data?.[0]?.data) || []);
     setScheduleState((sc.data||[]).map(x=>x.data));
     setTryoutsState((tr.data||[]).map(x=>x.data));
+    setOpponentsState((op.data||[]).map(x=>x.data));
   }
 
   // ── Data save helpers — write to Supabase ─────────────────────────────────
@@ -2809,6 +3094,13 @@ export default function CoachIQStats(){
     if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
   }
 
+  async function setOpponents(val){
+    const resolved = typeof val==="function" ? val(opponents) : val;
+    setOpponentsState(resolved);
+    await supabase.from("opponents").delete({team_id:safeTeamId});
+    if(resolved.length) await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
+  }
+
   // ── Team management ───────────────────────────────────────────────────────
   async function addTeam(name){
     const {data} = await supabase.from("teams").insert({name,user_id:userId});
@@ -2818,7 +3110,7 @@ export default function CoachIQStats(){
     setActiveTeamId(newTeam.id);
     setRosterState([]);
     setGamesState([]); setGamePlansState([]); setPracticesState([]);
-    setDrillsState([]); setTemplatesState([]); setScheduleState([]); setTryoutsState([]);
+    setDrillsState([]); setTemplatesState([]); setScheduleState([]); setTryoutsState([]); setOpponentsState([]);
     setView("home");
   }
 
@@ -2864,7 +3156,13 @@ export default function CoachIQStats(){
     </div>
   );
 
+  // Hash-based player profile routing — works without auth
+  if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
+
   if(!session) return <AuthView onAuth={handleAuth}/>;
+
+  // ── Show onboarding if first time ────────────────────────────────────────
+  const showOnboarding = !onboarded && !dataLoading && teams.length > 0 && roster.length === 0;
 
   // ── Show loading spinner while data loads ─────────────────────────────────
   if(dataLoading) return(
@@ -3121,15 +3419,21 @@ export default function CoachIQStats(){
           <div style={{flex:1,overflowY:"auto",background:C.bg,
             backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3C/svg%3E")`}}>
             {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
+            {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
+              if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
+              if(player) setRoster(prev=>[...prev,player]);
+              setOnboarded(true);
+            }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
             {view==="players"   &&<PlayersView   games={games}/>}
-            {view==="analytics" &&<AnalyticsView games={games}/>}
+            {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts}/>}
+            {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
           </div>
@@ -3150,6 +3454,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
     roster.map(p=>({...p,avg:avgRating(p.id,games)})).sort((a,b)=>b.avg-a.avg).slice(0,3)
   ,[games,roster]);
   const lastPractice = practices[0];
+  const unavailable = roster.filter(p=>p.availability&&p.availability!=="available");
   const form5 = done.slice(0,5).map(g=>g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D");
   const FOCUS_COLS={"Mixed":C.accent,"Attacking":"#ff6b00","Defending":"#42a5f5","Transition":"#7c6af5","Set Pieces":"#ffb300","Fitness":"#ef5350","Technical":"#66bb6a"};
   const QUICK=[
@@ -3186,6 +3491,18 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
           )}
         </div>
       </div>
+
+      {/* Availability alert */}
+      {unavailable.length>0&&(
+        <div style={{background:C.danger+"15",border:`1px solid ${C.danger}33`,borderRadius:12,
+          padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+          <AlertTriangle size={18} color={C.danger}/>
+          <div style={{flex:1}}>
+            <span style={{color:C.danger,fontWeight:700,fontSize:13}}>{unavailable.length} player{unavailable.length!==1?"s":""} unavailable: </span>
+            <span style={{color:C.muted,fontSize:13}}>{unavailable.map(p=>`${p.name.split(" ")[1]||p.name} (${p.availability})`).join(", ")}</span>
+          </div>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="resp-grid-actions" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:22}}>
@@ -3484,6 +3801,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
                         </div>
                       </div>
                       {inUse&&<span style={{color:C.muted,fontSize:10}}>In use</span>}
+                      {notAvail&&!inUse&&<AvailBadge status={p.availability}/>}
                     </div>
                   );
                 })}
@@ -5505,6 +5823,530 @@ function TryoutsView({tryouts, setTryouts}){
           }
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ONBOARDING WIZARD ────────────────────────────────────────────────────────
+function OnboardingWizard({teamName, onComplete}){
+  const [step, setStep]   = useState(1);
+  const [name, setName]   = useState(teamName==="My Team"?"":teamName||"");
+  const [player, setPlayer] = useState({name:"",number:"",primaryPos:"CM"});
+
+  const POSITIONS = ["GK","CB","FB","DM","CM","W","ST"];
+
+  const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
+    borderRadius:10,color:"#fff0e0",fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"};
+
+  function finish(skipPlayer=false){
+    onComplete(name.trim()||teamName, skipPlayer?null:{
+      id:`p${Date.now()}`,name:player.name.trim(),
+      number:parseInt(player.number)||1,
+      position:[player.primaryPos],captain:false,email:""
+    });
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:1000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+      fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:20,
+        padding:40,width:"100%",maxWidth:480,boxShadow:"0 32px 80px #00000099"}}>
+
+        {/* Progress dots */}
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:32}}>
+          {[1,2,3].map(n=>(
+            <div key={n} style={{width:n===step?24:8,height:8,borderRadius:99,
+              background:n<=step?"#ff6b00":"#2a1000",transition:"all .3s"}}/>
+          ))}
+        </div>
+
+        {/* Step 1 — Team name */}
+        {step===1&&(
+          <div>
+            <div style={{textAlign:"center",marginBottom:28}}>
+              <AppLogo size={52} glow={true}/>
+              <h2 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900,marginTop:14}}>
+                Welcome to CoachIQ Stats
+              </h2>
+              <p style={{color:"#ffffff66",fontSize:14,marginTop:8,lineHeight:1.6}}>
+                Let's get you set up in 2 quick steps.
+              </p>
+            </div>
+            <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:8}}>WHAT'S YOUR TEAM CALLED?</label>
+            <input value={name} onChange={e=>setName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)}
+              placeholder="e.g. Marion FC, Lincoln High Varsity..."
+              autoFocus style={iS}/>
+            <button onClick={()=>setStep(2)} disabled={!name.trim()}
+              style={{width:"100%",marginTop:16,padding:"13px",
+                background:name.trim()?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+                color:name.trim()?"#000":"#4a2a10",fontWeight:900,fontSize:16,cursor:name.trim()?"pointer":"default",
+                fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+              NEXT →
+            </button>
+          </div>
+        )}
+
+        {/* Step 2 — First player */}
+        {step===2&&(
+          <div>
+            <h2 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:900,marginBottom:8}}>
+              Add your first player
+            </h2>
+            <p style={{color:"#ffffff66",fontSize:14,marginBottom:24,lineHeight:1.6}}>
+              You can add the whole squad later from the Roster tab. Just one to get started.
+            </p>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div>
+                <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>PLAYER NAME</label>
+                <input value={player.name} onChange={e=>setPlayer(p=>({...p,name:e.target.value}))}
+                  placeholder="e.g. James Mitchell" style={iS}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div>
+                  <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>JERSEY #</label>
+                  <input type="number" min="1" max="99" value={player.number}
+                    onChange={e=>setPlayer(p=>({...p,number:e.target.value}))}
+                    placeholder="1–99" style={iS}/>
+                </div>
+                <div>
+                  <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>POSITION</label>
+                  <select value={player.primaryPos} onChange={e=>setPlayer(p=>({...p,primaryPos:e.target.value}))}
+                    style={{...iS,background:"#181818"}}>
+                    {POSITIONS.map(pos=><option key={pos}>{pos}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button onClick={()=>finish(false)} disabled={!player.name.trim()||!player.number}
+              style={{width:"100%",marginTop:16,padding:"13px",
+                background:player.name.trim()&&player.number?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+                color:player.name.trim()&&player.number?"#000":"#4a2a10",
+                fontWeight:900,fontSize:16,cursor:player.name.trim()&&player.number?"pointer":"default",
+                fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+              ADD PLAYER →
+            </button>
+            <button onClick={()=>finish(true)}
+              style={{width:"100%",marginTop:8,padding:"11px",background:"transparent",border:"none",
+                color:"#ff6b0077",cursor:"pointer",fontSize:13,fontWeight:600}}>
+              Skip for now
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── OPPONENTS VIEW ───────────────────────────────────────────────────────────
+function OpponentsView({opponents, setOpponents, games, gamePlans}){
+  const [sel,    setSel]    = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newName,setNewName]= useState("");
+
+  // Auto-build opponent list from games
+  const allOpponentNames = useMemo(()=>{
+    const names = new Set(games.map(g=>g.opponent).filter(Boolean));
+    opponents.forEach(o=>names.add(o.name));
+    return [...names].sort();
+  },[games,opponents]);
+
+  function getOrCreate(name){
+    const existing = opponents.find(o=>o.name===name);
+    if(existing) return existing;
+    return {id:`opp${Date.now()}`,name,formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",createdAt:new Date().toISOString()};
+  }
+
+  function saveOpponent(opp){
+    setOpponents(prev=>{
+      const exists = prev.find(o=>o.id===opp.id);
+      if(exists) return prev.map(o=>o.id===opp.id?opp:o);
+      return [...prev,opp];
+    });
+  }
+
+  function h2h(name){
+    const gs = games.filter(g=>g.opponent===name&&g.status==="completed");
+    const w=gs.filter(g=>g.ourScore>g.theirScore).length;
+    const d=gs.filter(g=>g.ourScore===g.theirScore).length;
+    const l=gs.filter(g=>g.ourScore<g.theirScore).length;
+    return {played:gs.length,w,d,l,games:gs};
+  }
+
+  function addManual(){
+    if(!newName.trim()) return;
+    const opp = getOrCreate(newName.trim());
+    saveOpponent(opp);
+    setSel(opp.id||`opp${Date.now()}`);
+    setAdding(false); setNewName("");
+  }
+
+  // Detail view
+  if(sel){
+    const opp = opponents.find(o=>o.id===sel) || getOrCreate(sel);
+    const {played,w,d,l,games:oppGames} = h2h(opp.name);
+    const plans = gamePlans.filter(p=>p.opponent===opp.name);
+
+    function update(key,val){
+      const updated = {...opp,[key]:val};
+      saveOpponent(updated);
+    }
+
+    const iS = (extra={})=>({width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
+      borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+      boxSizing:"border-box",...extra});
+
+    return(
+      <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>OPPONENT PROFILE</div>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900}}>{opp.name}</h2>
+          </div>
+          {played>0&&(
+            <div style={{display:"flex",gap:14}}>
+              {[["W",w,C.accent],["D",d,C.warning],["L",l,C.danger]].map(([lbl,val,col])=>(
+                <div key={lbl} style={{textAlign:"center"}}>
+                  <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{val}</div>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          {/* Scouting info */}
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>SCOUTING</div>
+              <div style={{marginBottom:12}}>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>TYPICAL FORMATION</label>
+                <select value={opp.formation||""} onChange={e=>update("formation",e.target.value)} style={iS()}>
+                  <option value="">Unknown</option>
+                  {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-1-4-1","4-3-2-1"].map(f=><option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>KEY PLAYERS / THREATS</label>
+                <textarea value={opp.keyPlayers||""} onChange={e=>update("keyPlayers",e.target.value)} rows={3}
+                  placeholder="e.g. #9 fast striker, #6 dominant in midfield..."
+                  style={iS({resize:"vertical"})}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>SET PIECES</label>
+                <textarea value={opp.setPieceNotes||""} onChange={e=>update("setPieceNotes",e.target.value)} rows={2}
+                  placeholder="e.g. Near post corners, long throw-ins on right..."
+                  style={iS({resize:"vertical"})}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>GENERAL NOTES</label>
+                <textarea value={opp.scoutNotes||""} onChange={e=>update("scoutNotes",e.target.value)} rows={3}
+                  placeholder="Playing style, pressing triggers, weaknesses..."
+                  style={iS({resize:"vertical"})}/>
+              </div>
+            </div>
+
+            {/* Linked game plans */}
+            {plans.length>0&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>GAME PLANS</div>
+                {plans.map(p=>(
+                  <div key={p.id} style={{padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6}}>
+                    <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.date} · {p.formation}</div>
+                    <div style={{color:C.muted,fontSize:11}}>{p.location}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Match history */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
+              MATCH HISTORY {played>0&&`(${played} games)`}
+            </div>
+            {oppGames.length===0
+              ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games recorded yet</div>
+              :oppGames.map(g=>{
+                const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";
+                const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
+                return(
+                  <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
+                    padding:"10px 12px",background:C.surface,borderRadius:9}}>
+                    <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
+                      border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
+                      {g.formation&&<div style={{color:C.muted,fontSize:11}}>{g.formation}</div>}
+                    </div>
+                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>
+                      {g.ourScore}–{g.theirScore}
+                    </div>
+                  </div>
+                );
+              })
+            }
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>INTELLIGENCE</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Opponents</h1>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {adding?(
+            <div style={{display:"flex",gap:8}}>
+              <input value={newName} onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&addManual()}
+                placeholder="Opponent name..." autoFocus
+                style={{padding:"9px 14px",background:C.card,border:`1px solid ${C.accent}44`,borderRadius:9,
+                  color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <button onClick={addManual} disabled={!newName.trim()}
+                style={{padding:"9px 16px",background:newName.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
+                  color:newName.trim()?"#000":C.muted,fontWeight:800,fontSize:13,cursor:"pointer"}}>Add</button>
+              <button onClick={()=>{setAdding(false);setNewName("");}}
+                style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>✕</button>
+            </div>
+          ):(
+            <button onClick={()=>setAdding(true)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+                border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              <Plus size={15}/>Add Opponent
+            </button>
+          )}
+        </div>
+      </div>
+
+      {allOpponentNames.length===0
+        ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <Award size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No opponents yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Opponents appear automatically from your game history</div>
+          </div>
+        :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {allOpponentNames.map(name=>{
+              const {played,w,d,l} = h2h(name);
+              const opp = opponents.find(o=>o.name===name);
+              return(
+                <div key={name} onClick={()=>{
+                  const o=getOrCreate(name);
+                  if(!opponents.find(x=>x.id===o.id)) saveOpponent(o);
+                  setSel(o.id);
+                }}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+                    padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  <div style={{width:44,height:44,borderRadius:11,background:C.accent+"22",
+                    border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <Award size={20} color={C.accent}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{name}</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      {opp?.formation&&<span style={{color:C.muted,fontSize:12}}>{opp.formation}</span>}
+                      {played>0&&<span style={{color:C.muted,fontSize:12}}>{played} game{played!==1?"s":""}</span>}
+                      {opp?.keyPlayers&&<span style={{color:C.muted,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{opp.keyPlayers.slice(0,40)}{opp.keyPlayers.length>40?"…":""}</span>}
+                    </div>
+                  </div>
+                  {played>0&&(
+                    <div style={{display:"flex",gap:10,flexShrink:0}}>
+                      {[["W",w,C.accent],["D",d,C.warning],["L",l,C.danger]].map(([lbl,val,col])=>(
+                        <div key={lbl} style={{textAlign:"center",minWidth:28}}>
+                          <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{val}</div>
+                          <div style={{color:C.muted,fontSize:9,fontWeight:700}}>{lbl}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── PLAYER AVAILABILITY ─────────────────────────────────────────────────────
+// Added as fields on each player in the roster: availability, returnDate, availNote
+// Rendered in RosterView — we patch it via a helper component used inside PlayerModal
+
+// Availability badge used in roster list and game plan
+function AvailBadge({status}){
+  const map = {
+    available:  {label:"Available",  color:C.accent},
+    doubtful:   {label:"Doubtful",   color:C.warning},
+    injured:    {label:"Injured",    color:C.danger},
+    suspended:  {label:"Suspended",  color:"#7c6af5"},
+  };
+  const s = map[status||"available"];
+  return <Tag color={s.color}>{s.label}</Tag>;
+}
+
+// ─── SHAREABLE PLAYER PROFILE ────────────────────────────────────────────────
+// Hash-based routing: if URL hash starts with #/player/ show profile
+function PlayerProfilePage(){
+  const hash = window.location.hash; // e.g. #/player/p3
+  const match = hash.match(/^#\/player\/(.+)$/);
+  if(!match) return null;
+
+  const playerId = match[1];
+  const [pin, setPin]       = useState("");
+  const [unlocked,setUnlocked] = useState(false);
+  const [profile, setProfile]  = useState(null);
+  const [loading, setLoading]  = useState(false);
+  const [error,   setError]    = useState("");
+
+  async function loadProfile(){
+    setLoading(true); setError("");
+    try{
+      // Fetch all rosters (public read policy enabled)
+      const res = await fetch(
+        `https://lfhbkvdfxlawwwxtvwmj.supabase.co/rest/v1/rosters?select=*`,
+        {headers:{"apikey":"sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L"}}
+      );
+      const data = await res.json();
+      // Find the player across all rosters
+      let found = null;
+      let foundGames = [];
+      for(const row of (data||[])){
+        const players = row.players||[];
+        const p = players.find(pl=>pl.id===playerId);
+        if(p){
+          found = p;
+          // Also try to get games for this team
+          try{
+            const gr = await fetch(
+              `https://lfhbkvdfxlawwwxtvwmj.supabase.co/rest/v1/games?team_id=eq.${row.team_id}&select=*`,
+              {headers:{"apikey":"sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L"}}
+            );
+            const gd = await gr.json();
+            foundGames = (gd||[]).map(x=>x.data).filter(Boolean);
+          }catch(e){}
+          break;
+        }
+      }
+      if(!found){ setError("Player not found."); setLoading(false); return; }
+      // Check PIN
+      const playerPin = found.profilePin||"";
+      if(playerPin && pin !== playerPin){ setError("Incorrect PIN. Try again."); setLoading(false); return; }
+      setProfile({player:found, games:foundGames});
+      setUnlocked(true);
+    }catch(e){
+      setError("Could not load profile. Check your connection.");
+    }
+    setLoading(false);
+  }
+
+  const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
+    borderRadius:10,color:"#fff0e0",fontSize:18,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",textAlign:"center",letterSpacing:8,fontWeight:700};
+
+  if(unlocked && profile){
+    const {player:p, games} = profile;
+    const pos = (Array.isArray(p.position)?p.position:[p.position||"CM"]);
+    const pc  = posColor(pos[0]);
+    const completedGames = games.filter(g=>g.status==="completed");
+    const hist = completedGames.map(g=>{
+      const st=g.stats?.find(s=>s.playerId===p.id);
+      if(!st) return null;
+      const cs=g.ourScore===0&&g.theirScore===0||g.theirScore===0;
+      const {rating,label}=calcRating(st,pos[0],cs);
+      return{date:g.date,opponent:g.opponent,rating,label,
+        goals:st.goals,assists:st.assists,st};
+    }).filter(Boolean).sort((a,b)=>b.date?.localeCompare(a.date||"")||0);
+
+    const avg = hist.length ? hist.reduce((a,h)=>a+h.rating,0)/hist.length : 0;
+    const totalGoals = hist.reduce((a,h)=>a+h.goals,0);
+    const totalAssists = hist.reduce((a,h)=>a+h.assists,0);
+
+    return(
+      <div style={{minHeight:"100vh",background:"#080808",fontFamily:"'Outfit',sans-serif",
+        backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)"}}>
+        <div style={{maxWidth:640,margin:"0 auto",padding:24}}>
+          {/* Header */}
+          <div style={{textAlign:"center",marginBottom:8,paddingTop:20}}>
+            <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2}}>PLAYER PROFILE</div>
+            <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,marginTop:4}}>COACHIQ STATS</div>
+          </div>
+          {/* Player hero */}
+          <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",border:"1px solid #3a1a00",
+            borderRadius:18,padding:28,marginBottom:16,textAlign:"center"}}>
+            <div style={{width:72,height:72,borderRadius:16,background:pc+"22",border:`3px solid ${pc}55`,
+              display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px",
+              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:32}}>
+              {p.number}
+            </div>
+            <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,marginBottom:6}}>{p.name}</div>
+            <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:16}}>
+              {pos.map(po=><span key={po} style={{background:posColor(po)+"22",color:posColor(po),border:`1px solid ${posColor(po)}44`,borderRadius:4,padding:"2px 10px",fontSize:12,fontWeight:700}}>{po}</span>)}
+            </div>
+            <div style={{display:"flex",gap:24,justifyContent:"center"}}>
+              <div><div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{avg>0?avg.toFixed(1):"—"}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Season Avg</div></div>
+              <div><div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{totalGoals}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Goals</div></div>
+              <div><div style={{color:"#ffb300",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{totalAssists}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Assists</div></div>
+            </div>
+          </div>
+          {/* Last 5 games */}
+          <div style={{background:"#141414",border:"1px solid #2a1000",borderRadius:14,padding:18}}>
+            <div style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>RECENT GAMES</div>
+            {hist.slice(0,5).map((h,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
+                padding:"9px 12px",background:"#0a0400",borderRadius:9}}>
+                <div style={{color:rColor(h.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,minWidth:36}}>{h.rating.toFixed(1)}</div>
+                <div style={{flex:1}}>
+                  <div style={{color:"#fff0e0",fontWeight:600,fontSize:13}}>vs {h.opponent}</div>
+                  <div style={{color:"#7a4a2a",fontSize:11}}>{h.date}</div>
+                </div>
+                <div style={{color:"#7a4a2a",fontSize:12}}>{h.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PIN entry
+  return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",
+      fontFamily:"'Outfit',sans-serif",padding:20,
+      backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)"}}>
+      <div style={{width:"100%",maxWidth:380,textAlign:"center"}}>
+        <AppLogo size={56} glow={true}/>
+        <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22,letterSpacing:1,marginTop:14,marginBottom:4}}>
+          COACHIQ <span style={{color:"#ff6b00"}}>STATS</span>
+        </div>
+        <div style={{color:"#7a4a2a",fontSize:13,marginBottom:32}}>Player Profile</div>
+        <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:16,padding:28}}>
+          <div style={{color:"#ffffff",fontSize:16,fontWeight:600,marginBottom:8}}>Enter your PIN</div>
+          <div style={{color:"#7a4a2a",fontSize:13,marginBottom:20}}>Your coach set a PIN to access your profile</div>
+          <input type="password" inputMode="numeric" maxLength={8} value={pin}
+            onChange={e=>setPin(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&loadProfile()}
+            placeholder="••••" style={iS}/>
+          {error&&<div style={{color:"#ff4444",fontSize:13,marginTop:10,fontWeight:600}}>{error}</div>}
+          <button onClick={loadProfile} disabled={loading||!pin}
+            style={{width:"100%",marginTop:16,padding:"13px",
+              background:pin?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+              color:pin?"#000":"#4a2a10",fontWeight:900,fontSize:15,cursor:pin?"pointer":"default",
+              fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+            {loading?"LOADING…":"VIEW PROFILE →"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
