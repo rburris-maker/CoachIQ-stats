@@ -3019,6 +3019,8 @@ export default function CoachIQStats(){
   const [tryouts,     setTryoutsState]  = useState([]);
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
+  const [saveStatus,  setSaveStatus]    = useState(null); // null | "saving" | "saved" | "error"
+  const saveTimerRef = useRef(null);
   const [onboarded,   setOnboarded]     = useLocalStorage("coachiq_onboarded", false);
   const [saveQueue,   setSaveQueue]     = useState({});
 
@@ -3097,14 +3099,24 @@ export default function CoachIQStats(){
     setOpponentsState((op.data||[]).map(x=>x.data));
   }
 
+  // ── Save status helpers ───────────────────────────────────────────────────
+  function startSave(){ setSaveStatus("saving"); }
+  function endSave(err){
+    setSaveStatus(err?"error":"saved");
+    if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(()=>setSaveStatus(null), err?4000:2000);
+  }
+
   // ── Data save helpers — write to Supabase ─────────────────────────────────
   async function setRoster(val){
     const resolved = typeof val==="function" ? val(roster) : val;
     setRosterState(resolved);
-    await supabase.from("rosters").upsert(
+    startSave();
+    const {error} = await supabase.from("rosters").upsert(
       {team_id:safeTeamId,user_id:userId,players:resolved,updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
+    endSave(error);
   }
 
   // Add a player directly to a specific team's roster (used by tryout flow)
@@ -3119,81 +3131,106 @@ export default function CoachIQStats(){
     );
     if(already) return;
     const updated = [...currentPlayers, newPlayer];
-    await supabase.from("rosters").upsert(
+    startSave();
+    const {error:e2} = await supabase.from("rosters").upsert(
       {team_id:teamId, user_id:userId, players:updated, updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
-    // If this is the active team, also update local state
-    if(teamId===safeTeamId){
-      setRosterState(updated);
-    }
+    endSave(e2);
+    if(teamId===safeTeamId){ setRosterState(updated); }
   }
 
   async function setGames(val){
     const resolved = typeof val==="function" ? val(games) : val;
     setGamesState(resolved);
-    // Sync: upsert each game by its id
-    const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
-    if(newGame){
-      await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
-    } else {
-      // deletion or update — rebuild
-      await supabase.from("games").delete({team_id:safeTeamId});
-      if(resolved.length) await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
-    }
+    startSave();
+    try{
+      const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
+      if(newGame){
+        await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
+      } else {
+        await supabase.from("games").delete({team_id:safeTeamId});
+        if(resolved.length) await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+      }
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   async function setGamePlans(val){
     const resolved = typeof val==="function" ? val(gamePlans) : val;
     setGamePlansState(resolved);
-    await supabase.from("game_plans").delete({team_id:safeTeamId});
-    if(resolved.length) await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+    startSave();
+    try{
+      await supabase.from("game_plans").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   async function setPractices(val){
     const resolved = typeof val==="function" ? val(practices) : val;
     setPracticesState(resolved);
-    await supabase.from("practices").delete({team_id:safeTeamId});
-    if(resolved.length) await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+    startSave();
+    try{
+      await supabase.from("practices").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   async function setDrills(val){
     const resolved = typeof val==="function" ? val(drills) : val;
     setDrillsState(resolved);
-    await supabase.from("drills").upsert(
+    startSave();
+    const {error} = await supabase.from("drills").upsert(
       {team_id:safeTeamId,user_id:userId,data:resolved,updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
+    endSave(error);
   }
 
   async function setTemplates(val){
     const resolved = typeof val==="function" ? val(templates) : val;
     setTemplatesState(resolved);
-    await supabase.from("session_templates").upsert(
+    startSave();
+    const {error} = await supabase.from("session_templates").upsert(
       {team_id:safeTeamId,user_id:userId,data:resolved,updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
+    endSave(error);
   }
 
   async function setSchedule(val){
     const resolved = typeof val==="function" ? val(schedule) : val;
     setScheduleState(resolved);
-    await supabase.from("schedule").delete({team_id:safeTeamId});
-    if(resolved.length) await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
+    startSave();
+    try{
+      await supabase.from("schedule").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   async function setTryouts(val){
     const resolved = typeof val==="function" ? val(tryouts) : val;
     setTryoutsState(resolved);
-    await supabase.from("tryouts").delete({team_id:safeTeamId});
-    if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
+    startSave();
+    try{
+      await supabase.from("tryouts").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   async function setOpponents(val){
     const resolved = typeof val==="function" ? val(opponents) : val;
     setOpponentsState(resolved);
-    await supabase.from("opponents").delete({team_id:safeTeamId});
-    if(resolved.length) await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
+    startSave();
+    try{
+      await supabase.from("opponents").delete({team_id:safeTeamId});
+      if(resolved.length) await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
+      endSave(null);
+    }catch(e){ endSave(e); }
   }
 
   // ── Team management ───────────────────────────────────────────────────────
@@ -3487,6 +3524,25 @@ export default function CoachIQStats(){
               {session?.user?.email&&<span style={{color:C.muted,fontSize:10,marginLeft:4}} className="hide-mobile">({session.user.email})</span>}
             </div>
             </div>
+            {/* Save status indicator */}
+            {saveStatus&&(
+              <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",
+                borderRadius:20,fontSize:12,fontWeight:600,transition:"all .3s",
+                background:saveStatus==="saving"?C.surface:saveStatus==="saved"?C.accent+"22":C.danger+"22",
+                border:`1px solid ${saveStatus==="saving"?C.border:saveStatus==="saved"?C.accent:C.danger}`,
+                color:saveStatus==="saving"?C.muted:saveStatus==="saved"?C.accent:C.danger}}>
+                {saveStatus==="saving"&&(
+                  <div style={{width:8,height:8,borderRadius:"50%",border:`2px solid ${C.muted}`,
+                    borderTopColor:"transparent",animation:"spin .6s linear infinite"}}/>
+                )}
+                {saveStatus==="saved"&&<span>✓</span>}
+                {saveStatus==="error"&&<span>⚠</span>}
+                <span>
+                  {saveStatus==="saving"?"Saving…":saveStatus==="saved"?"Saved":"Save failed — check connection"}
+                </span>
+              </div>
+            )}
+
             {/* Right side: date + theme + sign out */}
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{color:C.muted,fontSize:11}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
