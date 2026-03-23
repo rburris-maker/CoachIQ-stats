@@ -3432,7 +3432,7 @@ export default function CoachIQStats(){
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
-            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts}/>}
+            {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans}/>}
             {/* redirect old dashboard id */}
             {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
@@ -5028,7 +5028,7 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
 }
 
 // ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
-function TryoutsView({tryouts, setTryouts}){
+function TryoutsView({tryouts, setTryouts, roster, setRoster}){
   const [selTryout,  setSelTryout]  = useState(null);
   const [selCand,    setSelCand]    = useState(null);
   const [activeTab,  setActiveTab]  = useState("candidates"); // candidates | lineups
@@ -5129,6 +5129,35 @@ function TryoutsView({tryouts, setTryouts}){
   }
   function updateCandField(candId,key,val){
     upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})}));
+    // If status set to a team (varsity/jv/jvb), offer to add to roster
+    if(key==="status" && ["varsity","jv","jvb"].includes(val)){
+      const tryout = tryouts.find(t=>t.id===selTryout);
+      const cand   = tryout?.candidates.find(c=>c.id===candId);
+      if(cand && setRoster){
+        const already = (roster||[]).find(p=>
+          p.name.trim().toLowerCase()===cand.name.trim().toLowerCase()
+        );
+        if(!already){
+          const label = val==="varsity"?"Varsity":val==="jv"?"JV":"JVB";
+          if(window.confirm(`Add ${cand.name} to your ${label} roster?`)){
+            const positions = cand.positions||[cand.primaryPos||"CM"];
+            const newPlayer = {
+              id:   `p${Date.now()}`,
+              name: cand.name,
+              number: 1,  // coach can edit after
+              position: positions,
+              captain:  false,
+              email:    "",
+              availability: "available",
+              availNote:    "",
+              returnDate:   "",
+              profilePin:   "",
+            };
+            setRoster(prev=>[...prev, newPlayer]);
+          }
+        }
+      }
+    }
   }
   function updateCustomStat(candId,statId,val){
     upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,customStats:{...c.customStats,[statId]:val}})}));
