@@ -4827,8 +4827,8 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                       return(
                         <div key={idx} onClick={()=>setPicking({zone,idx})}
                           style={{flex:"1 1 80px",minWidth:70,padding:"8px 6px",borderRadius:9,cursor:"pointer",
-                            background:p?"#1a0800":C.surface,
-                            border:`1.5px solid ${p?ZONE_COL[zone]+"66":C.border}`,
+                            background:p?ZONE_COL[zone]+"11":C.surface,
+                            border:`1.5px solid ${p?ZONE_COL[zone]+"55":C.border}`,
                             display:"flex",flexDirection:"column",alignItems:"center",gap:3,
                             transition:"all .12s"}}
                           onMouseEnter={e=>e.currentTarget.style.borderColor=ZONE_COL[zone]}
@@ -8192,9 +8192,66 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
   );
 }
 
+// ─── PITCH DIAGRAM ────────────────────────────────────────────────────────────
+function PitchDiagram(){
+  return(
+    <svg viewBox="0 0 160 240" style={{width:"100%",height:"100%",display:"block"}}
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="150" height="230" fill="white" stroke="#333" strokeWidth="1.5"/>
+      <line x1="5" y1="120" x2="155" y2="120" stroke="#333" strokeWidth="1"/>
+      <circle cx="80" cy="120" r="22" fill="none" stroke="#333" strokeWidth="1"/>
+      <circle cx="80" cy="120" r="2" fill="#333"/>
+      <rect x="35" y="5" width="90" height="40" fill="none" stroke="#333" strokeWidth="1"/>
+      <rect x="55" y="5" width="50" height="18" fill="none" stroke="#333" strokeWidth="1"/>
+      <circle cx="80" cy="35" r="1.5" fill="#333"/>
+      <path d="M 62 45 A 20 20 0 0 1 98 45" fill="none" stroke="#333" strokeWidth="1"/>
+      <rect x="35" y="195" width="90" height="40" fill="none" stroke="#333" strokeWidth="1"/>
+      <rect x="55" y="217" width="50" height="18" fill="none" stroke="#333" strokeWidth="1"/>
+      <circle cx="80" cy="205" r="1.5" fill="#333"/>
+      <path d="M 62 195 A 20 20 0 0 0 98 195" fill="none" stroke="#333" strokeWidth="1"/>
+    </svg>
+  );
+}
+
+// ─── ACTIVITY BLOCK ───────────────────────────────────────────────────────────
+function ActivityBlock({title, description, coachingPoints, showDiagram}){
+  return(
+    <div style={{border:"1px solid #000",marginBottom:0,pageBreakInside:"avoid"}}>
+      <div style={{display:"flex",borderBottom:"2px solid #000",background:"#f0f0f0"}}>
+        <div style={{flex:1,padding:"5px 10px",fontSize:11,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>
+          {"Activity: "+title}
+        </div>
+        <div style={{padding:"5px 10px",fontSize:11,fontFamily:"Arial,sans-serif",borderLeft:"1px solid #000"}}>
+          Duration:
+        </div>
+      </div>
+      <div style={{display:"flex",minHeight:160}}>
+        <div style={{width:220,flexShrink:0,borderRight:"1px solid #000",padding:8}}>
+          <div style={{fontSize:10,fontWeight:"bold",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Diagram</div>
+          {showDiagram!==false&&<div style={{height:150}}><PitchDiagram/></div>}
+        </div>
+        <div style={{flex:1,display:"flex",flexDirection:"column"}}>
+          <div style={{flex:1,padding:"8px 12px",borderBottom:"1px solid #ccc"}}>
+            <div style={{fontSize:10,fontWeight:"bold",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Description</div>
+            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+              {description||""}
+            </div>
+          </div>
+          <div style={{flex:1,padding:"8px 12px"}}>
+            <div style={{fontSize:10,fontWeight:"bold",fontStyle:"italic",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Coaching Points</div>
+            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+              {coachingPoints||""}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── GAME PLAN SHARE PAGE ─────────────────────────────────────────────────────
 function GamePlanSharePage(){
-  const hash    = window.location.hash; // #/plan/sXXXX
+  const hash    = window.location.hash;
   const shareId = hash.replace("#/plan/","");
   const [plan,    setPlan]    = useState(null);
   const [roster,  setRoster]  = useState([]);
@@ -8205,66 +8262,48 @@ function GamePlanSharePage(){
   useEffect(()=>{
     async function load(){
       try{
-        // Load all game plans across all teams to find the matching shareId OR id
         const {data:gpRows} = await supabase.from("game_plans").select("*");
-        let foundPlan = null;
-        let teamId    = null;
+        let foundPlan=null, teamId=null;
         for(const row of (gpRows||[])){
-          const plans = Array.isArray(row.data) ? row.data : [row.data];
-          // Match by shareId first, then fall back to plan id
-          const match = plans.find(p=>p.shareId===shareId || p.id===shareId);
-          if(match){ foundPlan=match; teamId=row.team_id; break; }
+          const plans = Array.isArray(row.data)?row.data:[row.data];
+          const match = plans.find(function(p){return p.shareId===shareId||p.id===shareId;});
+          if(match){foundPlan=match;teamId=row.team_id;break;}
         }
-        if(!foundPlan){ setError("Game plan not found. Try sharing again from the Game Plans page."); setLoading(false); return; }
+        if(!foundPlan){setError("Game plan not found.");setLoading(false);return;}
         setPlan(foundPlan);
-
-        // Load roster for that team
         if(teamId){
-          const {data:rRows} = await supabase.from("rosters").select("*");
-        const rRow = (rRows||[]).filter(r=>r.team_id===teamId);
-          setRoster(rRow?.[0]?.players || []);
+          const {data:rRows}=await supabase.from("rosters").select("*");
+          const rRow=(rRows||[]).filter(function(r){return r.team_id===teamId;});
+          setRoster(rRow&&rRow[0]?rRow[0].players:[]);
         }
-
-        // Load opponent record
         if(foundPlan.opponent){
-          const {data:oppRows} = await supabase.from("opponents").select("*");
-          const oppMatch = (oppRows||[]).find(row=>{
-            const o = row.data;
-            return o?.name?.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase();
+          const {data:oppRows}=await supabase.from("opponents").select("*");
+          const oppMatch=(oppRows||[]).find(function(row){
+            var o=row.data;
+            return o&&o.name&&o.name.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase();
           });
           if(oppMatch) setOpp(oppMatch.data);
         }
         setLoading(false);
-      }catch(e){
-        setError("Failed to load game plan.");
-        setLoading(false);
-      }
+      }catch(e){setError("Failed to load.");setLoading(false);}
     }
     load();
   },[shareId]);
 
   if(loading) return(
-    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
-      justifyContent:"center",flexDirection:"column",gap:16,fontFamily:"'Outfit',sans-serif"}}>
-      <AppLogo size={52} glow={true}/>
-      <div style={{color:"#ff6b00",fontSize:14}}>Loading game plan…</div>
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>
+      Loading game plan...
     </div>
   );
   if(error) return(
-    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"'Outfit',sans-serif"}}>
-      <div style={{color:"#ff4444",fontSize:16}}>{error}</div>
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>
+      {error}
     </div>
   );
 
   const ZONE_NAMES = {GK:"Goalkeeper",DEF:"Defenders",MID:"Midfielders",FWD:"Forwards"};
-  const ZONE_COLS  = {GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
-  const rColor     = p => posColor(primaryPos(p));
-
-  // Opponent threat color
-  const threatCol  = t => t==="key"?"#ff2200":t==="danger"?"#ff5500":t==="watch"?"#ffb300":"#7a4a2a";
-
-  // Build opponent squad from formation
   const FORM_POS = {
     "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
     "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
@@ -8274,308 +8313,159 @@ function GamePlanSharePage(){
     "4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],
     "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
   };
-  const oppPositions = opp?.formation ? (FORM_POS[opp.formation]||[]) : [];
-  const oppPlayers   = opp?.oppPlayers || {};
-  function getOppP(pos,idx){ return (oppPlayers[pos]||[])[idx]||{}; }
-  const extras = oppPlayers["extra"]||[];
 
-  // Build threat players list
-  const allOppPlayers = [
-    ...oppPositions.map((pos,idx)=>({...getOppP(pos,idx),pos})),
-    ...extras.map(p=>({...p,pos:p.customPos||"SUB"})),
-  ].filter(p=>p.name||p.number);
-  const threats = allOppPlayers.filter(p=>p.threat);
+  var oppPositions = opp&&opp.formation?(FORM_POS[opp.formation]||[]):[];
+  var oppPlayers2  = opp&&opp.oppPlayers?opp.oppPlayers:{};
+  var extras2      = oppPlayers2["extra"]||[];
 
-  const S = { // shared styles
-    card: {background:"#111",border:"1px solid #2a1000",borderRadius:14,padding:"18px 20px",marginBottom:16},
-    label: {fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",
-            color:"#ff6b00",marginBottom:8,display:"block"},
-    body:  {fontSize:14,color:"#c8bfb0",lineHeight:1.7,whiteSpace:"pre-wrap"},
-  };
+  var allOppPlayers = oppPositions.map(function(pos,idx){
+    var p=(oppPlayers2[pos]||[])[idx]||{};
+    return Object.assign({},p,{pos:pos});
+  }).concat(extras2.map(function(p){
+    return Object.assign({},p,{pos:p.customPos||"SUB"});
+  })).filter(function(p){return p.name||p.number;});
+
+  // Build lineup text
+  var lineupLines = ["FWD","MID","DEF","GK"].map(function(zone){
+    var slots=(plan.lineup&&plan.lineup[zone]?plan.lineup[zone]:[]).filter(Boolean);
+    if(!slots.length) return null;
+    var names=slots.map(function(pid){
+      var p=roster.find(function(r){return r.id===pid;});
+      return p?"#"+p.number+" "+p.name:null;
+    }).filter(Boolean);
+    return names.length?(ZONE_NAMES[zone]+": "+names.join(", ")):null;
+  }).filter(Boolean);
+  var lineupText = lineupLines.join("\n");
+
+  var subsLines = (plan.subs||[]).map(function(s){
+    var on=roster.find(function(r){return r.id===s.playerOn;});
+    var off=roster.find(function(r){return r.id===s.playerOff;});
+    return s.minute+"' "+(on?on.name:"?")+" ON / "+(off?off.name:"?")+" OFF";
+  });
+  var subsText = subsLines.join("\n");
+  var coachingPointsLineup = subsText?"Planned Substitutions:\n"+subsText:"";
+
+  // Scout text
+  var threatPlayers=allOppPlayers.filter(function(p){return p.threat;});
+  var scoutParts = [];
+  if(opp&&opp.formation) scoutParts.push("Formation: "+opp.formation);
+  if(threatPlayers.length){
+    var threatLines = threatPlayers.map(function(p){
+      return "* "+p.pos+(p.number?" #"+p.number:"")+" "+(p.name||"")+" ["+p.threat.toUpperCase()+"]"+(p.notes?" - "+p.notes:"");
+    });
+    scoutParts.push("Key Threats:\n"+threatLines.join("\n"));
+  }
+  if(opp&&opp.tendencies){
+    if(opp.tendencies.pressing)    scoutParts.push("Pressing: "+opp.tendencies.pressing);
+    if(opp.tendencies.buildUp)     scoutParts.push("Build-up: "+opp.tendencies.buildUp);
+    if(opp.tendencies.weaknesses)  scoutParts.push("Weaknesses: "+opp.tendencies.weaknesses);
+  }
+  if(opp&&opp.scoutNotes) scoutParts.push("Notes: "+opp.scoutNotes);
+  var scoutDesc = scoutParts.join("\n\n");
+
+  var counterParts = [];
+  if(opp&&opp.counterPlan){
+    if(opp.counterPlan.howWeAttack) counterParts.push("How We Attack:\n"+opp.counterPlan.howWeAttack);
+    if(opp.counterPlan.howWeDefend) counterParts.push("How We Defend:\n"+opp.counterPlan.howWeDefend);
+    if(opp.counterPlan.keyMatchups) counterParts.push("Key Matchups:\n"+opp.counterPlan.keyMatchups);
+  }
+  var counterText = counterParts.join("\n\n");
+  var focusText   = opp&&opp.counterPlan&&opp.counterPlan.focusPoints?opp.counterPlan.focusPoints:"";
+
+  var setPieceParts = [];
+  var spDefParts    = [];
+  if(opp&&opp.setPieces){
+    var sp=opp.setPieces;
+    if(sp.cornersAtk)   setPieceParts.push("Corners (Their Attack): "+sp.cornersAtk);
+    if(sp.cornersDef)   setPieceParts.push("Corners (Our Defence): "+sp.cornersDef);
+    if(sp.freeKicksAtk) setPieceParts.push("Free Kicks (Their Attack): "+sp.freeKicksAtk);
+    if(sp.freeKicksDef) setPieceParts.push("Free Kicks (Our Defence): "+sp.freeKicksDef);
+    if(sp.throwInsAtk)  spDefParts.push("Throw-ins (Their Attack): "+sp.throwInsAtk);
+    if(sp.throwInsDef)  spDefParts.push("Throw-ins (Our Defence): "+sp.throwInsDef);
+  }
+  var setPieceDesc = setPieceParts.join("\n\n");
+  var setPieceCP   = spDefParts.join("\n\n");
+  var hasSetPieces = setPieceParts.length>0||spDefParts.length>0;
 
   return(
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;800;900&family=Outfit:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:#080808;color:#f5f0e8;font-family:'Outfit',sans-serif;}
-        .card-dark{background:#111;border:1px solid #2a1000;border-radius:14px;padding:14px 16px;margin-bottom:12px;}
-        .print-text{color:#f5f0e8;}
-        .print-muted{color:#c8bfb0;}
-        .print-accent{color:#ff6b00;}
+        body{background:#fff;color:#000;font-family:Arial,sans-serif;}
         @media print{
-          *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-          body{background:#fff!important;color:#000!important;font-size:10px!important;}
           .no-print{display:none!important;}
-          .print-page{background:#fff!important;padding:0!important;}
-          .card-dark{background:#f9f9f9!important;border:1px solid #ddd!important;border-radius:6px!important;padding:8px 10px!important;margin-bottom:6px!important;}
-          .print-text{color:#000!important;}
-          .print-muted{color:#444!important;}
-          .print-accent{color:#c94d00!important;}
-          h1{font-size:22px!important;margin-bottom:4px!important;}
-          h2{font-size:16px!important;}
-          .gp-header{padding-bottom:10px!important;margin-bottom:12px!important;}
-          .gp-section-title{font-size:9px!important;margin-bottom:4px!important;}
-          .player-chip{padding:4px 7px!important;border-radius:5px!important;margin-bottom:3px!important;}
-          .player-badge{width:22px!important;height:22px!important;font-size:10px!important;}
-          .player-name{font-size:10px!important;}
-          .zone-label{font-size:8px!important;margin-bottom:3px!important;}
-          .lineup-grid{display:flex!important;flex-wrap:wrap!important;gap:4px!important;}
-          .scout-section{page-break-inside:avoid;}
           @page{margin:10mm 12mm;size:A4 portrait;}
         }
       `}</style>
 
-      <div className="print-page" style={{maxWidth:860,margin:"0 auto",padding:"24px 20px"}}>
+      <div style={{maxWidth:780,margin:"0 auto",padding:"20px 16px",background:"#fff",color:"#000"}}>
 
-        {/* Print / Back buttons */}
-        <div className="no-print" style={{display:"flex",gap:10,marginBottom:24,alignItems:"center"}}>
-          <button onClick={()=>window.history.back()}
-            style={{background:"#181818",border:"1px solid #2a1000",borderRadius:8,
-              padding:"8px 16px",color:"#c8bfb0",cursor:"pointer",fontSize:13}}>
-            ← Back
+        <div className="no-print" style={{display:"flex",gap:10,marginBottom:20}}>
+          <button onClick={function(){window.history.back();}}
+            style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,
+              background:"#f5f5f5",cursor:"pointer",fontSize:13}}>
+            Back
           </button>
           <div style={{flex:1}}/>
-          <button onClick={()=>window.print()}
-            style={{background:"#ff6b00",border:"none",borderRadius:8,
-              padding:"10px 22px",color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-              fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-            ⬇ Print / Save PDF
+          <button onClick={function(){window.print();}}
+            style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,
+              color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>
+            Print / Save PDF
           </button>
         </div>
 
-        {/* ── HEADER ─────────────────────────────────────────────────── */}
-        <div className="gp-header" style={{textAlign:"center",marginBottom:28,paddingBottom:20,
-          borderBottom:"2px solid #ff6b00"}}>
-          <div style={{marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:16,
+          borderBottom:"3px solid #000",paddingBottom:10,marginBottom:2}}>
+          <div style={{flexShrink:0}}>
             <AppLogo size={44} glow={false}/>
           </div>
-          <div className="print-accent" style={{fontSize:11,fontWeight:700,letterSpacing:3,
-            color:"#ff6b0088",textTransform:"uppercase",marginBottom:6}}>Game Plan</div>
-          <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:36,fontWeight:900,
-            letterSpacing:1,color:"#f5f0e8",marginBottom:8}}>
-            vs {plan.opponent}
-          </h1>
-          <div className="print-muted" style={{color:"#7a4a2a",fontSize:14,fontWeight:500}}>
-            {plan.date} &nbsp;·&nbsp; {plan.location} &nbsp;·&nbsp;
-            <span style={{color:"#ff6b00",fontWeight:700}}>{plan.formation}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:18,fontFamily:"Arial,sans-serif",fontWeight:"bold"}}>
+              {"Session: vs "+plan.opponent}
+            </div>
+            <div style={{display:"flex",gap:24,marginTop:4,fontSize:11,color:"#555"}}>
+              <span>{"Formation: "+plan.formation}</span>
+              <span>{"Date: "+plan.date}</span>
+              <span>{plan.location}</span>
+            </div>
           </div>
         </div>
 
-        {/* ── OUR LINEUP ─────────────────────────────────────────────── */}
-        <div className="card-dark" style={S.card}>
-          <span className="print-accent gp-section-title" style={S.label}>Our Starting XI</span>
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            {["FWD","MID","DEF","GK"].map(zone=>{
-              const slots = plan.lineup?.[zone]||[];
-              const filled = slots.filter(Boolean);
-              if(!filled.length) return null;
-              return(
-                <div key={zone}>
-                  <div className="zone-label" style={{fontSize:10,fontWeight:700,letterSpacing:1,
-                    color:ZONE_COLS[zone],marginBottom:6,textTransform:"uppercase"}}>
-                    {ZONE_NAMES[zone]}
-                  </div>
-                  <div className="lineup-grid" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {slots.map((pid,i)=>{
-                      if(!pid) return null;
-                      const p = roster.find(r=>r.id===pid);
-                      if(!p) return null;
-                      const col = rColor(p);
-                      return(
-                        <div key={i} className="player-chip" style={{display:"flex",alignItems:"center",gap:8,
-                          padding:"7px 12px",background:"#1a0800",
-                          border:"1.5px solid "+ZONE_COLS[zone]+"44",borderRadius:9,
-                          minWidth:120}}>
-                          <div className="player-badge" style={{width:30,height:30,borderRadius:7,flexShrink:0,
-                            background:col+"22",border:"2px solid "+col+"55",
-                            display:"flex",alignItems:"center",justifyContent:"center",
-                            fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                            color:col,fontSize:15}}>{p.number}</div>
-                          <div>
-                            <div className="print-text player-name" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>{p.name}</div>
-                            <div className="print-muted" style={{color:"#7a4a2a",fontSize:11}}>{primaryPos(p)}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <ActivityBlock
+          title="Starting Lineup"
+          description={lineupText}
+          coachingPoints={coachingPointsLineup}
+        />
 
-          {/* Subs */}
-          {plan.subs?.length>0&&(
-            <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid #2a1000"}}>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:1,
-                color:"#7a4a2a",marginBottom:8,textTransform:"uppercase"}}>Substitutes</div>
-              <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                {plan.subs.map((sub,i)=>{
-                  const on  = roster.find(r=>r.id===sub.playerOn);
-                  const off = roster.find(r=>r.id===sub.playerOff);
-                  if(!on&&!off) return null;
-                  return(
-                    <div key={i} className="print-muted" style={{fontSize:13,color:"#7a4a2a"}}>
-                      <span style={{color:"#ff6b00",fontWeight:700}}>{sub.minute}'</span>
-                      {on&&<> <span style={{color:"#66bb6a"}}>▲ {on.name}</span></>}
-                      {off&&<> <span style={{color:"#ff4444"}}>▼ {off.name}</span></>}
-                      {sub.condition&&sub.condition!=="Regardless"&&
-                        <span style={{color:"#555"}}> ({sub.condition})</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        {plan.instructions?(
+          <ActivityBlock
+            title="Match Instructions"
+            description={plan.instructions}
+            coachingPoints={focusText}
+            showDiagram={false}
+          />
+        ):null}
 
-        {/* ── MATCH INSTRUCTIONS ─────────────────────────────────────── */}
-        {plan.instructions&&(
-          <div className="card-dark" style={S.card}>
-            <span className="print-accent gp-section-title" style={S.label}>Match Instructions</span>
-            <p className="print-text" style={S.body}>{plan.instructions}</p>
-          </div>
-        )}
+        {(opp&&scoutDesc)?(
+          <ActivityBlock
+            title={"Scout — "+opp.name+(opp.formation?" ("+opp.formation+")":"")}
+            description={scoutDesc}
+            coachingPoints={counterText}
+          />
+        ):null}
 
-        {/* ── SCOUT REPORT ───────────────────────────────────────────── */}
-        {opp&&(
-          <>
-            <div style={{textAlign:"center",margin:"24px 0 16px",
-              borderTop:"1px solid #2a1000",paddingTop:20}}>
-              <div className="print-accent" style={{fontSize:11,fontWeight:700,
-                letterSpacing:3,color:"#ff6b0088",textTransform:"uppercase"}}>
-                Scout Report
-              </div>
-              <h2 style={{fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:900,
-                color:"#f5f0e8",marginTop:4}}>{opp.name}</h2>
-              {opp.formation&&(
-                <div style={{fontSize:13,color:"#ff6b00",fontWeight:700,marginTop:4}}>
-                  Formation: {opp.formation}
-                </div>
-              )}
-            </div>
+        {hasSetPieces?(
+          <ActivityBlock
+            title="Set Pieces"
+            description={setPieceDesc}
+            coachingPoints={setPieceCP}
+            showDiagram={false}
+          />
+        ):null}
 
-            {/* Their players */}
-            {allOppPlayers.length>0&&(<div className="scout-section">
-              <div className="card-dark" style={S.card}>
-                <span className="print-accent gp-section-title" style={S.label}>Their Squad</span>
-                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                  {allOppPlayers.map((p,i)=>{
-                    const tc = p.threat ? threatCol(p.threat) : "#3a1a00";
-                    return(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,
-                        padding:"7px 12px",background:"#1a0800",
-                        border:"1.5px solid "+tc+"66",borderRadius:9,minWidth:130}}>
-                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                          background:tc+"22",border:"1.5px solid "+tc+"55",
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:800,
-                          color:tc,fontSize:11}}>{p.pos||"?"}</div>
-                        <div>
-                          <div className="print-text" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>
-                            {p.number&&<span style={{color:"#7a4a2a",marginRight:4}}>#{p.number}</span>}
-                            {p.name||"Unknown"}
-                          </div>
-                          {p.threat&&(
-                            <div style={{fontSize:10,fontWeight:700,color:tc,textTransform:"uppercase",
-                              letterSpacing:.5}}>{p.threat}</div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Individual player notes */}
-                {allOppPlayers.filter(p=>p.notes).map((p,i)=>(
-                  <div key={i} style={{marginTop:10,padding:"8px 12px",background:"#0d0400",
-                    borderRadius:8,borderLeft:"3px solid "+threatCol(p.threat||"")}}>
-                    <span style={{color:"#ff6b00",fontWeight:700,fontSize:12}}>
-                      {p.pos} {p.number&&"#"+p.number} {p.name}:
-                    </span>
-                    <span className="print-muted" style={{color:"#c8bfb0",fontSize:12,marginLeft:6}}>
-                      {p.notes}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            )}
-
-            {/* Tactical tendencies */}
-            {opp.tendencies&&Object.values(opp.tendencies).some(Boolean)&&(
-              <div className="card-dark" style={S.card}>
-                <span className="print-accent" style={S.label}>Tactical Tendencies</span>
-                {[
-                  ["Pressing Style",  opp.tendencies?.pressing],
-                  ["Build-up Play",   opp.tendencies?.buildUp],
-                  ["Attacking Shape", opp.tendencies?.attackShape],
-                  ["Defensive Shape", opp.tendencies?.defShape],
-                  ["Known Weaknesses",opp.tendencies?.weaknesses],
-                ].filter(([,v])=>v).map(([label,val])=>(
-                  <div key={label} style={{marginBottom:10}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#7a4a2a",
-                      letterSpacing:.5,marginBottom:3}}>{label.toUpperCase()}</div>
-                    <div className="print-text" style={S.body}>{val}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Set pieces */}
-            {opp.setPieces&&Object.values(opp.setPieces).some(Boolean)&&(
-              <div className="card-dark" style={S.card}>
-                <span className="print-accent" style={S.label}>Their Set Pieces</span>
-                {[
-                  ["Corners — Attacking",      opp.setPieces?.cornersAtk],
-                  ["Corners — Our Defence",    opp.setPieces?.cornersDef],
-                  ["Free Kicks — Attacking",   opp.setPieces?.freeKicksAtk],
-                  ["Free Kicks — Our Defence", opp.setPieces?.freeKicksDef],
-                  ["Throw-ins — Attacking",    opp.setPieces?.throwInsAtk],
-                  ["Throw-ins — Our Defence",  opp.setPieces?.throwInsDef],
-                ].filter(([,v])=>v).map(([label,val])=>(
-                  <div key={label} style={{marginBottom:10}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#7a4a2a",
-                      letterSpacing:.5,marginBottom:3}}>{label.toUpperCase()}</div>
-                    <div className="print-text" style={S.body}>{val}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Scout notes */}
-            {opp.scoutNotes&&(
-              <div className="card-dark" style={S.card}>
-                <span className="print-accent" style={S.label}>General Scout Notes</span>
-                <p className="print-text" style={S.body}>{opp.scoutNotes}</p>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── OUR RESPONSE ───────────────────────────────────────────── */}
-        {opp?.counterPlan&&Object.values(opp.counterPlan).some(Boolean)&&(
-          <div className="card-dark" style={S.card}>
-            <span className="print-accent" style={S.label}>Our Game Plan Response</span>
-            {[
-              ["How We Attack Them",      opp.counterPlan?.howWeAttack, "#ff6b00"],
-              ["How We Defend Them",      opp.counterPlan?.howWeDefend, "#ffb300"],
-              ["Key Matchups",            opp.counterPlan?.keyMatchups,  "#42a5f5"],
-              ["Focus Points for Team",   opp.counterPlan?.focusPoints,  "#66bb6a"],
-            ].filter(([,v])=>v).map(([label,val,col])=>(
-              <div key={label} style={{marginBottom:14}}>
-                <div style={{fontSize:11,fontWeight:700,color:col,
-                  letterSpacing:.5,marginBottom:4}}>{label.toUpperCase()}</div>
-                <div className="print-text" style={S.body}>{val}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{textAlign:"center",marginTop:24,paddingTop:16,
-          borderTop:"1px solid #2a1000",fontSize:12,color:"#3a1a00"}}>
-          Powered by CoachIQ
+        <div style={{textAlign:"center",marginTop:16,fontSize:10,color:"#aaa",
+          borderTop:"1px solid #eee",paddingTop:8}}>
+          {"CoachIQ - "+plan.date}
         </div>
 
       </div>
