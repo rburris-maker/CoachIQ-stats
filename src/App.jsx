@@ -4557,8 +4557,10 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [sel,setSel]       = useState(null);
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
-  const [gpTab,setGpTab]   = useState("gameplan");
-  const [shareLink,setShareLink] = useState(null); // shows share modal with link
+  const [gpTab,setGpTab]        = useState("gameplan");
+  const [shareLink,setShareLink]  = useState(null);
+  const [oppSuggestions,setOppSuggestions] = useState([]);
+  const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
 
   const SLOTS = {
@@ -4593,13 +4595,52 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
       <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:4}}>GAME PLAN</div>
       <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Game Plan</h2>
-      {[["OPPONENT","opponent","text"],["DATE","date","date"]].map(([lbl,key,type])=>(
-        <div key={key} style={{marginBottom:14}}>
-          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{lbl}</label>
-          <input type={type} value={form[key]} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}
-            style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
-        </div>
-      ))}
+      {/* Opponent with autocomplete */}
+      <div style={{marginBottom:14,position:"relative"}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
+        <input value={form.opponent}
+          onChange={e=>{
+            const val=e.target.value;
+            setForm(f=>({...f,opponent:val}));
+            if(val.trim().length>0){
+              const matches=(opponents||[]).filter(o=>o.name&&o.name.toLowerCase().includes(val.toLowerCase()));
+              setOppSuggestions(matches);
+              setShowSuggestions(matches.length>0);
+            } else {
+              setShowSuggestions(false);
+            }
+          }}
+          onBlur={()=>setTimeout(()=>setShowSuggestions(false),150)}
+          placeholder="Type opponent name..."
+          style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+        {showSuggestions&&(
+          <div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,
+            border:`1px solid ${C.accent}44`,borderRadius:9,zIndex:100,
+            boxShadow:"0 8px 24px #00000066",overflow:"hidden",marginTop:4}}>
+            {oppSuggestions.map(o=>(
+              <div key={o.id||o.name}
+                onMouseDown={()=>{setForm(f=>({...f,opponent:o.name}));setShowSuggestions(false);}}
+                style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",
+                  gap:10,borderBottom:`1px solid ${C.border}`}}
+                onMouseEnter={e=>e.currentTarget.style.background=C.accent+"11"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{flex:1}}>
+                  <div style={{color:C.text,fontWeight:600,fontSize:13}}>{o.name}</div>
+                  {o.formation&&<div style={{color:C.muted,fontSize:11}}>{o.formation} · scouted</div>}
+                </div>
+                {o.formation&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",
+                  borderRadius:4,background:C.accent+"22",color:C.accent}}>SCOUTED</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Date */}
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+        <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}
+          style={{width:"100%",padding:"11px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+      </div>
       <div style={{marginBottom:14}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
         <div style={{display:"flex",gap:8}}>
@@ -8192,54 +8233,81 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
   );
 }
 
-// ─── PITCH DIAGRAM ────────────────────────────────────────────────────────────
-function PitchDiagram(){
+// ─── PITCH WITH PLAYERS ───────────────────────────────────────────────────────
+function PitchWithPlayers({lineup, roster}){
+  var ZONE_Y   = {GK:148, DEF:120, MID:88, FWD:52};
+  var ZONE_COL = {GK:"#1a1a1a", DEF:"#333", MID:"#555", FWD:"#c94d00"};
+
+  function getPositions(zone, count){
+    var positions = [];
+    var spacing = 90 / (count + 1);
+    for(var i=0;i<count;i++) positions.push(10 + spacing * (i+1));
+    return positions;
+  }
+
+  var slots = [];
+  ["GK","DEF","MID","FWD"].forEach(function(zone){
+    var pids = (lineup[zone]||[]).filter(Boolean);
+    var xs   = getPositions(zone, pids.length);
+    pids.forEach(function(pid,i){
+      var p = roster.find(function(r){return r.id===pid;});
+      if(p) slots.push({p:p, x:xs[i], y:ZONE_Y[zone], col:ZONE_COL[zone]});
+    });
+  });
+
   return(
-    <svg viewBox="0 0 160 240" style={{width:"100%",height:"100%",display:"block"}}
+    <svg viewBox="0 0 110 168" style={{width:"100%",height:"150px",display:"block"}}
       xmlns="http://www.w3.org/2000/svg">
-      <rect x="5" y="5" width="150" height="230" fill="white" stroke="#333" strokeWidth="1.5"/>
-      <line x1="5" y1="120" x2="155" y2="120" stroke="#333" strokeWidth="1"/>
-      <circle cx="80" cy="120" r="22" fill="none" stroke="#333" strokeWidth="1"/>
-      <circle cx="80" cy="120" r="2" fill="#333"/>
-      <rect x="35" y="5" width="90" height="40" fill="none" stroke="#333" strokeWidth="1"/>
-      <rect x="55" y="5" width="50" height="18" fill="none" stroke="#333" strokeWidth="1"/>
-      <circle cx="80" cy="35" r="1.5" fill="#333"/>
-      <path d="M 62 45 A 20 20 0 0 1 98 45" fill="none" stroke="#333" strokeWidth="1"/>
-      <rect x="35" y="195" width="90" height="40" fill="none" stroke="#333" strokeWidth="1"/>
-      <rect x="55" y="217" width="50" height="18" fill="none" stroke="#333" strokeWidth="1"/>
-      <circle cx="80" cy="205" r="1.5" fill="#333"/>
-      <path d="M 62 195 A 20 20 0 0 0 98 195" fill="none" stroke="#333" strokeWidth="1"/>
+      <rect x="4" y="4" width="102" height="160" fill="white" stroke="#333" strokeWidth="0.8"/>
+      <line x1="4" y1="84" x2="106" y2="84" stroke="#333" strokeWidth="0.5"/>
+      <circle cx="55" cy="84" r="15" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <circle cx="55" cy="84" r="1" fill="#333"/>
+      <rect x="24" y="4" width="62" height="28" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="36" y="4" width="38" height="13" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="24" y="136" width="62" height="28" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="36" y="151" width="38" height="13" fill="none" stroke="#333" strokeWidth="0.5"/>
+      {slots.map(function(s,i){
+        var lastName = s.p.name.split(" ").pop();
+        if(lastName.length>7) lastName=lastName.slice(0,6)+".";
+        return(
+          <g key={i}>
+            <circle cx={s.x} cy={s.y} r="6" fill={s.col} stroke="white" strokeWidth="0.5"/>
+            <text x={s.x} y={s.y+2} textAnchor="middle" fontSize="5" fill="white" fontFamily="Arial" fontWeight="bold">{s.p.number}</text>
+            <text x={s.x} y={s.y+11} textAnchor="middle" fontSize="4" fill="#333" fontFamily="Arial">{lastName}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
 
 // ─── ACTIVITY BLOCK ───────────────────────────────────────────────────────────
-function ActivityBlock({title, description, coachingPoints, showDiagram}){
+function ActivityBlock({title, description, coachingPoints, pitchContent, showDiagram}){
   return(
     <div style={{border:"1px solid #000",marginBottom:0,pageBreakInside:"avoid"}}>
       <div style={{display:"flex",borderBottom:"2px solid #000",background:"#f0f0f0"}}>
-        <div style={{flex:1,padding:"5px 10px",fontSize:11,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>
+        <div style={{flex:1,padding:"4px 8px",fontSize:11,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>
           {"Activity: "+title}
         </div>
-        <div style={{padding:"5px 10px",fontSize:11,fontFamily:"Arial,sans-serif",borderLeft:"1px solid #000"}}>
+        <div style={{padding:"4px 8px",fontSize:11,fontFamily:"Arial,sans-serif",borderLeft:"1px solid #000",minWidth:70}}>
           Duration:
         </div>
       </div>
       <div style={{display:"flex",minHeight:160}}>
-        <div style={{width:220,flexShrink:0,borderRight:"1px solid #000",padding:8}}>
-          <div style={{fontSize:10,fontWeight:"bold",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Diagram</div>
-          {showDiagram!==false&&<div style={{height:150}}><PitchDiagram/></div>}
+        <div style={{width:190,flexShrink:0,borderRight:"1px solid #000",padding:6}}>
+          <div style={{fontSize:10,fontWeight:"bold",marginBottom:3,fontFamily:"Arial,sans-serif"}}>Diagram</div>
+          {pitchContent||(showDiagram!==false&&<BlankPitch/>)}
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-          <div style={{flex:1,padding:"8px 12px",borderBottom:"1px solid #ccc"}}>
-            <div style={{fontSize:10,fontWeight:"bold",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Description</div>
-            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+          <div style={{flex:1,padding:"6px 10px",borderBottom:"1px solid #ccc"}}>
+            <div style={{fontSize:10,fontWeight:"bold",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Description</div>
+            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.65,whiteSpace:"pre-wrap"}}>
               {description||""}
             </div>
           </div>
-          <div style={{flex:1,padding:"8px 12px"}}>
-            <div style={{fontSize:10,fontWeight:"bold",fontStyle:"italic",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Coaching Points</div>
-            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+          <div style={{flex:1,padding:"6px 10px"}}>
+            <div style={{fontSize:10,fontWeight:"bold",fontStyle:"italic",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Coaching Points</div>
+            <div style={{fontSize:11,color:"#222",fontFamily:"Arial,sans-serif",lineHeight:1.65,whiteSpace:"pre-wrap"}}>
               {coachingPoints||""}
             </div>
           </div>
@@ -8249,40 +8317,63 @@ function ActivityBlock({title, description, coachingPoints, showDiagram}){
   );
 }
 
+function BlankPitch(){
+  return(
+    <svg viewBox="0 0 110 168" style={{width:"100%",height:"150px",display:"block"}}
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="102" height="160" fill="white" stroke="#333" strokeWidth="0.8"/>
+      <line x1="4" y1="84" x2="106" y2="84" stroke="#333" strokeWidth="0.5"/>
+      <circle cx="55" cy="84" r="15" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <circle cx="55" cy="84" r="1" fill="#333"/>
+      <rect x="24" y="4" width="62" height="28" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="36" y="4" width="38" height="13" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="24" y="136" width="62" height="28" fill="none" stroke="#333" strokeWidth="0.5"/>
+      <rect x="36" y="151" width="38" height="13" fill="none" stroke="#333" strokeWidth="0.5"/>
+    </svg>
+  );
+}
+
 // ─── GAME PLAN SHARE PAGE ─────────────────────────────────────────────────────
 function GamePlanSharePage(){
-  const hash    = window.location.hash;
-  const shareId = hash.replace("#/plan/","");
-  const [plan,    setPlan]    = useState(null);
-  const [roster,  setRoster]  = useState([]);
-  const [opp,     setOpp]     = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  var hash    = window.location.hash;
+  var shareId = hash.replace("#/plan/","");
+  var _s0 = useState(null);    var plan    = _s0[0]; var setPlan    = _s0[1];
+  var _s1 = useState([]);      var roster  = _s1[0]; var setRoster  = _s1[1];
+  var _s2 = useState(null);    var opp     = _s2[0]; var setOpp     = _s2[1];
+  var _s3 = useState(true);    var loading = _s3[0]; var setLoading = _s3[1];
+  var _s4 = useState(null);    var error   = _s4[0]; var setError   = _s4[1];
 
-  useEffect(()=>{
+  useEffect(function(){
     async function load(){
       try{
-        const {data:gpRows} = await supabase.from("game_plans").select("*");
-        let foundPlan=null, teamId=null;
-        for(const row of (gpRows||[])){
-          const plans = Array.isArray(row.data)?row.data:[row.data];
-          const match = plans.find(function(p){return p.shareId===shareId||p.id===shareId;});
+        var gpRes  = await supabase.from("game_plans").select("*");
+        var gpRows = gpRes.data||[];
+        var foundPlan=null, teamId=null;
+        for(var ri=0;ri<gpRows.length;ri++){
+          var row   = gpRows[ri];
+          var plans = Array.isArray(row.data)?row.data:[row.data];
+          var match = null;
+          for(var pi=0;pi<plans.length;pi++){
+            if(plans[pi]&&(plans[pi].shareId===shareId||plans[pi].id===shareId)){match=plans[pi];break;}
+          }
           if(match){foundPlan=match;teamId=row.team_id;break;}
         }
         if(!foundPlan){setError("Game plan not found.");setLoading(false);return;}
         setPlan(foundPlan);
         if(teamId){
-          const {data:rRows}=await supabase.from("rosters").select("*");
-          const rRow=(rRows||[]).filter(function(r){return r.team_id===teamId;});
-          setRoster(rRow&&rRow[0]?rRow[0].players:[]);
+          var rRes  = await supabase.from("rosters").select("*");
+          var rRows = (rRes.data||[]).filter(function(r){return r.team_id===teamId;});
+          setRoster(rRows[0]?rRows[0].players:[]);
         }
         if(foundPlan.opponent){
-          const {data:oppRows}=await supabase.from("opponents").select("*");
-          const oppMatch=(oppRows||[]).find(function(row){
-            var o=row.data;
-            return o&&o.name&&o.name.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase();
-          });
-          if(oppMatch) setOpp(oppMatch.data);
+          var oRes  = await supabase.from("opponents").select("*");
+          var oRows = oRes.data||[];
+          for(var oi=0;oi<oRows.length;oi++){
+            var od = oRows[oi].data;
+            if(od&&od.name&&od.name.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase()){
+              setOpp(od); break;
+            }
+          }
         }
         setLoading(false);
       }catch(e){setError("Failed to load.");setLoading(false);}
@@ -8290,77 +8381,52 @@ function GamePlanSharePage(){
     load();
   },[shareId]);
 
-  if(loading) return(
-    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>
-      Loading game plan...
-    </div>
-  );
-  if(error) return(
-    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>
-      {error}
-    </div>
-  );
+  if(loading) return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>Loading game plan...</div>);
+  if(error)   return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>{error}</div>);
 
-  const ZONE_NAMES = {GK:"Goalkeeper",DEF:"Defenders",MID:"Midfielders",FWD:"Forwards"};
-  const FORM_POS = {
-    "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
-    "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
-    "4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],
-    "3-5-2":  ["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],
-    "5-3-2":  ["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],
-    "4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],
-    "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
-  };
+  var ZONE_NAMES = {GK:"Goalkeeper",DEF:"Defenders",MID:"Midfielders",FWD:"Forwards"};
 
-  var oppPositions = opp&&opp.formation?(FORM_POS[opp.formation]||[]):[];
-  var oppPlayers2  = opp&&opp.oppPlayers?opp.oppPlayers:{};
-  var extras2      = oppPlayers2["extra"]||[];
-
-  var allOppPlayers = oppPositions.map(function(pos,idx){
-    var p=(oppPlayers2[pos]||[])[idx]||{};
-    return Object.assign({},p,{pos:pos});
-  }).concat(extras2.map(function(p){
-    return Object.assign({},p,{pos:p.customPos||"SUB"});
-  })).filter(function(p){return p.name||p.number;});
-
-  // Build lineup text
-  var lineupLines = ["FWD","MID","DEF","GK"].map(function(zone){
-    var slots=(plan.lineup&&plan.lineup[zone]?plan.lineup[zone]:[]).filter(Boolean);
-    if(!slots.length) return null;
-    var names=slots.map(function(pid){
-      var p=roster.find(function(r){return r.id===pid;});
-      return p?"#"+p.number+" "+p.name:null;
-    }).filter(Boolean);
-    return names.length?(ZONE_NAMES[zone]+": "+names.join(", ")):null;
-  }).filter(Boolean);
-  var lineupText = lineupLines.join("\n");
-
+  // Build sub text
   var subsLines = (plan.subs||[]).map(function(s){
-    var on=roster.find(function(r){return r.id===s.playerOn;});
-    var off=roster.find(function(r){return r.id===s.playerOff;});
-    return s.minute+"' "+(on?on.name:"?")+" ON / "+(off?off.name:"?")+" OFF";
-  });
-  var subsText = subsLines.join("\n");
-  var coachingPointsLineup = subsText?"Planned Substitutions:\n"+subsText:"";
+    var on  = roster.find(function(r){return r.id===s.playerOn;});
+    var off = roster.find(function(r){return r.id===s.playerOff;});
+    if(!on&&!off) return null;
+    return s.minute+"' "+(on?on.name:"?")+" ON / "+(off?off.name:"?")+" OFF"+(s.condition&&s.condition!=="Regardless"?" ("+s.condition+")":"");
+  }).filter(Boolean);
+  var subsText = subsLines.length?"Substitutions:\n"+subsLines.join("\n"):"";
 
-  // Scout text
-  var threatPlayers=allOppPlayers.filter(function(p){return p.threat;});
+  // Match instructions
+  var matchInstructions = plan.instructions||"";
+  var coachingBlock1    = [matchInstructions, subsText].filter(Boolean).join("\n\n");
+
+  // Scout description
+  var oppPlayers2  = opp&&opp.oppPlayers?opp.oppPlayers:{};
+  var oppPositions = [];
+  var FORM_POS = {"4-3-3":["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],"4-4-2":["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],"4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],"3-5-2":["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],"5-3-2":["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],"4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],"4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"]};
+  if(opp&&opp.formation) oppPositions = FORM_POS[opp.formation]||[];
+  var extras2 = oppPlayers2["extra"]||[];
+  var allOppP = oppPositions.map(function(pos,idx){var p=(oppPlayers2[pos]||[])[idx]||{};return Object.assign({},p,{pos:pos});}).concat(extras2.map(function(p){return Object.assign({},p,{pos:p.customPos||"SUB"});})).filter(function(p){return p.name||p.number;});
+  var threats = allOppP.filter(function(p){return p.threat;});
+
   var scoutParts = [];
-  if(opp&&opp.formation) scoutParts.push("Formation: "+opp.formation);
-  if(threatPlayers.length){
-    var threatLines = threatPlayers.map(function(p){
-      return "* "+p.pos+(p.number?" #"+p.number:"")+" "+(p.name||"")+" ["+p.threat.toUpperCase()+"]"+(p.notes?" - "+p.notes:"");
-    });
-    scoutParts.push("Key Threats:\n"+threatLines.join("\n"));
+  if(threats.length){
+    var tLines = threats.map(function(p){return "* "+p.pos+(p.number?" #"+p.number:"")+" "+(p.name||"")+" ["+p.threat.toUpperCase()+"]"+(p.notes?" - "+p.notes:"");});
+    scoutParts.push("Key Threats:\n"+tLines.join("\n"));
   }
   if(opp&&opp.tendencies){
-    if(opp.tendencies.pressing)    scoutParts.push("Pressing: "+opp.tendencies.pressing);
-    if(opp.tendencies.buildUp)     scoutParts.push("Build-up: "+opp.tendencies.buildUp);
-    if(opp.tendencies.weaknesses)  scoutParts.push("Weaknesses: "+opp.tendencies.weaknesses);
+    if(opp.tendencies.pressing)   scoutParts.push("Pressing: "+opp.tendencies.pressing);
+    if(opp.tendencies.buildUp)    scoutParts.push("Build-up: "+opp.tendencies.buildUp);
+    if(opp.tendencies.attackShape)scoutParts.push("Attack Shape: "+opp.tendencies.attackShape);
+    if(opp.tendencies.weaknesses) scoutParts.push("Weaknesses: "+opp.tendencies.weaknesses);
   }
-  if(opp&&opp.scoutNotes) scoutParts.push("Notes: "+opp.scoutNotes);
+  if(opp&&opp.setPieces){
+    var spLines = [];
+    if(opp.setPieces.cornersAtk)  spLines.push("Corners: "+opp.setPieces.cornersAtk);
+    if(opp.setPieces.freeKicksAtk)spLines.push("Free Kicks: "+opp.setPieces.freeKicksAtk);
+    if(opp.setPieces.throwInsAtk) spLines.push("Throw-ins: "+opp.setPieces.throwInsAtk);
+    if(spLines.length) scoutParts.push("Set Pieces:\n"+spLines.join("\n"));
+  }
+  if(opp&&opp.scoutNotes) scoutParts.push("General Notes:\n"+opp.scoutNotes);
   var scoutDesc = scoutParts.join("\n\n");
 
   var counterParts = [];
@@ -8368,62 +8434,35 @@ function GamePlanSharePage(){
     if(opp.counterPlan.howWeAttack) counterParts.push("How We Attack:\n"+opp.counterPlan.howWeAttack);
     if(opp.counterPlan.howWeDefend) counterParts.push("How We Defend:\n"+opp.counterPlan.howWeDefend);
     if(opp.counterPlan.keyMatchups) counterParts.push("Key Matchups:\n"+opp.counterPlan.keyMatchups);
+    if(opp.counterPlan.focusPoints) counterParts.push("Focus Points:\n"+opp.counterPlan.focusPoints);
   }
   var counterText = counterParts.join("\n\n");
-  var focusText   = opp&&opp.counterPlan&&opp.counterPlan.focusPoints?opp.counterPlan.focusPoints:"";
 
-  var setPieceParts = [];
-  var spDefParts    = [];
-  if(opp&&opp.setPieces){
-    var sp=opp.setPieces;
-    if(sp.cornersAtk)   setPieceParts.push("Corners (Their Attack): "+sp.cornersAtk);
-    if(sp.cornersDef)   setPieceParts.push("Corners (Our Defence): "+sp.cornersDef);
-    if(sp.freeKicksAtk) setPieceParts.push("Free Kicks (Their Attack): "+sp.freeKicksAtk);
-    if(sp.freeKicksDef) setPieceParts.push("Free Kicks (Our Defence): "+sp.freeKicksDef);
-    if(sp.throwInsAtk)  spDefParts.push("Throw-ins (Their Attack): "+sp.throwInsAtk);
-    if(sp.throwInsDef)  spDefParts.push("Throw-ins (Our Defence): "+sp.throwInsDef);
+  var hasSetPiecesDef = opp&&opp.setPieces&&(opp.setPieces.cornersDef||opp.setPieces.freeKicksDef||opp.setPieces.throwInsDef);
+  var defParts = [];
+  if(hasSetPiecesDef){
+    if(opp.setPieces.cornersDef)   defParts.push("Corners: "+opp.setPieces.cornersDef);
+    if(opp.setPieces.freeKicksDef) defParts.push("Free Kicks: "+opp.setPieces.freeKicksDef);
+    if(opp.setPieces.throwInsDef)  defParts.push("Throw-ins: "+opp.setPieces.throwInsDef);
   }
-  var setPieceDesc = setPieceParts.join("\n\n");
-  var setPieceCP   = spDefParts.join("\n\n");
-  var hasSetPieces = setPieceParts.length>0||spDefParts.length>0;
 
   return(
-    <>
-      <style>{`
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:#fff;color:#000;font-family:Arial,sans-serif;}
-        @media print{
-          .no-print{display:none!important;}
-          @page{margin:10mm 12mm;size:A4 portrait;}
-        }
-      `}</style>
+    <div>
+      <style>{"*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;color:#000;font-family:Arial,sans-serif;}@media print{.no-print{display:none!important;}@page{margin:10mm 12mm;size:A4 portrait;}}"}</style>
 
       <div style={{maxWidth:780,margin:"0 auto",padding:"20px 16px",background:"#fff",color:"#000"}}>
 
         <div className="no-print" style={{display:"flex",gap:10,marginBottom:20}}>
-          <button onClick={function(){window.history.back();}}
-            style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,
-              background:"#f5f5f5",cursor:"pointer",fontSize:13}}>
-            Back
-          </button>
+          <button onClick={function(){window.history.back();}} style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,background:"#f5f5f5",cursor:"pointer",fontSize:13}}>Back</button>
           <div style={{flex:1}}/>
-          <button onClick={function(){window.print();}}
-            style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,
-              color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>
-            Print / Save PDF
-          </button>
+          <button onClick={function(){window.print();}} style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>Print / Save PDF</button>
         </div>
 
-        <div style={{display:"flex",alignItems:"flex-start",gap:16,
-          borderBottom:"3px solid #000",paddingBottom:10,marginBottom:2}}>
-          <div style={{flexShrink:0}}>
-            <AppLogo size={44} glow={false}/>
-          </div>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,borderBottom:"3px solid #000",paddingBottom:8,marginBottom:2}}>
+          <div style={{flexShrink:0}}><AppLogo size={40} glow={false}/></div>
           <div style={{flex:1}}>
-            <div style={{fontSize:18,fontFamily:"Arial,sans-serif",fontWeight:"bold"}}>
-              {"Session: vs "+plan.opponent}
-            </div>
-            <div style={{display:"flex",gap:24,marginTop:4,fontSize:11,color:"#555"}}>
+            <div style={{fontSize:16,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>{"Session: vs "+plan.opponent}</div>
+            <div style={{display:"flex",gap:20,marginTop:3,fontSize:10,color:"#555",fontFamily:"Arial,sans-serif"}}>
               <span>{"Formation: "+plan.formation}</span>
               <span>{"Date: "+plan.date}</span>
               <span>{plan.location}</span>
@@ -8432,43 +8471,32 @@ function GamePlanSharePage(){
         </div>
 
         <ActivityBlock
-          title="Starting Lineup"
-          description={lineupText}
-          coachingPoints={coachingPointsLineup}
+          title="Match Instructions"
+          pitchContent={<PitchWithPlayers lineup={plan.lineup||{}} roster={roster}/>}
+          description={matchInstructions||"No match instructions added."}
+          coachingPoints={subsText||"No substitutions planned."}
         />
 
-        {plan.instructions?(
-          <ActivityBlock
-            title="Match Instructions"
-            description={plan.instructions}
-            coachingPoints={focusText}
-            showDiagram={false}
-          />
-        ):null}
-
-        {(opp&&scoutDesc)?(
+        {opp&&scoutDesc?(
           <ActivityBlock
             title={"Scout — "+opp.name+(opp.formation?" ("+opp.formation+")":"")}
             description={scoutDesc}
-            coachingPoints={counterText}
+            coachingPoints={counterText||"No counter plan added."}
           />
         ):null}
 
-        {hasSetPieces?(
+        {hasSetPiecesDef?(
           <ActivityBlock
-            title="Set Pieces"
-            description={setPieceDesc}
-            coachingPoints={setPieceCP}
+            title="Our Set Piece Defence"
+            description={"How we defend their set pieces:\n\n"+defParts.join("\n\n")}
+            coachingPoints=""
             showDiagram={false}
           />
         ):null}
 
-        <div style={{textAlign:"center",marginTop:16,fontSize:10,color:"#aaa",
-          borderTop:"1px solid #eee",paddingTop:8}}>
-          {"CoachIQ - "+plan.date}
-        </div>
+        <div style={{textAlign:"center",marginTop:10,fontSize:9,color:"#aaa",borderTop:"1px solid #eee",paddingTop:6,fontFamily:"Arial,sans-serif"}}>{"CoachIQ - "+plan.date}</div>
 
       </div>
-    </>
+    </div>
   );
 }
