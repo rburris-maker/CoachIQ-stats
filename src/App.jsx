@@ -2907,9 +2907,304 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
   );
 }
 
+
+// ─── LANDING PAGE ─────────────────────────────────────────────────────────────
+function FaqItem({q,a}){
+  const [open,setOpen]=useState(false);
+  return(
+    <div style={{borderBottom:"1px solid #1e2419",overflow:"hidden"}}>
+      <div onClick={()=>setOpen(o=>!o)}
+        style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:"20px 0",cursor:"pointer",fontSize:16,fontWeight:600,
+          color:open?"#ff5a1f":"#f5f0e8",userSelect:"none",transition:"color .2s"}}>
+        {q}
+        <span style={{color:"#ff5a1f",fontSize:22,transition:"transform .2s",
+          transform:open?"rotate(45deg)":"none",flexShrink:0,marginLeft:16}}>+</span>
+      </div>
+      <div style={{maxHeight:open?300:0,overflow:"hidden",
+        transition:"max-height .35s ease",fontSize:15,color:"#6b6458",lineHeight:1.75,
+        paddingBottom:open?18:0}}>
+        {a}
+      </div>
+    </div>
+  );
+}
+
+function LpReveal(){
+  useEffect(()=>{
+    const els=document.querySelectorAll(".lp-reveal");
+    const obs=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add("lp-vis"); });
+    },{threshold:0.1});
+    els.forEach(el=>obs.observe(el));
+    return ()=>obs.disconnect();
+  },[]);
+  return null;
+}
+
+function LandingPage({onAuth}){
+  const [showAuth,setShowAuth]=useState(false);
+  const [authMode,setAuthMode]=useState("login");
+
+  const openSignup=()=>{setAuthMode("signup");setShowAuth(true);};
+  const openLogin =()=>{setAuthMode("login"); setShowAuth(true);};
+
+  const FEATS=[
+    ["⚡","Live Game Tracker","Log stats in real time. Goals, assists, passes, tackles — one tap from your phone."],
+    ["⭐","Player Ratings","Position-weighted ratings calculated automatically after every game."],
+    ["📋","Tryout Manager","Score candidates, build lineups, move players straight to Varsity or JV roster."],
+    ["🗺","Game Plans","Formation lineups, sub plans, and opponent notes before game day."],
+    ["🏋","Practice Planner","Warmup / Main Work / Cooldown blocks. Drill library. Attendance tracking."],
+    ["📅","Season Calendar","Every game, practice and tournament in one place."],
+    ["🎯","Opponent Database","Scouting file on every team — formation, key players, H2H record."],
+    ["🏆","Season Report","Top scorer, most improved, highest rated. One-click PDF."],
+    ["👥","Varsity + JV + JVB","Separate rosters and stats for all your teams from one account."],
+  ];
+  const FAQS=[
+    ["Do I need special equipment?","Just your phone. Open the app in your browser during the game and tap. No download required."],
+    ["How are ratings calculated?","A position-weighted formula — goals, assists, passing accuracy, defensive actions and clean sheets all factor in based on the player's position."],
+    ["Can I manage Varsity and JV separately?","Yes. Each team has its own roster, games and stats. The tryout module moves players to the right roster when you close tryouts."],
+    ["Can players see their own stats?","Yes. Set a PIN per player and share a link. They enter their PIN and see their season stats, rating trend and recent games — no account needed."],
+    ["Is my data safe?","All data is stored securely in the cloud. Only you can see it. We never delete anything if you cancel."],
+  ];
+
+  return(
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+        .lp-root{margin:0;font-family:"DM Sans",sans-serif;background:#060606;color:#f5f0e8;overflow-x:hidden;}
+        @keyframes lpUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+        .lp-reveal{opacity:0;transform:translateY(28px);transition:opacity .6s ease,transform .6s ease;}
+        .lp-reveal.lp-vis{opacity:1;transform:translateY(0);}
+        .lp-feat:hover{background:#151810!important;}
+        .lp-btn-pri{background:#ff5a1f;color:#000;border:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;font-family:"DM Sans",sans-serif;box-shadow:0 0 40px rgba(255,90,31,.3);transition:all .2s;}
+        .lp-btn-pri:hover{background:#ff8c42;}
+        .lp-btn-sec{background:transparent;color:#f5f0e8;border:1.5px solid rgba(255,255,255,.2);padding:16px 36px;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;font-family:"DM Sans",sans-serif;text-decoration:none;display:inline-block;transition:all .2s;}
+        .lp-btn-sec:hover{border-color:#f5f0e8;}
+        .lp-nav-link{color:#c8bfb0;text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
+        .lp-nav-link:hover{color:#f5f0e8;}
+        @media(max-width:768px){
+          .lp-grid-2{grid-template-columns:1fr!important;}
+          .lp-nav-links{display:none!important;}
+          .lp-hero-btns{flex-direction:column;align-items:center;}
+          .lp-proof{gap:24px!important;}
+        }
+      `}</style>
+
+      <div className="lp-root">
+        {/* NAV */}
+        <nav style={{position:"fixed",top:0,left:0,right:0,zIndex:100,
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"16px 40px",background:"rgba(6,6,6,.9)",backdropFilter:"blur(12px)",
+          borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:2,color:"#f5f0e8"}}>
+            COACH<span style={{color:"#ff5a1f"}}>IQ</span>
+          </div>
+          <div className="lp-nav-links" style={{display:"flex",gap:28,alignItems:"center"}}>
+            <a href="#lp-features" className="lp-nav-link">Features</a>
+            <a href="#lp-pricing"  className="lp-nav-link">Pricing</a>
+            <a href="#lp-faq"      className="lp-nav-link">FAQ</a>
+            <button onClick={openLogin}
+              style={{background:"transparent",color:"#c8bfb0",border:"1.5px solid rgba(255,255,255,.2)",
+                padding:"8px 18px",borderRadius:6,fontWeight:600,fontSize:13,cursor:"pointer",
+                fontFamily:"'DM Sans',sans-serif",transition:"all .2s"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#f5f0e8";e.currentTarget.style.color="#f5f0e8";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,.2)";e.currentTarget.style.color="#c8bfb0";}}>
+              Sign In
+            </button>
+            <button onClick={openSignup} className="lp-btn-pri" style={{padding:"9px 22px",fontSize:13,boxShadow:"none"}}>
+              Start Free
+            </button>
+          </div>
+        </nav>
+
+        {/* HERO */}
+        <section style={{position:"relative",minHeight:"100vh",display:"flex",
+          flexDirection:"column",alignItems:"center",justifyContent:"center",
+          textAlign:"center",padding:"120px 24px 80px",overflow:"hidden"}}>
+          <div style={{position:"absolute",inset:0,zIndex:0,
+            background:"radial-gradient(ellipse 140% 80% at 50% 120%,#0d2a12 0%,transparent 65%)"}}/>
+          <div style={{position:"absolute",inset:0,zIndex:0,
+            backgroundImage:"linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px)",
+            backgroundSize:"60px 60px"}}/>
+          <div style={{position:"relative",zIndex:1}}>
+            <div style={{display:"inline-flex",alignItems:"center",gap:8,
+              background:"rgba(255,90,31,.12)",border:"1px solid rgba(255,90,31,.3)",
+              color:"#ff5a1f",padding:"6px 16px",borderRadius:99,
+              fontSize:12,fontWeight:600,letterSpacing:"1.5px",textTransform:"uppercase",
+              marginBottom:28,animation:"lpUp .6s ease both"}}>
+              ⚽ Built for High School Soccer Coaches
+            </div>
+            <h1 style={{fontFamily:"'Bebas Neue',sans-serif",
+              fontSize:"clamp(64px,10vw,130px)",lineHeight:.92,letterSpacing:2,
+              color:"#f5f0e8",animation:"lpUp .7s .1s ease both",margin:"0 0 24px"}}>
+              Coach Smarter.<br/><span style={{color:"#ff5a1f"}}>Win More.</span>
+            </h1>
+            <p style={{maxWidth:540,fontSize:18,color:"#c8bfb0",lineHeight:1.65,
+              margin:"0 auto 44px",animation:"lpUp .7s .2s ease both"}}>
+              Live game tracking, player ratings, game plans, tryout management and season analytics —
+              <strong style={{color:"#f5f0e8"}}> everything you need</strong> to run a professional program,
+              without the pro-team price tag.
+            </p>
+            <div className="lp-hero-btns" style={{display:"flex",gap:14,justifyContent:"center",
+              flexWrap:"wrap",animation:"lpUp .7s .3s ease both"}}>
+              <button onClick={openSignup} className="lp-btn-pri">Start Free →</button>
+              <a href="#lp-features" className="lp-btn-sec">See What's Inside</a>
+            </div>
+            <div className="lp-proof" style={{display:"flex",gap:40,justifyContent:"center",
+              flexWrap:"wrap",marginTop:64,paddingTop:48,
+              borderTop:"1px solid rgba(255,255,255,.07)",animation:"lpUp .7s .4s ease both"}}>
+              {[["$0","To get started"],["2 min","Setup time"],["10×","Less than Hudl"],["100%","Built for HS coaches"]].map(([n,l])=>(
+                <div key={l} style={{textAlign:"center"}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,lineHeight:1,color:"#ff5a1f"}}>{n}</div>
+                  <div style={{fontSize:13,color:"#6b6458",fontWeight:500,marginTop:4}}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FEATURES */}
+        <section id="lp-features" style={{padding:"100px 24px",background:"#0a1a0d"}}>
+          <div style={{maxWidth:1100,margin:"0 auto"}}>
+            <div className="lp-reveal" style={{textAlign:"center",marginBottom:52}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>Features</div>
+              <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 16px"}}>Everything You Need, Nothing You Don't</h2>
+              <p style={{fontSize:17,color:"#c8bfb0",maxWidth:500,margin:"0 auto",lineHeight:1.7}}>Built specifically for the one-person show that is a high school soccer coach.</p>
+            </div>
+            <div className="lp-reveal" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",
+              gap:2,border:"2px solid #1e2419",borderRadius:16,overflow:"hidden"}}>
+              {FEATS.map(([icon,name,desc])=>(
+                <div key={name} className="lp-feat"
+                  style={{background:"#111309",padding:"28px 24px",borderRight:"2px solid #1e2419",borderBottom:"2px solid #1e2419",transition:"background .2s"}}>
+                  <div style={{width:44,height:44,borderRadius:10,marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,background:"rgba(255,90,31,.1)",border:"1px solid rgba(255,90,31,.2)"}}>{icon}</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:19,letterSpacing:.5,color:"#f5f0e8",marginBottom:7}}>{name}</div>
+                  <div style={{fontSize:13,color:"#6b6458",lineHeight:1.65}}>{desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING */}
+        <section id="lp-pricing" style={{padding:"100px 24px",background:"#060606"}}>
+          <div style={{maxWidth:840,margin:"0 auto"}}>
+            <div className="lp-reveal" style={{textAlign:"center",marginBottom:48}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>Pricing</div>
+              <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 16px"}}>Less Than One Referee Fee</h2>
+              <p style={{fontSize:17,color:"#c8bfb0",maxWidth:440,margin:"0 auto",lineHeight:1.7}}>Start free. Upgrade when you're ready. No contracts.</p>
+            </div>
+            <div className="lp-reveal lp-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+              <div style={{background:"#111309",border:"1px solid #1e2419",borderRadius:14,padding:34}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#6b6458",marginBottom:8}}>Free</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
+                  <span style={{fontSize:24,color:"#c8bfb0",verticalAlign:"super"}}>$</span>0
+                </div>
+                <div style={{fontSize:14,color:"#6b6458",marginBottom:24}}>forever</div>
+                {["1 team","Live game tracker","Player ratings","Up to 10 players"].map(f=>(
+                  <div key={f} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:14,color:"#c8bfb0"}}>
+                    <span style={{color:"#ff5a1f",fontWeight:700}}>✓</span>{f}
+                  </div>
+                ))}
+                <button onClick={openSignup}
+                  style={{display:"block",width:"100%",marginTop:24,padding:"12px",background:"transparent",
+                    border:"1.5px solid rgba(255,255,255,.2)",borderRadius:8,color:"#f5f0e8",fontWeight:700,
+                    fontSize:14,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",transition:"all .2s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="#f5f0e8"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,.2)"}>
+                  Get Started Free
+                </button>
+              </div>
+              <div style={{background:"#111309",border:"1px solid #ff5a1f",borderRadius:14,padding:34,
+                boxShadow:"0 0 50px rgba(255,90,31,.12)",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:14,right:-26,background:"#ff5a1f",color:"#000",
+                  fontSize:9,fontWeight:800,letterSpacing:1.5,padding:"4px 34px",transform:"rotate(45deg)"}}>POPULAR</div>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#ff5a1f",marginBottom:8}}>Pro</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
+                  <span style={{fontSize:24,color:"#c8bfb0",verticalAlign:"super"}}>$</span>9<span style={{fontSize:22}}>99</span>
+                </div>
+                <div style={{fontSize:14,color:"#6b6458",marginBottom:24}}>per month</div>
+                {["Unlimited teams","Varsity + JV + JVB rosters","Full tryout manager","Unlimited players",
+                  "Season report PDF","Email player reports","Opponent database","Shareable player profiles"].map(f=>(
+                  <div key={f} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:14,color:"#c8bfb0"}}>
+                    <span style={{color:"#ff5a1f",fontWeight:700}}>✓</span>{f}
+                  </div>
+                ))}
+                <button onClick={openSignup} className="lp-btn-pri"
+                  style={{display:"block",width:"100%",marginTop:24,padding:"12px",fontSize:14,textAlign:"center"}}>
+                  Start Free Trial →
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="lp-faq" style={{padding:"100px 24px",background:"#0a1a0d"}}>
+          <div style={{maxWidth:700,margin:"0 auto"}}>
+            <div className="lp-reveal" style={{textAlign:"center",marginBottom:48}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>FAQ</div>
+              <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:0}}>Questions</h2>
+            </div>
+            <div className="lp-reveal">
+              {FAQS.map(([q,a],i)=><FaqItem key={i} q={q} a={a}/>)}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section style={{padding:"100px 24px",background:"#060606",textAlign:"center",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
+            width:700,height:350,borderRadius:"50%",
+            background:"radial-gradient(ellipse,rgba(255,90,31,.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
+          <div className="lp-reveal" style={{position:"relative",zIndex:1}}>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>Get Started Today</div>
+            <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(48px,6vw,84px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 20px"}}>
+              Your Program Deserves Better Tools
+            </h2>
+            <p style={{fontSize:18,color:"#c8bfb0",maxWidth:440,margin:"0 auto 40px",lineHeight:1.7}}>Free to start, no credit card required.</p>
+            <button onClick={openSignup} className="lp-btn-pri" style={{fontSize:18,padding:"18px 52px"}}>
+              Start Free — No Card Needed →
+            </button>
+            <p style={{fontSize:13,color:"#6b6458",marginTop:16}}>2-minute setup · Works on any device · Your data stays yours</p>
+          </div>
+        </section>
+
+        {/* FOOTER */}
+        <footer style={{padding:"28px 48px",borderTop:"1px solid #1e2419",
+          display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:2,color:"#f5f0e8"}}>
+            COACH<span style={{color:"#ff5a1f"}}>IQ</span>
+          </div>
+          <div style={{fontSize:13,color:"#6b6458"}}>© 2026 CoachIQ. Built for high school coaches.</div>
+          <button onClick={openLogin}
+            style={{background:"none",border:"none",color:"#ff5a1f",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif"}}>
+            Sign In →
+          </button>
+        </footer>
+      </div>
+
+      {/* AUTH MODAL */}
+      {showAuth&&(
+        <div style={{position:"fixed",inset:0,background:"#000000e0",zIndex:2000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{position:"relative",width:"100%",maxWidth:420}}>
+            <button onClick={()=>setShowAuth(false)}
+              style={{position:"absolute",top:-44,right:0,background:"none",border:"none",
+                color:"#c8bfb0",cursor:"pointer",fontSize:26,lineHeight:1}}>✕</button>
+            <AuthView onAuth={onAuth} defaultMode={authMode}/>
+          </div>
+        </div>
+      )}
+
+      <LpReveal/>
+    </>
+  );
+}
+
 // ─── AUTH VIEWS ───────────────────────────────────────────────────────────────
-function AuthView({ onAuth }) {
-  const [mode, setMode]       = useState("login"); // login | signup | reset
+function AuthView({ onAuth, defaultMode="login" }) {
+  const [mode, setMode]       = useState(defaultMode); // login | signup | reset
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -3331,7 +3626,7 @@ export default function CoachIQStats(){
   // Hash-based player profile routing — works without auth
   if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
 
-  if(!session) return <AuthView onAuth={handleAuth}/>;
+  if(!session) return <LandingPage onAuth={handleAuth}/>;
 
   // ── Show onboarding if first time ────────────────────────────────────────
   const showOnboarding = !onboarded && !dataLoading && teams.length > 0 && roster.length === 0;
