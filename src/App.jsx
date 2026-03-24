@@ -150,9 +150,9 @@ const supabase = (() => {
 
 
 // ─── EMAILJS CONFIG ───────────────────────────────────────────────────────────
-const EJS_SERVICE  = "service_67o2kbq";
-const EJS_TEMPLATE = "template_xlcc4wg";
-const EJS_KEY      = "XdWTyjACtwXgLPPkV";
+const EJS_SERVICE       = "service_67o2kbq";
+const EJS_TEMPLATE      = "template_xlcc4wg";   // match report
+const EJS_KEY           = "XdWTyjACtwXgLPPkV";
 
 async function sendPlayerEmail(templateParams){
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
@@ -4331,6 +4331,8 @@ export default function CoachIQStats(){
   );
 }
 
+
+
 // ─── GAME PLAN VIEW ───────────────────────────────────────────────────────────
 // ─── HOME VIEW ────────────────────────────────────────────────────────────────
 function HomeView({games, gamePlans, practices, roster, setView, teamName}){
@@ -4667,7 +4669,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
         setOpponents(prev=>[...prev, newOpp]);
       }
     }
-    const scout = linkedOpp || {formation:"",keyPlayers:"",setPieceNotes:"",scoutNotes:""};
+    const scout = linkedOpp || {formation:"",keyPlayers:"",setPieceNotes:"",scoutNotes:"",oppPlayers:{},tendencies:{},setPieces:{},counterPlan:{}};
 
     return(
       <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
@@ -4677,17 +4679,16 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
-          <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+<button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Trash2 size={13}/>Delete
           </button>
         </div>
 
-        {/* ── TAB BAR ── */}
+{/* ── TAB BAR ── */}
         <div style={{display:"flex",gap:4,marginBottom:20,background:C.surface,borderRadius:10,padding:4,border:`1px solid ${C.border}`}}>
           {[
             {key:"gameplan", label:"Game Plan"},
-            {key:"practice", label:"Practice"},
             {key:"scout",    label:"Scout Report", badge: linkedOpp?"✓":null},
           ].map(tab=>(
             <button key={tab.key} onClick={()=>setGpTab(tab.key)}
@@ -4872,42 +4873,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
           </div>
         </div>}
 
-        {/* ── PRACTICE TAB ────────────────────────────────────── */}
-        {gpTab==="practice"&&(
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:24}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:16}}>PRACTICE PLAN</div>
-            {[
-              {key:"warmup",   label:"Warmup",    color:"#66bb6a"},
-              {key:"mainWork", label:"Main Work", color:C.accent},
-              {key:"cooldown", label:"Cooldown",  color:"#42a5f5"},
-            ].map(({key,label,color})=>(
-              <div key={key} style={{marginBottom:16}}>
-                <div style={{color,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>{label.toUpperCase()}</div>
-                <textarea
-                  value={plan[`practice_${key}`]||""}
-                  onChange={e=>updatePlan(()=>({[`practice_${key}`]:e.target.value}))}
-                  rows={3}
-                  placeholder={`${label} drills and notes...`}
-                  style={{width:"100%",padding:"10px 12px",background:C.bg,
-                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
-                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
-                    boxSizing:"border-box",resize:"vertical"}}/>
-              </div>
-            ))}
-            <div>
-              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>FOCUS POINTS</div>
-              <textarea
-                value={plan.practice_focus||""}
-                onChange={e=>updatePlan(()=>({practice_focus:e.target.value}))}
-                rows={2}
-                placeholder="Key tactical points to reinforce in training..."
-                style={{width:"100%",padding:"10px 12px",background:C.bg,
-                  border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
-                  fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
-                  boxSizing:"border-box",resize:"vertical"}}/>
-            </div>
-          </div>
-        )}
+
 
         {/* ── SCOUT REPORT TAB ────────────────────────────────── */}
         {gpTab==="scout"&&(
@@ -7070,6 +7036,107 @@ function OnboardingWizard({teamName, onComplete}){
 }
 
 // ─── OPPONENTS VIEW ───────────────────────────────────────────────────────────
+
+// ─── OPPONENT SQUAD GRID ──────────────────────────────────────────────────────
+function OppSquadGrid({positions, oppPlayers, update, updateOppPlayer, getOppPlayer, THREAT_OPTS}){
+  const extras = oppPlayers["extra"] || [];
+
+  function removeExtra(idx){
+    const updated = extras.filter((_,i)=>i!==idx);
+    update("oppPlayers", {...oppPlayers, extra: updated});
+  }
+  function addExtra(){
+    const updated = [...extras, {number:"",name:"",notes:"",threat:"",customPos:""}];
+    update("oppPlayers", {...oppPlayers, extra: updated});
+  }
+
+  const formationSlots = positions.map((pos,idx)=>({pos, idx, isExtra:false}));
+  const extraSlots     = extras.map((_,idx)=>({pos:"extra", idx, isExtra:true}));
+  const allSlots       = [...formationSlots, ...extraSlots];
+
+  return(
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+      {allSlots.map(({pos,idx,isExtra})=>{
+        const p      = getOppPlayer(pos, idx);
+        const threat = THREAT_OPTS.find(t=>t.k===p.threat) || THREAT_OPTS[0];
+        return(
+          <div key={pos+"-"+idx} style={{background:C.card,
+            border:"1.5px solid "+(p.threat ? threat.col+"44" : C.border),
+            borderRadius:12,padding:14,transition:"border-color .2s",position:"relative"}}>
+            {isExtra&&(
+              <button onClick={()=>removeExtra(idx)}
+                style={{position:"absolute",top:8,right:8,background:"none",border:"none",
+                  color:C.muted,cursor:"pointer",fontSize:14,lineHeight:1}}>✕</button>
+            )}
+            <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+              {isExtra ? (
+                <input value={p.customPos||""}
+                  onChange={e=>updateOppPlayer(pos,idx,"customPos",e.target.value)}
+                  placeholder="POS" maxLength={4}
+                  style={{width:44,height:36,padding:"2px 4px",background:C.surface,
+                    border:"1.5px solid "+C.border,borderRadius:8,
+                    color:C.accent,fontSize:12,outline:"none",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:800,textAlign:"center"}}/>
+              ) : (
+                <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                  background:posColor(pos)+"22",border:"1.5px solid "+posColor(pos)+"55",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:13}}>
+                  {pos}
+                </div>
+              )}
+              <input value={p.number}
+                onChange={e=>updateOppPlayer(pos,idx,"number",e.target.value)}
+                placeholder="#" maxLength={3}
+                style={{width:40,padding:"5px 6px",background:C.bg,border:"1px solid "+C.border,
+                  borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:700,textAlign:"center"}}/>
+              <input value={p.name}
+                onChange={e=>updateOppPlayer(pos,idx,"name",e.target.value)}
+                placeholder="Player name"
+                style={{flex:1,padding:"5px 8px",background:C.bg,border:"1px solid "+C.border,
+                  borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif"}}/>
+            </div>
+            <div style={{display:"flex",gap:5,marginBottom:8}}>
+              {THREAT_OPTS.map(t=>(
+                <button key={t.k} onClick={()=>updateOppPlayer(pos,idx,"threat",t.k)}
+                  style={{flex:1,padding:"4px 0",fontSize:10,fontWeight:700,cursor:"pointer",
+                    border:"1px solid "+(p.threat===t.k ? t.col : C.border),borderRadius:5,
+                    background:p.threat===t.k ? t.col+"22" : "transparent",
+                    color:p.threat===t.k ? t.col : C.muted}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <textarea value={p.notes}
+              onChange={e=>updateOppPlayer(pos,idx,"notes",e.target.value)}
+              rows={2} placeholder="Notes on this player..."
+              style={{width:"100%",padding:"6px 8px",background:C.bg,
+                border:"1px solid "+C.border,borderRadius:6,color:C.text,
+                fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",
+                boxSizing:"border-box",resize:"none"}}/>
+          </div>
+        );
+      })}
+
+      {/* Add player */}
+      <div onClick={addExtra}
+        style={{background:"transparent",border:"2px dashed "+C.border,borderRadius:12,
+          padding:14,cursor:"pointer",display:"flex",flexDirection:"column",
+          alignItems:"center",justifyContent:"center",gap:8,minHeight:120,
+          transition:"border-color .2s"}}
+        onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+        onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+        <div style={{width:36,height:36,borderRadius:8,background:C.accent+"22",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          color:C.accent,fontSize:22}}>+</div>
+        <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Add Player</div>
+      </div>
+    </div>
+  );
+}
+
 function OpponentsView({opponents, setOpponents, games, gamePlans}){
   const [sel,    setSel]    = useState(null);
   const [adding, setAdding] = useState(false);
@@ -7312,55 +7379,14 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
                   <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800}}>{opp.formation}</div>
                   <div style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{positions.length} positions</div>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-                  {positions.map((pos,idx)=>{
-                    const p = getOppPlayer(pos,idx);
-                    const threat = THREAT_OPTS.find(t=>t.k===p.threat)||THREAT_OPTS[0];
-                    return(
-                      <div key={`${pos}-${idx}`} style={{background:C.card,border:`1.5px solid ${p.threat?threat.col+"44":C.border}`,
-                        borderRadius:12,padding:14,transition:"border-color .2s"}}>
-                        <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
-                          {/* Position badge */}
-                          <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
-                            background:posColor(pos)+"22",border:`1.5px solid ${posColor(pos)}55`,
-                            display:"flex",alignItems:"center",justifyContent:"center",
-                            fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:13}}>
-                            {pos}
-                          </div>
-                          {/* Number + Name */}
-                          <input value={p.number} onChange={e=>updateOppPlayer(pos,idx,"number",e.target.value)}
-                            placeholder="#" maxLength={3}
-                            style={{width:44,padding:"5px 6px",background:C.bg,border:`1px solid ${C.border}`,
-                              borderRadius:6,color:C.text,fontSize:13,outline:"none",
-                              fontFamily:"'Oswald',sans-serif",fontWeight:700,textAlign:"center"}}/>
-                          <input value={p.name} onChange={e=>updateOppPlayer(pos,idx,"name",e.target.value)}
-                            placeholder="Player name"
-                            style={{flex:1,padding:"5px 8px",background:C.bg,border:`1px solid ${C.border}`,
-                              borderRadius:6,color:C.text,fontSize:13,outline:"none",
-                              fontFamily:"'Outfit',sans-serif"}}/>
-                        </div>
-                        {/* Threat level */}
-                        <div style={{display:"flex",gap:5,marginBottom:8}}>
-                          {THREAT_OPTS.map(t=>(
-                            <button key={t.k} onClick={()=>updateOppPlayer(pos,idx,"threat",t.k)}
-                              style={{flex:1,padding:"4px 0",fontSize:10,fontWeight:700,cursor:"pointer",
-                                border:`1px solid ${p.threat===t.k?t.col:C.border}`,borderRadius:5,
-                                background:p.threat===t.k?t.col+"22":"transparent",
-                                color:p.threat===t.k?t.col:C.muted}}>
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                        {/* Individual notes */}
-                        <textarea value={p.notes} onChange={e=>updateOppPlayer(pos,idx,"notes",e.target.value)}
-                          rows={2} placeholder="Notes on this player..."
-                          style={{width:"100%",padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
-                            borderRadius:6,color:C.text,fontSize:12,outline:"none",
-                            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"none"}}/>
-                      </div>
-                    );
-                  })}
-                </div>
+                <OppSquadGrid
+                positions={positions}
+                oppPlayers={oppPlayers}
+                update={update}
+                updateOppPlayer={updateOppPlayer}
+                getOppPlayer={getOppPlayer}
+                THREAT_OPTS={THREAT_OPTS}
+              />
               </div>
             )}
           </div>
