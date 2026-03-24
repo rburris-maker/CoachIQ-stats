@@ -187,34 +187,49 @@ function useLocalStorage(key, initial) {
 }
 
 function AppLogo({size=36, glow=true}){
+  const g = glow ? "drop-shadow(0 0 6px #ff6b00aa) drop-shadow(0 0 14px #ff6b0055)" : "none";
   return(
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
-      style={{filter:glow?"drop-shadow(0 0 8px #ff6b0077)":"none",flexShrink:0}}>
-      {/* Shield */}
-      <path d="M50 6 L88 20 L88 52 C88 72 70 88 50 95 C30 88 12 72 12 52 L12 20 Z"
-        fill="url(#shieldGrad)" stroke="#ff6b00" strokeWidth="2.5"/>
-      {/* Shield inner highlight */}
-      <path d="M50 14 L80 25 L80 52 C80 68 65 81 50 87 C35 81 20 68 20 52 L20 25 Z"
-        fill="none" stroke="#ff8c0033" strokeWidth="1"/>
-      {/* Bar chart bars */}
-      <rect x="24" y="62" width="12" height="20" rx="2" fill="#ff6b00" opacity="0.9"/>
-      <rect x="40" y="52" width="12" height="30" rx="2" fill="#ff8c00" opacity="0.95"/>
-      <rect x="56" y="44" width="12" height="38" rx="2" fill="#ffb300"/>
-      {/* Trend arrow */}
-      <path d="M22 68 L44 50 L58 56 L76 34" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
-      <path d="M70 30 L78 32 L76 40" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.9"/>
-      {/* Soccer ball */}
-      <circle cx="50" cy="22" r="14" fill="#fff" stroke="#e0e0e0" strokeWidth="1"/>
-      <path d="M50 8 L52 14 L58 12 L56 18 L62 20 L56 22 L58 28 L52 26 L50 32 L48 26 L42 28 L44 22 L38 20 L44 18 L42 12 L48 14 Z"
-        fill="#1a1a2e" opacity="0.75"/>
-      <circle cx="50" cy="22" r="14" fill="none" stroke="#ff6b00" strokeWidth="1.5" opacity="0.4"/>
-      {/* Gradients */}
+    <svg width={size} height={size} viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={{filter:g,flexShrink:0}}>
       <defs>
-        <linearGradient id="shieldGrad" x1="50" y1="6" x2="50" y2="95" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#1a0800"/>
-          <stop offset="100%" stopColor="#0a0400"/>
+        <linearGradient id="lgShield" x1="50" y1="4" x2="50" y2="106" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ff8c00"/>
+          <stop offset="100%" stopColor="#cc3300"/>
         </linearGradient>
+        <radialGradient id="lgGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ff6b0033"/>
+          <stop offset="100%" stopColor="#ff6b0000"/>
+        </radialGradient>
       </defs>
+      {/* Glow fill */}
+      <ellipse cx="50" cy="55" rx="44" ry="50" fill="url(#lgGlow)"/>
+      {/* Shield outline — matches logo shape */}
+      <path d="M50 4 C50 4 14 16 14 16 L14 58 C14 80 30 96 50 106 C70 96 86 80 86 58 L86 16 Z"
+        fill="none" stroke="url(#lgShield)" strokeWidth="3" strokeLinejoin="round"/>
+      {/* Inner shield line */}
+      <path d="M50 10 C50 10 20 20 20 20 L20 58 C20 77 34 91 50 100 C66 91 80 77 80 58 L80 20 Z"
+        fill="none" stroke="#ff6b0033" strokeWidth="1"/>
+      {/* Halfway line */}
+      <line x1="22" y1="55" x2="78" y2="55" stroke="#ff6b00" strokeWidth="1.8" opacity="0.9"/>
+      {/* Center circle */}
+      <circle cx="50" cy="55" r="10" fill="none" stroke="#ff6b00" strokeWidth="1.8" opacity="0.9"/>
+      {/* Center spot */}
+      <circle cx="50" cy="55" r="2" fill="#ff6b00" opacity="0.9"/>
+      {/* Top goal box */}
+      <rect x="35" y="20" width="30" height="14" rx="1"
+        fill="none" stroke="#ff6b00" strokeWidth="1.8" opacity="0.9"/>
+      {/* Top goal (small box) */}
+      <rect x="41" y="20" width="18" height="7" rx="1"
+        fill="none" stroke="#ff6b00" strokeWidth="1.4" opacity="0.7"/>
+      {/* Bottom goal box */}
+      <rect x="35" y="76" width="30" height="14" rx="1"
+        fill="none" stroke="#ff6b00" strokeWidth="1.8" opacity="0.9"/>
+      {/* Bottom goal (small box) */}
+      <rect x="41" y="83" width="18" height="7" rx="1"
+        fill="none" stroke="#ff6b00" strokeWidth="1.4" opacity="0.7"/>
+      {/* Top touchline segments (inside shield) */}
+      <line x1="22" y1="20" x2="78" y2="20" stroke="#ff6b00" strokeWidth="1.4" opacity="0.6"/>
+      <line x1="22" y1="90" x2="78" y2="90" stroke="#ff6b00" strokeWidth="1.4" opacity="0.6"/>
     </svg>
   );
 }
@@ -4292,6 +4307,7 @@ export default function CoachIQStats(){
           {/* Page content */}
           <div style={{flex:1,overflowY:"auto",background:C.bg,
             backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49'%3E%3Cg fill='none' stroke='%23ff6b0022' stroke-width='1'%3E%3Cpath d='M14 24.5L0 32V16L14 8l14 8v16z'/%3E%3Cpath d='M0 16V0l14 8'/%3E%3Cpath d='M28 16V0L14 8'/%3E%3Cpath d='M0 32l14 8 14-8'/%3E%3C/g%3E%3C/svg%3E")`}}>
+            {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/> }
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
               if(player) setRoster(prev=>[...prev,player]);
@@ -4308,7 +4324,7 @@ export default function CoachIQStats(){
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans}/>}
             {/* redirect old dashboard id */}
-            {view==="dashboard" &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
+
           </div>
         </div>
       </div>
