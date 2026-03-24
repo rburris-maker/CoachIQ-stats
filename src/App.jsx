@@ -2993,37 +2993,20 @@ function FeatureShowcase(){
   const [animKey, setAnimKey] = useState(0);
 
   const TABS = [
-    {
-      label:"Live Tracker",
-      icon:"⚡",
-      desc:"Log every stat in real time — one tap per action. Works on any phone from the sideline.",
-      screen: <LiveTrackerMock/>,
-    },
-    {
-      label:"Player Ratings",
-      icon:"⭐",
-      desc:"Position-weighted ratings calculated automatically after the final whistle. No spreadsheet needed.",
-      screen: <RatingsMock/>,
-    },
-    {
-      label:"Tryout Manager",
-      icon:"📋",
-      desc:"Score every candidate across 5 categories. Build your lineup. Submit to rosters in one step.",
-      screen: <TryoutMock/>,
-    },
-    {
-      label:"Game Plan",
-      icon:"🗺",
-      desc:"Set your formation, plan subs with conditions, and add opponent notes — all before kickoff.",
-      screen: <GamePlanMock/>,
-    },
-    {
-      label:"Player Report",
-      icon:"📧",
-      desc:"Send every player a professional match report by email after each game. One click from the game detail screen.",
-      screen: <PlayerReportMock/>,
-    },
+    {label:"Live Tracker",  icon:"⚡", key:"live",   desc:"Log every stat in real time — one tap per action. Works on any phone from the sideline."},
+    {label:"Player Ratings",icon:"⭐", key:"ratings",desc:"Position-weighted ratings calculated automatically after the final whistle. No spreadsheet needed."},
+    {label:"Tryout Manager",icon:"📋", key:"tryout", desc:"Score every candidate across 5 categories. Build your lineup. Submit to rosters in one step."},
+    {label:"Game Plan",     icon:"🗺", key:"gameplan",desc:"Set your formation, plan subs with conditions, and add opponent notes — all before kickoff."},
+    {label:"Player Report", icon:"📧", key:"report",  desc:"Send every player a professional match report by email after each game. One click from the game detail screen."},
   ];
+  function renderScreen(key){
+    if(key==="live")     return <LiveTrackerMock/>;
+    if(key==="ratings")  return <RatingsMock/>;
+    if(key==="tryout")   return <TryoutMock/>;
+    if(key==="gameplan") return <GamePlanMock/>;
+    if(key==="report")   return <PlayerReportMock/>;
+    return null;
+  }
 
   function switchTab(i){
     setActive(i);
@@ -3084,7 +3067,7 @@ function FeatureShowcase(){
         {/* Screen content — animated on tab change */}
         <div key={animKey}
           style={{padding:20,animation:"lpSlideIn .35s ease both"}}>
-          {TABS[active].screen}
+          {renderScreen(TABS[active].key)}
         </div>
       </div>
     </div>
@@ -3375,8 +3358,7 @@ function LandingPage({onAuth}){
           <div style={{position:"absolute",inset:0,zIndex:0,
             background:"radial-gradient(ellipse 140% 80% at 50% 120%,#0d2a12 0%,transparent 65%)"}}/>
           <div style={{position:"absolute",inset:0,zIndex:0,
-            backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='62'%3E%3Cpolygon points='27,1 53,15 53,47 27,61 1,47 1,15' fill='none' stroke='%23ffffff06' stroke-width='1'/%3E%3Cpolygon points='0,31 14,54 40,54 54,31 40,8 14,8' fill='none' stroke='%23ffffff06' stroke-width='1'/%3E%3C/svg%3E\")"}}/>
-          <div style={{position:"relative",zIndex:1}}>
+            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49'%3E%3Cg fill='none' stroke='%23ffffff07' stroke-width='1'%3E%3Cpath d='M14 24.5L0 32V16L14 8l14 8v16z'/%3E%3Cpath d='M0 16V0l14 8'/%3E%3Cpath d='M28 16V0L14 8'/%3E%3Cpath d='M0 32l14 8 14-8'/%3E%3C/g%3E%3C/svg%3E")`}}>
             <div style={{display:"inline-flex",alignItems:"center",gap:8,
               background:"rgba(255,90,31,.12)",border:"1px solid rgba(255,90,31,.3)",
               color:"#ff5a1f",padding:"6px 16px",borderRadius:99,
@@ -4309,8 +4291,7 @@ export default function CoachIQStats(){
 
           {/* Page content */}
           <div style={{flex:1,overflowY:"auto",background:C.bg,
-            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='62'%3E%3Cpolygon points='27,1 53,15 53,47 27,61 1,47 1,15' fill='none' stroke='%23ff6b0018' stroke-width='1'/%3E%3Cpolygon points='0,31 14,54 40,54 54,31 40,8 14,8' fill='none' stroke='%23ff6b0018' stroke-width='1'/%3E%3C/svg%3E")`}}>
-            {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
+            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49'%3E%3Cg fill='none' stroke='%23ff6b0022' stroke-width='1'%3E%3Cpath d='M14 24.5L0 32V16L14 8l14 8v16z'/%3E%3Cpath d='M0 16V0l14 8'/%3E%3Cpath d='M28 16V0L14 8'/%3E%3Cpath d='M0 32l14 8 14-8'/%3E%3C/g%3E%3C/svg%3E")`}}>
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
               if(player) setRoster(prev=>[...prev,player]);
