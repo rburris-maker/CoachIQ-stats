@@ -4682,14 +4682,26 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
           <button onClick={()=>{
-              const link=`${window.location.origin}${window.location.pathname}#/plan/${plan.shareId||plan.id}`;
-              navigator.clipboard?.writeText(link).then(()=>alert("Link copied!")).catch(()=>alert("Link: "+link));
+              let sid = plan.shareId;
+              if(!sid){
+                sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+                setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
+              }
+              const link=`${window.location.origin}${window.location.pathname}#/plan/${sid}`;
+              navigator.clipboard?.writeText(link).then(()=>alert("Share link copied!\n\n"+link)).catch(()=>alert("Share link:\n"+link));
             }}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
             ⎘ Share
           </button>
-          <button onClick={()=>window.open(`${window.location.origin}${window.location.pathname}#/plan/${plan.shareId||plan.id}`,"_blank")}
+          <button onClick={()=>{
+              let sid = plan.shareId;
+              if(!sid){
+                sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+                setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
+              }
+              setTimeout(()=>window.open(`${window.location.origin}${window.location.pathname}#/plan/${sid}`,"_blank"),150);
+            }}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 12px",color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
             ⬡ View / Print
@@ -8150,16 +8162,17 @@ function GamePlanSharePage(){
   useEffect(()=>{
     async function load(){
       try{
-        // Load all game plans across all teams to find the matching shareId
+        // Load all game plans across all teams to find the matching shareId OR id
         const {data:gpRows} = await supabase.from("game_plans").select("*");
         let foundPlan = null;
         let teamId    = null;
         for(const row of (gpRows||[])){
           const plans = Array.isArray(row.data) ? row.data : [row.data];
-          const match = plans.find(p=>p.shareId===shareId);
+          // Match by shareId first, then fall back to plan id
+          const match = plans.find(p=>p.shareId===shareId || p.id===shareId);
           if(match){ foundPlan=match; teamId=row.team_id; break; }
         }
-        if(!foundPlan){ setError("Game plan not found."); setLoading(false); return; }
+        if(!foundPlan){ setError("Game plan not found. Try sharing again from the Game Plans page."); setLoading(false); return; }
         setPlan(foundPlan);
 
         // Load roster for that team
