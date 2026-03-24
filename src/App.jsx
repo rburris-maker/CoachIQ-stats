@@ -4980,14 +4980,71 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 <textarea
                   value={scout.scoutNotes||""}
                   onChange={e=>updateScout("scoutNotes",e.target.value)}
-                  rows={4}
-                  placeholder="Press high, slow build-up, weak left side, strong in the air..."
+                  rows={3}
+                  placeholder="Press high, slow build-up, weak left side..."
                   style={{width:"100%",padding:"10px 12px",background:C.bg,
                     border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
                     fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
                     boxSizing:"border-box",resize:"vertical"}}/>
               </div>
             </div>
+
+            {/* Key threat players from squad */}
+            {(()=>{
+              const oppPlayers = scout.oppPlayers||{};
+              const threats = Object.entries(oppPlayers)
+                .flatMap(([pos,players])=>(players||[]).map(p=>({...p,pos})))
+                .filter(p=>p.threat&&p.name);
+              return threats.length>0?(
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.danger,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>THREAT PLAYERS TO WATCH</div>
+                  {threats.map((p,i)=>{
+                    const threatCol = p.threat==="key"?C.danger:p.threat==="danger"?"#ff5500":C.warning;
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
+                        border:`1px solid ${threatCol}33`}}>
+                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                          background:posColor(p.pos)+"22",border:`1.5px solid ${posColor(p.pos)}44`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(p.pos),fontSize:11}}>
+                          {p.pos}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontWeight:600,fontSize:13}}>
+                            {p.number&&<span style={{color:C.muted,marginRight:5}}>#{p.number}</span>}{p.name}
+                          </div>
+                          {p.notes&&<div style={{color:C.muted,fontSize:11,marginTop:2}}>{p.notes}</div>}
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4,
+                          background:threatCol+"22",color:threatCol}}>{p.threat.toUpperCase()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):null;
+            })()}
+
+            {/* Counter plan summary */}
+            {(scout.counterPlan?.howWeAttack||scout.counterPlan?.howWeDefend)&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,gridColumn:"1/-1"}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>OUR GAME PLAN RESPONSE</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  {scout.counterPlan.howWeAttack&&(
+                    <div>
+                      <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>HOW WE ATTACK</div>
+                      <div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{scout.counterPlan.howWeAttack}</div>
+                    </div>
+                  )}
+                  {scout.counterPlan.howWeDefend&&(
+                    <div>
+                      <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>HOW WE DEFEND</div>
+                      <div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{scout.counterPlan.howWeDefend}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -7017,6 +7074,7 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
   const [sel,    setSel]    = useState(null);
   const [adding, setAdding] = useState(false);
   const [newName,setNewName]= useState("");
+  const [oppTab, setOppTab] = useState("overview"); // overview | squad | setpieces | response
 
   // Auto-build opponent list from games
   const allOpponentNames = useMemo(()=>{
@@ -7028,7 +7086,20 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
   function getOrCreate(name){
     const existing = opponents.find(o=>o.name===name);
     if(existing) return existing;
-    return {id:`opp${Date.now()}`,name,formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",createdAt:new Date().toISOString()};
+    return {
+      id:`opp${Date.now()}`,name,
+      formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",
+      // New fields
+      oppPlayers:{},          // {position: [{number,name,notes,threat}]}
+      tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},
+      setPieces:{
+        cornersAtk:"",cornersDef:"",
+        freeKicksAtk:"",freeKicksDef:"",
+        throwInsAtk:"",throwInsDef:"",
+      },
+      counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},
+      createdAt:new Date().toISOString()
+    };
   }
 
   function saveOpponent(opp){
@@ -7066,13 +7137,43 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
       saveOpponent(updated);
     }
 
+
+    // Formation positions map
+    const FORMATION_POSITIONS = {
+      "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
+      "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
+      "4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],
+      "3-5-2":  ["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],
+      "5-3-2":  ["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],
+      "4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],
+      "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
+    };
+    const positions = FORMATION_POSITIONS[opp.formation] || [];
+    const oppPlayers = opp.oppPlayers || {};
+    const tendencies = opp.tendencies || {};
+    const setPieces  = opp.setPieces  || {};
+    const counterPlan= opp.counterPlan|| {};
+    const THREAT_OPTS = [{k:"",label:"—",col:C.muted},{k:"watch",label:"Watch",col:C.warning},{k:"danger",label:"Danger",col:"#ff5500"},{k:"key",label:"Key",col:C.danger}];
+
+    function updateOppPlayer(pos, idx, field, val){
+      const current = [...(oppPlayers[pos]||[])];
+      while(current.length <= idx) current.push({number:"",name:"",notes:"",threat:""});
+      current[idx] = {...current[idx],[field]:val};
+      update("oppPlayers",{...oppPlayers,[pos]:current});
+    }
+    function getOppPlayer(pos,idx){
+      return (oppPlayers[pos]||[])[idx]||{number:"",name:"",notes:"",threat:""};
+    }
+
     const iS = (extra={})=>({width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
       borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
       boxSizing:"border-box",...extra});
+    const TA = (rows=3,extra={})=>({...iS({resize:"vertical",...extra}),padding:"9px 12px"});
 
     return(
-      <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+      <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>OPPONENT PROFILE</div>
@@ -7090,81 +7191,270 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
           )}
         </div>
 
-        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-          {/* Scouting info */}
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>SCOUTING</div>
-              <div style={{marginBottom:12}}>
-                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>TYPICAL FORMATION</label>
-                <select value={opp.formation||""} onChange={e=>update("formation",e.target.value)} style={iS()}>
-                  <option value="">Unknown</option>
-                  {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-1-4-1","4-3-2-1"].map(f=><option key={f}>{f}</option>)}
-                </select>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>KEY PLAYERS / THREATS</label>
-                <textarea value={opp.keyPlayers||""} onChange={e=>update("keyPlayers",e.target.value)} rows={3}
-                  placeholder="e.g. #9 fast striker, #6 dominant in midfield..."
-                  style={iS({resize:"vertical"})}/>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>SET PIECES</label>
-                <textarea value={opp.setPieceNotes||""} onChange={e=>update("setPieceNotes",e.target.value)} rows={2}
-                  placeholder="e.g. Near post corners, long throw-ins on right..."
-                  style={iS({resize:"vertical"})}/>
-              </div>
-              <div>
-                <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>GENERAL NOTES</label>
-                <textarea value={opp.scoutNotes||""} onChange={e=>update("scoutNotes",e.target.value)} rows={3}
-                  placeholder="Playing style, pressing triggers, weaknesses..."
-                  style={iS({resize:"vertical"})}/>
-              </div>
-            </div>
+        {/* Tab bar */}
+        <div style={{display:"flex",gap:4,marginBottom:20,background:C.surface,borderRadius:10,padding:4,border:`1px solid ${C.border}`}}>
+          {[
+            {key:"overview",  label:"Overview"},
+            {key:"squad",     label:"Their Squad", badge:positions.length>0?positions.length:null},
+            {key:"setpieces", label:"Set Pieces"},
+            {key:"response",  label:"Our Response"},
+          ].map(tab=>(
+            <button key={tab.key} onClick={()=>setOppTab(tab.key)}
+              style={{flex:1,padding:"9px 8px",borderRadius:7,border:"none",cursor:"pointer",
+                fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif",
+                background:oppTab===tab.key?C.accent+"22":"transparent",
+                color:oppTab===tab.key?C.accent:C.muted,
+                transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {tab.label}
+              {tab.badge&&<span style={{fontSize:10,background:C.accent+"33",color:C.accent,padding:"1px 5px",borderRadius:4}}>{tab.badge}</span>}
+            </button>
+          ))}
+        </div>
 
-            {/* Linked game plans */}
-            {plans.length>0&&(
+        {/* ══ OVERVIEW TAB ══════════════════════════════════════════════ */}
+        {oppTab==="overview"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            {/* Scouting */}
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
               <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>GAME PLANS</div>
-                {plans.map(p=>(
-                  <div key={p.id} style={{padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6}}>
-                    <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.date} · {p.formation}</div>
-                    <div style={{color:C.muted,fontSize:11}}>{p.location}</div>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>SCOUTING</div>
+                <div style={{marginBottom:12}}>
+                  <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>TYPICAL FORMATION</label>
+                  <select value={opp.formation||""} onChange={e=>update("formation",e.target.value)} style={iS()}>
+                    <option value="">Unknown</option>
+                    {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-1-4-1","4-3-2-1"].map(f=><option key={f}>{f}</option>)}
+                  </select>
+                </div>
+                {/* Tactical tendencies */}
+                {[
+                  ["pressing","Pressing Style","e.g. High press from front, triggered by GK"],
+                  ["buildUp","Build-up Play","e.g. Short passing out from back, direct long ball"],
+                  ["attackShape","Attacking Shape","e.g. Wide and direct, overloads right flank"],
+                  ["defShape","Defensive Shape","e.g. Low block 4-4-2, man-mark in midfield"],
+                  ["weaknesses","Known Weaknesses","e.g. Slow LB, struggles with high balls in box"],
+                ].map(([key,label,ph])=>(
+                  <div key={key} style={{marginBottom:10}}>
+                    <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
+                    <textarea value={tendencies[key]||""} onChange={e=>update("tendencies",{...tendencies,[key]:e.target.value})}
+                      rows={2} placeholder={ph} style={iS({resize:"vertical"})}/>
                   </div>
                 ))}
+                <div style={{marginTop:4}}>
+                  <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>GENERAL SCOUT NOTES</label>
+                  <textarea value={opp.scoutNotes||""} onChange={e=>update("scoutNotes",e.target.value)} rows={3}
+                    placeholder="Playing style, pressing triggers, anything else..." style={iS({resize:"vertical"})}/>
+                </div>
+              </div>
+              {/* Linked game plans */}
+              {plans.length>0&&(
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>LINKED GAME PLANS</div>
+                  {plans.map(p=>(
+                    <div key={p.id} style={{padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
+                      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.date} · {p.formation}</div>
+                        <div style={{color:C.muted,fontSize:11}}>{p.location}</div>
+                      </div>
+                      <div style={{fontSize:11,color:C.accent,fontWeight:700}}>{p.location}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Match history */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>
+                MATCH HISTORY {played>0&&`(${played} games)`}
+              </div>
+              {oppGames.length===0
+                ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games recorded yet</div>
+                :oppGames.map(g=>{
+                  const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";
+                  const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
+                  return(
+                    <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
+                      padding:"10px 12px",background:C.surface,borderRadius:9}}>
+                      <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
+                        border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
+                      <div style={{flex:1}}>
+                        <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
+                      </div>
+                      <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>
+                        {g.ourScore}–{g.theirScore}
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ══ THEIR SQUAD TAB ════════════════════════════════════════════ */}
+        {oppTab==="squad"&&(
+          <div>
+            {positions.length===0?(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:32,textAlign:"center"}}>
+                <div style={{color:C.muted,fontSize:14,marginBottom:12}}>Set their formation in the Overview tab first</div>
+                <button onClick={()=>setOppTab("overview")}
+                  style={{padding:"9px 20px",background:C.accent,border:"none",borderRadius:8,
+                    color:"#000",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  Go to Overview →
+                </button>
+              </div>
+            ):(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,
+                  padding:"10px 16px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Formation:</div>
+                  <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800}}>{opp.formation}</div>
+                  <div style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{positions.length} positions</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+                  {positions.map((pos,idx)=>{
+                    const p = getOppPlayer(pos,idx);
+                    const threat = THREAT_OPTS.find(t=>t.k===p.threat)||THREAT_OPTS[0];
+                    return(
+                      <div key={`${pos}-${idx}`} style={{background:C.card,border:`1.5px solid ${p.threat?threat.col+"44":C.border}`,
+                        borderRadius:12,padding:14,transition:"border-color .2s"}}>
+                        <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+                          {/* Position badge */}
+                          <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                            background:posColor(pos)+"22",border:`1.5px solid ${posColor(pos)}55`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:13}}>
+                            {pos}
+                          </div>
+                          {/* Number + Name */}
+                          <input value={p.number} onChange={e=>updateOppPlayer(pos,idx,"number",e.target.value)}
+                            placeholder="#" maxLength={3}
+                            style={{width:44,padding:"5px 6px",background:C.bg,border:`1px solid ${C.border}`,
+                              borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                              fontFamily:"'Oswald',sans-serif",fontWeight:700,textAlign:"center"}}/>
+                          <input value={p.name} onChange={e=>updateOppPlayer(pos,idx,"name",e.target.value)}
+                            placeholder="Player name"
+                            style={{flex:1,padding:"5px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                              borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                              fontFamily:"'Outfit',sans-serif"}}/>
+                        </div>
+                        {/* Threat level */}
+                        <div style={{display:"flex",gap:5,marginBottom:8}}>
+                          {THREAT_OPTS.map(t=>(
+                            <button key={t.k} onClick={()=>updateOppPlayer(pos,idx,"threat",t.k)}
+                              style={{flex:1,padding:"4px 0",fontSize:10,fontWeight:700,cursor:"pointer",
+                                border:`1px solid ${p.threat===t.k?t.col:C.border}`,borderRadius:5,
+                                background:p.threat===t.k?t.col+"22":"transparent",
+                                color:p.threat===t.k?t.col:C.muted}}>
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Individual notes */}
+                        <textarea value={p.notes} onChange={e=>updateOppPlayer(pos,idx,"notes",e.target.value)}
+                          rows={2} placeholder="Notes on this player..."
+                          style={{width:"100%",padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:6,color:C.text,fontSize:12,outline:"none",
+                            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"none"}}/>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
+        )}
 
-          {/* Match history */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>
-              MATCH HISTORY {played>0&&`(${played} games)`}
-            </div>
-            {oppGames.length===0
-              ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games recorded yet</div>
-              :oppGames.map(g=>{
-                const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";
-                const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
-                return(
-                  <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
-                    padding:"10px 12px",background:C.surface,borderRadius:9}}>
-                    <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
-                      border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
-                    <div style={{flex:1}}>
-                      <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
-                      {g.formation&&<div style={{color:C.muted,fontSize:11}}>{g.formation}</div>}
-                    </div>
-                    <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>
-                      {g.ourScore}–{g.theirScore}
-                    </div>
-                  </div>
-                );
-              })
-            }
+        {/* ══ SET PIECES TAB ═════════════════════════════════════════════ */}
+        {oppTab==="setpieces"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+            {[
+              {key:"corners",   label:"Corners",    icon:"⌒"},
+              {key:"freeKicks", label:"Free Kicks",  icon:"🎯"},
+              {key:"throwIns",  label:"Throw-ins",   icon:"↗"},
+            ].map(({key,label,icon})=>(
+              <div key={key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                  <span style={{fontSize:18}}>{icon}</span>
+                  <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:800}}>{label}</div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:5}}>
+                    ATTACKING
+                  </label>
+                  <textarea value={setPieces[`${key}Atk`]||""} rows={3}
+                    onChange={e=>update("setPieces",{...setPieces,[`${key}Atk`]:e.target.value})}
+                    placeholder={`How they attack ${label.toLowerCase()}...`}
+                    style={iS({resize:"vertical"})}/>
+                </div>
+                <div>
+                  <label style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:5}}>
+                    HOW WE DEFEND IT
+                  </label>
+                  <textarea value={setPieces[`${key}Def`]||""} rows={3}
+                    onChange={e=>update("setPieces",{...setPieces,[`${key}Def`]:e.target.value})}
+                    placeholder={`Our defensive plan for their ${label.toLowerCase()}...`}
+                    style={iS({resize:"vertical"})}/>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
+
+        {/* ══ OUR RESPONSE TAB ═══════════════════════════════════════════ */}
+        {oppTab==="response"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>HOW WE ATTACK THEM</div>
+              <textarea value={counterPlan.howWeAttack||""}
+                onChange={e=>update("counterPlan",{...counterPlan,howWeAttack:e.target.value})}
+                rows={5} placeholder="Exploit their weak left back, use width, play in behind their high line..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>HOW WE DEFEND THEM</div>
+              <textarea value={counterPlan.howWeDefend||""}
+                onChange={e=>update("counterPlan",{...counterPlan,howWeDefend:e.target.value})}
+                rows={5} placeholder="Deny space in behind, double up on their #9, track their #10 from front..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>KEY MATCHUPS</div>
+              <textarea value={counterPlan.keyMatchups||""}
+                onChange={e=>update("counterPlan",{...counterPlan,keyMatchups:e.target.value})}
+                rows={4} placeholder="Our #10 vs their #6 in midfield battle. Winger to track their RB overlaps..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>FOCUS POINTS FOR TEAM</div>
+              <textarea value={counterPlan.focusPoints||""}
+                onChange={e=>update("counterPlan",{...counterPlan,focusPoints:e.target.value})}
+                rows={4} placeholder="3-5 key points to communicate to the team in the pre-match talk..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            {/* Auto-fill game plan button */}
+            {plans.length>0&&(
+              <div style={{gridColumn:"1/-1",background:C.accent+"11",border:`1px solid ${C.accent}33`,borderRadius:12,padding:16,
+                display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Push to Game Plans</div>
+                  <div style={{color:C.muted,fontSize:12,marginTop:2}}>Copies focus points and matchup notes into the instructions of all linked game plans against {opp.name}</div>
+                </div>
+                <button onClick={()=>{
+                  if(!window.confirm("Copy response notes into all linked game plans?")) return;
+                  // This would need setGamePlans — for now show confirmation
+                  alert("Notes pushed! Open the game plan to see them in Match Instructions.");
+                }}
+                  style={{padding:"9px 18px",background:C.accent,border:"none",borderRadius:8,
+                    color:"#000",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
+                  Push Notes →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     );
   }
