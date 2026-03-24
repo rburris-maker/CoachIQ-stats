@@ -4317,7 +4317,7 @@ export default function CoachIQStats(){
             {view==="players"   &&<PlayersView   games={games} roster={roster} setRoster={setRoster}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
-            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster}/>}
+            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
@@ -4550,10 +4550,11 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
   );
 }
 
-function GamePlanView({gamePlans, setGamePlans, games, roster}){
+function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpponents}){
   const [sel,setSel]       = useState(null);
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
+  const [gpTab,setGpTab]   = useState("gameplan"); // gameplan | practice | scout
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
 
   const SLOTS = {
@@ -4647,9 +4648,30 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
     const ZONES=[["GK","Goalkeeper"],["DEF","Defenders"],["MID","Midfielders"],["FWD","Forwards"]];
     const ZONE_COL={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
 
+    // Find matching opponent record
+    const linkedOpp = (opponents||[]).find(o=>
+      o.name?.trim().toLowerCase()===plan.opponent?.trim().toLowerCase()
+    );
+    function updateScout(field, val){
+      if(linkedOpp){
+        setOpponents(prev=>prev.map(o=>o.name?.trim().toLowerCase()===plan.opponent?.trim().toLowerCase()
+          ? {...o,[field]:val} : o
+        ));
+      } else {
+        // Create new opponent record linked to this opponent name
+        const newOpp = {
+          id:`opp${Date.now()}`, name:plan.opponent,
+          formation:"", keyPlayers:"", setPieceNotes:"", scoutNotes:"",
+          [field]:val
+        };
+        setOpponents(prev=>[...prev, newOpp]);
+      }
+    }
+    const scout = linkedOpp || {formation:"",keyPlayers:"",setPieceNotes:"",scoutNotes:""};
+
     return(
       <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
@@ -4659,6 +4681,26 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Trash2 size={13}/>Delete
           </button>
+        </div>
+
+        {/* ── TAB BAR ── */}
+        <div style={{display:"flex",gap:4,marginBottom:20,background:C.surface,borderRadius:10,padding:4,border:`1px solid ${C.border}`}}>
+          {[
+            {key:"gameplan", label:"Game Plan"},
+            {key:"practice", label:"Practice"},
+            {key:"scout",    label:"Scout Report", badge: linkedOpp?"✓":null},
+          ].map(tab=>(
+            <button key={tab.key} onClick={()=>setGpTab(tab.key)}
+              style={{flex:1,padding:"9px 12px",borderRadius:7,border:"none",cursor:"pointer",
+                fontWeight:700,fontSize:13,fontFamily:"'Outfit',sans-serif",
+                background:gpTab===tab.key?C.accent+"22":"transparent",
+                color:gpTab===tab.key?C.accent:C.muted,
+                transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+              {tab.label}
+              {tab.badge&&<span style={{fontSize:10,background:C.accent+"33",color:C.accent,
+                padding:"1px 5px",borderRadius:4,fontWeight:700}}>{tab.badge}</span>}
+            </button>
+          ))}
         </div>
 
         {/* Picker overlay */}
@@ -4698,7 +4740,8 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
           </div>
         )}
 
-        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        {/* ── GAME PLAN TAB ─────────────────────────────────── */}
+        {gpTab==="gameplan"&&<div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
 
           {/* ── Lineup builder ─────────────────────────────────────── */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
@@ -4827,7 +4870,127 @@ function GamePlanView({gamePlans, setGamePlans, games, roster}){
                 style={{width:"100%",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
             </div>
           </div>
-        </div>
+        </div>}
+
+        {/* ── PRACTICE TAB ────────────────────────────────────── */}
+        {gpTab==="practice"&&(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:24}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:16}}>PRACTICE PLAN</div>
+            {[
+              {key:"warmup",   label:"Warmup",    color:"#66bb6a"},
+              {key:"mainWork", label:"Main Work", color:C.accent},
+              {key:"cooldown", label:"Cooldown",  color:"#42a5f5"},
+            ].map(({key,label,color})=>(
+              <div key={key} style={{marginBottom:16}}>
+                <div style={{color,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>{label.toUpperCase()}</div>
+                <textarea
+                  value={plan[`practice_${key}`]||""}
+                  onChange={e=>updatePlan(()=>({[`practice_${key}`]:e.target.value}))}
+                  rows={3}
+                  placeholder={`${label} drills and notes...`}
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            ))}
+            <div>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>FOCUS POINTS</div>
+              <textarea
+                value={plan.practice_focus||""}
+                onChange={e=>updatePlan(()=>({practice_focus:e.target.value}))}
+                rows={2}
+                placeholder="Key tactical points to reinforce in training..."
+                style={{width:"100%",padding:"10px 12px",background:C.bg,
+                  border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                  fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                  boxSizing:"border-box",resize:"vertical"}}/>
+            </div>
+          </div>
+        )}
+
+        {/* ── SCOUT REPORT TAB ────────────────────────────────── */}
+        {gpTab==="scout"&&(
+          <div>
+            {/* Link indicator */}
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,
+              padding:"10px 14px",borderRadius:9,
+              background:linkedOpp?C.accent+"11":C.surface,
+              border:`1px solid ${linkedOpp?C.accent+"44":C.border}`}}>
+              <div style={{width:8,height:8,borderRadius:"50%",
+                background:linkedOpp?C.accent:C.muted,flexShrink:0}}/>
+              <div style={{fontSize:12,color:linkedOpp?C.accent:C.muted,fontWeight:600}}>
+                {linkedOpp
+                  ? `Synced with Opponents database — changes save there too`
+                  : `No opponent record yet — adding notes will create one`}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              {/* Formation */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>THEIR FORMATION</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-5-1","3-4-3"].map(f=>(
+                    <button key={f} onClick={()=>updateScout("formation",f)}
+                      style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${scout.formation===f?C.accent:C.border}`,
+                        background:scout.formation===f?C.accent+"22":C.surface,
+                        color:scout.formation===f?C.accent:C.muted,
+                        fontWeight:700,fontSize:13,cursor:"pointer"}}>{f}</button>
+                  ))}
+                </div>
+                {scout.formation&&(
+                  <div style={{marginTop:10,fontSize:13,color:C.accent,fontWeight:700}}>
+                    Selected: {scout.formation}
+                  </div>
+                )}
+              </div>
+
+              {/* Key players */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>KEY PLAYERS TO WATCH</div>
+                <textarea
+                  value={scout.keyPlayers||""}
+                  onChange={e=>updateScout("keyPlayers",e.target.value)}
+                  rows={4}
+                  placeholder="#9 — fast, left foot. #10 — dictates play. #4 — aggressive CB..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+
+              {/* Set pieces */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>SET PIECES</div>
+                <textarea
+                  value={scout.setPieceNotes||""}
+                  onChange={e=>updateScout("setPieceNotes",e.target.value)}
+                  rows={4}
+                  placeholder="Corner routine, free kick takers, throw-in patterns..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+
+              {/* Scout notes */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>GENERAL SCOUT NOTES</div>
+                <textarea
+                  value={scout.scoutNotes||""}
+                  onChange={e=>updateScout("scoutNotes",e.target.value)}
+                  rows={4}
+                  placeholder="Press high, slow build-up, weak left side, strong in the air..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     );
   }
