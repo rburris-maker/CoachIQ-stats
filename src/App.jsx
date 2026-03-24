@@ -4557,7 +4557,8 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [sel,setSel]       = useState(null);
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
-  const [gpTab,setGpTab]   = useState("gameplan"); // gameplan | practice | scout
+  const [gpTab,setGpTab]   = useState("gameplan");
+  const [shareLink,setShareLink] = useState(null); // shows share modal with link
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
 
   const SLOTS = {
@@ -4688,7 +4689,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
               }
               const link=`${window.location.origin}${window.location.pathname}#/plan/${sid}`;
-              navigator.clipboard?.writeText(link).then(()=>alert("Share link copied!\n\n"+link)).catch(()=>alert("Share link:\n"+link));
+              setShareLink(link);
             }}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -4712,7 +4713,49 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
           </button>
         </div>
 
-{/* ── TAB BAR ── */}
+{/* ── SHARE LINK MODAL ── */}
+        {shareLink&&(
+          <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+            display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+              padding:28,width:"100%",maxWidth:480}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800}}>Share Game Plan</h3>
+                <button onClick={()=>setShareLink(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>✕</button>
+              </div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:14,lineHeight:1.6}}>
+                Anyone with this link can view the game plan — no login required.
+              </p>
+              <div style={{display:"flex",gap:8,alignItems:"center",
+                background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 14px",marginBottom:14}}>
+                <span style={{flex:1,color:C.text,fontSize:12,fontFamily:"'DM Mono',monospace",
+                  wordBreak:"break-all",lineHeight:1.5}}>{shareLink}</span>
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>{
+                  navigator.clipboard?.writeText(shareLink)
+                    .then(()=>{
+                      const btn=document.getElementById("gp-copy-btn");
+                      if(btn){btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="Copy Link";},2000);}
+                    })
+                    .catch(()=>{});
+                }}
+                  id="gp-copy-btn"
+                  style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,
+                    color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                  Copy Link
+                </button>
+                <button onClick={()=>{window.open(shareLink,"_blank");setShareLink(null);}}
+                  style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:9,color:C.muted,fontWeight:600,fontSize:13,cursor:"pointer"}}>
+                  Open in New Tab
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB BAR ── */}
         <div style={{display:"flex",gap:4,marginBottom:20,background:C.surface,borderRadius:10,padding:4,border:`1px solid ${C.border}`}}>
           {[
             {key:"gameplan", label:"Game Plan"},
@@ -8256,15 +8299,30 @@ function GamePlanSharePage(){
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;800;900&family=Outfit:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:#080808;color:#f5f0e8;font-family:'Outfit',sans-serif;}
+        .card-dark{background:#111;border:1px solid #2a1000;border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+        .print-text{color:#f5f0e8;}
+        .print-muted{color:#c8bfb0;}
+        .print-accent{color:#ff6b00;}
         @media print{
-          body{background:#fff!important;color:#000!important;}
+          *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+          body{background:#fff!important;color:#000!important;font-size:10px!important;}
           .no-print{display:none!important;}
-          .print-page{background:#fff!important;color:#000!important;}
-          .card-dark{background:#f8f8f8!important;border-color:#ddd!important;}
+          .print-page{background:#fff!important;padding:0!important;}
+          .card-dark{background:#f9f9f9!important;border:1px solid #ddd!important;border-radius:6px!important;padding:8px 10px!important;margin-bottom:6px!important;}
           .print-text{color:#000!important;}
-          .print-muted{color:#555!important;}
+          .print-muted{color:#444!important;}
           .print-accent{color:#c94d00!important;}
-          @page{margin:15mm;size:A4 portrait;}
+          h1{font-size:22px!important;margin-bottom:4px!important;}
+          h2{font-size:16px!important;}
+          .gp-header{padding-bottom:10px!important;margin-bottom:12px!important;}
+          .gp-section-title{font-size:9px!important;margin-bottom:4px!important;}
+          .player-chip{padding:4px 7px!important;border-radius:5px!important;margin-bottom:3px!important;}
+          .player-badge{width:22px!important;height:22px!important;font-size:10px!important;}
+          .player-name{font-size:10px!important;}
+          .zone-label{font-size:8px!important;margin-bottom:3px!important;}
+          .lineup-grid{display:flex!important;flex-wrap:wrap!important;gap:4px!important;}
+          .scout-section{page-break-inside:avoid;}
+          @page{margin:10mm 12mm;size:A4 portrait;}
         }
       `}</style>
 
@@ -8287,7 +8345,7 @@ function GamePlanSharePage(){
         </div>
 
         {/* ── HEADER ─────────────────────────────────────────────────── */}
-        <div style={{textAlign:"center",marginBottom:28,paddingBottom:20,
+        <div className="gp-header" style={{textAlign:"center",marginBottom:28,paddingBottom:20,
           borderBottom:"2px solid #ff6b00"}}>
           <div style={{marginBottom:10}}>
             <AppLogo size={44} glow={false}/>
@@ -8306,7 +8364,7 @@ function GamePlanSharePage(){
 
         {/* ── OUR LINEUP ─────────────────────────────────────────────── */}
         <div className="card-dark" style={S.card}>
-          <span className="print-accent" style={S.label}>Our Starting XI</span>
+          <span className="print-accent gp-section-title" style={S.label}>Our Starting XI</span>
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             {["FWD","MID","DEF","GK"].map(zone=>{
               const slots = plan.lineup?.[zone]||[];
@@ -8314,28 +8372,28 @@ function GamePlanSharePage(){
               if(!filled.length) return null;
               return(
                 <div key={zone}>
-                  <div style={{fontSize:10,fontWeight:700,letterSpacing:1,
+                  <div className="zone-label" style={{fontSize:10,fontWeight:700,letterSpacing:1,
                     color:ZONE_COLS[zone],marginBottom:6,textTransform:"uppercase"}}>
                     {ZONE_NAMES[zone]}
                   </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <div className="lineup-grid" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                     {slots.map((pid,i)=>{
                       if(!pid) return null;
                       const p = roster.find(r=>r.id===pid);
                       if(!p) return null;
                       const col = rColor(p);
                       return(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+                        <div key={i} className="player-chip" style={{display:"flex",alignItems:"center",gap:8,
                           padding:"7px 12px",background:"#1a0800",
                           border:"1.5px solid "+ZONE_COLS[zone]+"44",borderRadius:9,
                           minWidth:120}}>
-                          <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
+                          <div className="player-badge" style={{width:30,height:30,borderRadius:7,flexShrink:0,
                             background:col+"22",border:"2px solid "+col+"55",
                             display:"flex",alignItems:"center",justifyContent:"center",
                             fontFamily:"'Oswald',sans-serif",fontWeight:900,
                             color:col,fontSize:15}}>{p.number}</div>
                           <div>
-                            <div className="print-text" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>{p.name}</div>
+                            <div className="print-text player-name" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>{p.name}</div>
                             <div className="print-muted" style={{color:"#7a4a2a",fontSize:11}}>{primaryPos(p)}</div>
                           </div>
                         </div>
@@ -8375,7 +8433,7 @@ function GamePlanSharePage(){
         {/* ── MATCH INSTRUCTIONS ─────────────────────────────────────── */}
         {plan.instructions&&(
           <div className="card-dark" style={S.card}>
-            <span className="print-accent" style={S.label}>Match Instructions</span>
+            <span className="print-accent gp-section-title" style={S.label}>Match Instructions</span>
             <p className="print-text" style={S.body}>{plan.instructions}</p>
           </div>
         )}
@@ -8399,9 +8457,9 @@ function GamePlanSharePage(){
             </div>
 
             {/* Their players */}
-            {allOppPlayers.length>0&&(
+            {allOppPlayers.length>0&&(<div className="scout-section">
               <div className="card-dark" style={S.card}>
-                <span className="print-accent" style={S.label}>Their Squad</span>
+                <span className="print-accent gp-section-title" style={S.label}>Their Squad</span>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                   {allOppPlayers.map((p,i)=>{
                     const tc = p.threat ? threatCol(p.threat) : "#3a1a00";
@@ -8441,6 +8499,7 @@ function GamePlanSharePage(){
                   </div>
                 ))}
               </div>
+            </div>
             )}
 
             {/* Tactical tendencies */}
