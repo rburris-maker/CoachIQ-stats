@@ -2909,6 +2909,84 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
 
 
 
+
+function PlayerReportMock(){
+  const stats=[
+    {label:"Goals",       val:"2",  col:"#ff5a1f"},
+    {label:"Assists",     val:"1",  col:"#ff5a1f"},
+    {label:"Shots",       val:"5",  col:"#c8bfb0"},
+    {label:"On Target",   val:"3",  col:"#c8bfb0"},
+    {label:"Key Passes",  val:"4",  col:"#66bb6a"},
+    {label:"Pass Acc.",   val:"87%",col:"#66bb6a"},
+    {label:"Tackles",     val:"2",  col:"#42a5f5"},
+    {label:"Interceptions",val:"1", col:"#42a5f5"},
+  ];
+  return(
+    <div style={{background:"#1a0800",borderRadius:12,overflow:"hidden",
+      border:"1px solid #3a1a00",maxWidth:420,margin:"0 auto",fontFamily:"'Helvetica Neue',Arial,sans-serif"}}>
+      {/* Email header bar */}
+      <div style={{background:"#0d0d0d",padding:"10px 16px",borderBottom:"1px solid #2a1000",
+        display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:28,height:28,borderRadius:6,background:"#ff5a1f22",border:"1px solid #ff5a1f44",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>📧</div>
+        <div>
+          <div style={{fontSize:11,color:"#c8bfb0",fontWeight:600}}>Match Report — vs Lincoln High</div>
+          <div style={{fontSize:10,color:"#6b6458"}}>From: CoachIQ · To: rodriguez@email.com</div>
+        </div>
+      </div>
+      {/* Email body */}
+      <div style={{padding:"20px 18px"}}>
+        {/* Header */}
+        <div style={{textAlign:"center",paddingBottom:16,marginBottom:16,
+          borderBottom:"2px solid #ff5a1f44"}}>
+          <div style={{fontSize:10,letterSpacing:2,color:"#ff5a1f88",fontWeight:700,
+            textTransform:"uppercase",marginBottom:6}}>Match Report · Marion FC vs Lincoln High</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:900,color:"#ffffff",
+            letterSpacing:1}}>COACH<span style={{color:"#ff5a1f"}}>IQ</span></div>
+        </div>
+        {/* Player + rating */}
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,
+          background:"#0d0400",borderRadius:10,padding:"14px 16px",border:"1px solid #2a1000"}}>
+          <div style={{width:48,height:48,borderRadius:10,background:"rgba(255,90,31,.15)",
+            border:"2px solid rgba(255,90,31,.3)",display:"flex",alignItems:"center",justifyContent:"center",
+            fontFamily:"Georgia,serif",fontWeight:900,color:"#ff5a1f",fontSize:22,flexShrink:0}}>9</div>
+          <div style={{flex:1}}>
+            <div style={{color:"#ffffff",fontWeight:700,fontSize:15}}>Marcus Rodriguez</div>
+            <div style={{color:"#c8bfb0",fontSize:12,marginTop:2}}>ST · Marion FC</div>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:44,lineHeight:1,color:"#ff5a1f"}}>8.7</div>
+            <div style={{fontSize:10,color:"#6b6458",letterSpacing:1,fontWeight:700}}>RATING</div>
+          </div>
+        </div>
+        {/* Stats grid */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+          {stats.map(({label,val,col})=>(
+            <div key={label} style={{background:"#0d0400",border:"1px solid #2a1000",
+              borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:11,color:"#c8bfb0",fontWeight:600}}>{label}</span>
+              <span style={{fontFamily:"Georgia,serif",fontWeight:900,fontSize:18,color:col}}>{val}</span>
+            </div>
+          ))}
+        </div>
+        {/* Coach note */}
+        <div style={{background:"#0d0400",border:"1px solid #2a1000",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
+          <div style={{fontSize:10,letterSpacing:1.5,color:"#ff5a1f",fontWeight:700,
+            textTransform:"uppercase",marginBottom:6}}>Coach Note</div>
+          <div style={{fontSize:12,color:"#c8bfb0",lineHeight:1.65}}>
+            Excellent attacking contribution and positive attacking presence.
+            <span style={{color:"#ff5a1f"}}> Keep working on positioning in the final third.</span>
+          </div>
+        </div>
+        {/* Season avg */}
+        <div style={{textAlign:"center",fontSize:11,color:"#6b6458"}}>
+          Season average: <span style={{color:"#ff5a1f",fontWeight:700}}>8.2</span> · 12 games played
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── FEATURE SHOWCASE ─────────────────────────────────────────────────────────
 function FeatureShowcase(){
   const [active, setActive] = useState(0);
@@ -2938,6 +3016,12 @@ function FeatureShowcase(){
       icon:"🗺",
       desc:"Set your formation, plan subs with conditions, and add opponent notes — all before kickoff.",
       screen: <GamePlanMock/>,
+    },
+    {
+      label:"Player Report",
+      icon:"📧",
+      desc:"Send every player a professional match report by email after each game. One click from the game detail screen.",
+      screen: <PlayerReportMock/>,
     },
   ];
 
