@@ -2908,6 +2908,265 @@ function TeamSwitcher({teams, activeTeamId, onSwitch, onAdd, onRename, onDelete}
 }
 
 
+
+// ─── FEATURE SHOWCASE ─────────────────────────────────────────────────────────
+function FeatureShowcase(){
+  const [active, setActive] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+
+  const TABS = [
+    {
+      label:"Live Tracker",
+      icon:"⚡",
+      desc:"Log every stat in real time — one tap per action. Works on any phone from the sideline.",
+      screen: <LiveTrackerMock/>,
+    },
+    {
+      label:"Player Ratings",
+      icon:"⭐",
+      desc:"Position-weighted ratings calculated automatically after the final whistle. No spreadsheet needed.",
+      screen: <RatingsMock/>,
+    },
+    {
+      label:"Tryout Manager",
+      icon:"📋",
+      desc:"Score every candidate across 5 categories. Build your lineup. Submit to rosters in one step.",
+      screen: <TryoutMock/>,
+    },
+    {
+      label:"Game Plan",
+      icon:"🗺",
+      desc:"Set your formation, plan subs with conditions, and add opponent notes — all before kickoff.",
+      screen: <GamePlanMock/>,
+    },
+  ];
+
+  function switchTab(i){
+    setActive(i);
+    setAnimKey(k=>k+1);
+  }
+
+  // Auto-cycle every 4 seconds
+  useEffect(()=>{
+    const t = setInterval(()=>{
+      setActive(a=>(a+1)%TABS.length);
+      setAnimKey(k=>k+1);
+    }, 4000);
+    return ()=>clearInterval(t);
+  },[]);
+
+  return(
+    <div className="lp-reveal lp-demo-layout"
+      style={{display:"grid",gridTemplateColumns:"260px 1fr",gap:24,alignItems:"start"}}>
+
+      {/* Tab buttons */}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {TABS.map((tab,i)=>(
+          <button key={tab.label} className={"lp-tab-btn"+(active===i?" active":"")}
+            onClick={()=>switchTab(i)}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
+              background:"transparent",border:"1px solid #1e2419",borderRadius:10,
+              cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"'DM Sans',sans-serif"}}>
+            <span style={{fontSize:20,flexShrink:0}}>{tab.icon}</span>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:active===i?"#ff5a1f":"#f5f0e8",
+                marginBottom:3}}>{tab.label}</div>
+              <div style={{fontSize:11,color:"#6b6458",lineHeight:1.4}}>{tab.desc}</div>
+            </div>
+          </button>
+        ))}
+        {/* Progress bar */}
+        <div style={{height:3,background:"#1e2419",borderRadius:99,overflow:"hidden",marginTop:4}}>
+          <div key={animKey} style={{height:"100%",background:"#ff5a1f",borderRadius:99,
+            animation:"lpProgress 4s linear forwards"}}/>
+        </div>
+        <style>{`@keyframes lpProgress{from{width:0}to{width:100%}}`}</style>
+      </div>
+
+      {/* Screen mockup */}
+      <div style={{background:"#0d0f0a",border:"1px solid #1e2419",borderRadius:16,
+        overflow:"hidden",boxShadow:"0 32px 64px rgba(0,0,0,.5)",minHeight:400}}>
+        {/* Browser bar */}
+        <div style={{background:"#080a06",padding:"10px 14px",display:"flex",
+          alignItems:"center",gap:8,borderBottom:"1px solid #1e2419"}}>
+          <div style={{width:9,height:9,borderRadius:"50%",background:"#ff5f57"}}/>
+          <div style={{width:9,height:9,borderRadius:"50%",background:"#febc2e"}}/>
+          <div style={{width:9,height:9,borderRadius:"50%",background:"#28c840"}}/>
+          <div style={{flex:1,background:"#111",borderRadius:5,padding:"4px 10px",
+            marginLeft:8,fontSize:11,color:"#444",fontFamily:"monospace"}}>
+            coachiq.vercel.app
+          </div>
+        </div>
+        {/* Screen content — animated on tab change */}
+        <div key={animKey}
+          style={{padding:20,animation:"lpSlideIn .35s ease both"}}>
+          {TABS[active].screen}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveTrackerMock(){
+  const STATS=[["Pass","✓"],["Key Pass","🔑"],["Tackle","🛡"],["Goal","⚽"],["Assist","🅰"],["Shot on Target","🎯"]];
+  const PLAYERS=[{n:9,name:"Rodriguez",pos:"ST",col:"#ff5a1f"},{n:10,name:"Mitchell",pos:"CM",col:"#66bb6a"},
+    {n:4,name:"Thompson",pos:"CB",col:"#42a5f5"},{n:1,name:"Patel",pos:"GK",col:"#ffb300"}];
+  return(
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {STATS.map(([label,icon])=>(
+          <div key={label} style={{background:"#111",border:"1px solid #1e2419",borderRadius:8,
+            padding:"8px 12px",fontSize:12,color:"#c8bfb0",cursor:"pointer",display:"flex",gap:6,
+            alignItems:"center",fontWeight:600}}>
+            <span>{icon}</span>{label}
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:10,letterSpacing:1.5,color:"#6b6458",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Select Player</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+        {PLAYERS.map(p=>(
+          <div key={p.n} style={{background:"#111",border:`1.5px solid ${p.col}33`,borderRadius:10,
+            padding:"12px 8px",textAlign:"center",cursor:"pointer",transition:"all .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=p.col}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=p.col+"33"}>
+            <div style={{width:36,height:36,borderRadius:8,background:p.col+"22",
+              border:`2px solid ${p.col}55`,display:"flex",alignItems:"center",justifyContent:"center",
+              fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:p.col,margin:"0 auto 6px"}}>{p.n}</div>
+            <div style={{fontSize:11,color:"#f5f0e8",fontWeight:600}}>{p.name}</div>
+            <div style={{fontSize:10,color:"#6b6458"}}>{p.pos}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:14,padding:"10px 14px",background:"#111",border:"1px solid #1e2419",
+        borderRadius:9,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontSize:12,color:"#6b6458"}}>Last: <span style={{color:"#ff5a1f",fontWeight:700}}>⚽ Goal — Rodriguez (34')</span></div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:"#f5f0e8"}}>34<span style={{fontSize:13,color:"#6b6458"}}>'</span></div>
+      </div>
+    </div>
+  );
+}
+
+function RatingsMock(){
+  const PLAYERS=[
+    {n:9,name:"Rodriguez",pos:"ST",col:"#ff5a1f",rating:8.7,w:90},
+    {n:10,name:"Mitchell",pos:"CM",col:"#66bb6a",rating:8.1,w:80},
+    {n:4,name:"Thompson",pos:"CB",col:"#42a5f5",rating:7.4,w:72},
+    {n:7,name:"Garcia",pos:"W",col:"#66bb6a",rating:7.1,w:68},
+    {n:1,name:"Patel",pos:"GK",col:"#ffb300",rating:7.0,w:65},
+  ];
+  const rCol=r=>r>=8?"#ff5a1f":r>=7?"#ffb300":"#c8bfb0";
+  return(
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16}}>
+        {[["3","Goals For","#ff5a1f"],["1","Against","#e03030"],["84%","Pass Acc","#66bb6a"]].map(([v,l,c])=>(
+          <div key={l} style={{flex:1,background:"#111",border:"1px solid #1e2419",borderRadius:9,padding:"12px 10px",textAlign:"center"}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:c,lineHeight:1}}>{v}</div>
+            <div style={{fontSize:10,color:"#6b6458",marginTop:3,letterSpacing:.5}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {PLAYERS.map(p=>(
+        <div key={p.n} style={{display:"flex",alignItems:"center",gap:10,
+          padding:"8px 10px",background:"#111",border:"1px solid #1e2419",borderRadius:8,marginBottom:6}}>
+          <div style={{width:28,height:28,borderRadius:6,background:p.col+"22",
+            border:`1.5px solid ${p.col}44`,display:"flex",alignItems:"center",justifyContent:"center",
+            fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:p.col,flexShrink:0}}>{p.n}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#f5f0e8",marginBottom:4}}>{p.name}</div>
+            <div style={{height:3,background:"#1e2419",borderRadius:99,overflow:"hidden"}}>
+              <div style={{width:`${p.w}%`,height:"100%",background:rCol(p.rating),borderRadius:99}}/>
+            </div>
+          </div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:rCol(p.rating),flexShrink:0}}>{p.rating}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TryoutMock(){
+  const CANDS=[
+    {name:"James H.",pos:"CM",scores:{T:8,A:7,Tac:8,At:9,P:7},status:"varsity"},
+    {name:"Marcus L.",pos:"ST",scores:{T:9,A:8,Tac:7,At:8,P:9},status:"varsity"},
+    {name:"Devon R.",pos:"CB",scores:{T:6,A:8,Tac:7,At:7,P:6},status:"jv"},
+    {name:"Tyler B.",pos:"W",scores:{T:5,A:7,Tac:5,At:6,P:5},status:"cut"},
+  ];
+  const avg=c=>Object.values(c.scores).reduce((a,b)=>a+b,0)/5;
+  const sCol={varsity:"#ff5a1f",jv:"#ffb300",cut:"#e03030",prospect:"#6b6458"};
+  return(
+    <div>
+      <div style={{fontSize:10,letterSpacing:1.5,color:"#6b6458",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>
+        Candidates — Ranked by Score
+      </div>
+      {[...CANDS].sort((a,b)=>avg(b)-avg(a)).map((c,i)=>(
+        <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,
+          padding:"9px 12px",background:"#111",border:"1px solid #1e2419",borderRadius:9,marginBottom:6}}>
+          <div style={{color:"#6b6458",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,width:18,textAlign:"center"}}>{i+1}</div>
+          <div style={{width:28,height:28,borderRadius:6,background:"rgba(255,90,31,.15)",
+            border:"1.5px solid rgba(255,90,31,.3)",display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:11,fontWeight:700,color:"#ff5a1f",flexShrink:0}}>{c.pos}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#f5f0e8"}}>{c.name}</div>
+            <div style={{display:"flex",gap:3,marginTop:4}}>
+              {Object.values(c.scores).map((s,i)=>(
+                <div key={i} style={{width:18,height:18,borderRadius:4,fontSize:9,fontWeight:700,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  background:s>=8?"rgba(255,90,31,.2)":s>=6?"rgba(255,179,0,.15)":"rgba(255,255,255,.05)",
+                  color:s>=8?"#ff5a1f":s>=6?"#ffb300":"#6b6458"}}>{s}</div>
+              ))}
+            </div>
+          </div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,
+            color:sCol[c.status]||"#6b6458",flexShrink:0}}>{avg(c).toFixed(1)}</div>
+          <div style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+            background:sCol[c.status]+"22",color:sCol[c.status],letterSpacing:.5,flexShrink:0}}>
+            {c.status.toUpperCase()}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GamePlanMock(){
+  const ZONES=[
+    {label:"GK",col:"#ffb300",players:[{n:1,name:"Patel"}]},
+    {label:"DEF",col:"#42a5f5",players:[{n:2,name:"Adams"},{n:4,name:"Thompson"},{n:5,name:"Chen"},{n:3,name:"Park"}]},
+    {label:"MID",col:"#66bb6a",players:[{n:8,name:"Williams"},{n:6,name:"Davis"},{n:10,name:"Mitchell"}]},
+    {label:"FWD",col:"#ff5a1f",players:[{n:11,name:"Garcia"},{n:7,name:"Kim"},{n:9,name:"Rodriguez"}]},
+  ];
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center"}}>
+        <div style={{fontSize:11,color:"#6b6458",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Formation</div>
+        {["4-3-3","4-4-2","4-2-3-1"].map(f=>(
+          <div key={f} style={{padding:"4px 10px",background:f==="4-3-3"?"rgba(255,90,31,.15)":"#111",
+            border:`1px solid ${f==="4-3-3"?"#ff5a1f":"#1e2419"}`,borderRadius:6,
+            fontSize:12,fontWeight:700,color:f==="4-3-3"?"#ff5a1f":"#6b6458",cursor:"pointer"}}>{f}</div>
+        ))}
+      </div>
+      <div style={{background:"#080a06",borderRadius:12,padding:12,border:"1px solid #1e2419"}}>
+        {[...ZONES].reverse().map(zone=>(
+          <div key={zone.label} style={{marginBottom:8}}>
+            <div style={{fontSize:9,letterSpacing:1.5,color:zone.col,fontWeight:700,
+              textTransform:"uppercase",marginBottom:6,opacity:.7}}>{zone.label}</div>
+            <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+              {zone.players.map(p=>(
+                <div key={p.n} style={{textAlign:"center",minWidth:52}}>
+                  <div style={{width:40,height:40,borderRadius:9,background:zone.col+"22",
+                    border:`2px solid ${zone.col}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                    fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:zone.col,margin:"0 auto 4px"}}>{p.n}</div>
+                  <div style={{fontSize:10,color:"#c8bfb0",fontWeight:600}}>{p.name.split("")[0]}. {p.name.slice(p.name.indexOf(" ")+1)||p.name}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 function FaqItem({q,a}){
   const [open,setOpen]=useState(false);
@@ -2958,7 +3217,7 @@ function LandingPage({onAuth}){
     ["📅","Season Calendar","Every game, practice and tournament in one place."],
     ["🎯","Opponent Database","Scouting file on every team — formation, key players, H2H record."],
     ["🏆","Season Report","Top scorer, most improved, highest rated. One-click PDF."],
-    ["👥","Varsity + JV + JVB","Separate rosters and stats for all your teams from one account."],
+    ["📧","Player Report Emails","Send individual match reports to players after every game. One click, professional format."],
   ];
   const FAQS=[
     ["Do I need special equipment?","Just your phone. Open the app in your browser during the game and tap. No download required."],
@@ -2988,7 +3247,14 @@ function LandingPage({onAuth}){
           .lp-nav-links{display:none!important;}
           .lp-hero-btns{flex-direction:column;align-items:center;}
           .lp-proof{gap:24px!important;}
+          .lp-who-grid{grid-template-columns:1fr!important;}
+          .lp-demo-layout{grid-template-columns:1fr!important;}
         }
+        @keyframes lpSlideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes lpPulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .lp-tab-btn{transition:all .2s;}
+        .lp-tab-btn.active{background:rgba(255,90,31,.15)!important;border-color:#ff5a1f!important;color:#ff5a1f!important;}
+        .lp-tab-btn:not(.active):hover{background:rgba(255,255,255,.04)!important;}
       `}</style>
 
       <div className="lp-root">
@@ -3054,13 +3320,70 @@ function LandingPage({onAuth}){
             <div className="lp-proof" style={{display:"flex",gap:40,justifyContent:"center",
               flexWrap:"wrap",marginTop:64,paddingTop:48,
               borderTop:"1px solid rgba(255,255,255,.07)",animation:"lpUp .7s .4s ease both"}}>
-              {[["$0","To get started"],["2 min","Setup time"],["10×","Less than Hudl"],["100%","Built for HS coaches"]].map(([n,l])=>(
+              {[["$0","To get started"],["2 min","Setup time"],["11+","Features built in"],["100%","Built for HS coaches"]].map(([n,l])=>(
                 <div key={l} style={{textAlign:"center"}}>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,lineHeight:1,color:"#ff5a1f"}}>{n}</div>
                   <div style={{fontSize:13,color:"#6b6458",fontWeight:500,marginTop:4}}>{l}</div>
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+
+        {/* WHO IT'S FOR */}
+        <section style={{padding:"90px 24px",background:"#060606"}}>
+          <div style={{maxWidth:1060,margin:"0 auto"}}>
+            <div className="lp-reveal" style={{textAlign:"center",marginBottom:52}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>Who It's For</div>
+              <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 16px"}}>
+                Sound Familiar?
+              </h2>
+              <p style={{fontSize:17,color:"#c8bfb0",maxWidth:500,margin:"0 auto",lineHeight:1.7}}>
+                CoachIQ was built by talking to coaches exactly like you.
+              </p>
+            </div>
+            <div className="lp-reveal lp-who-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20}}>
+              {[
+                {emoji:"📱",title:"You track everything in a notes app",body:"After every game you open your phone notes and try to remember what happened. Half of it is gone by the time you write it down.",fix:"Log stats in real time during the match. Nothing gets lost."},
+                {emoji:"📊",title:"Your analytics is a gut feeling",body:"You know who your best player is but you cannot prove it. Come tryout time, you are making decisions you cannot back up with data.",fix:"Position-weighted ratings calculated automatically after every game."},
+                {emoji:"⏰",title:"Tryouts take weeks to recover from",body:"Paper forms, sticky notes, 30 conversations you cannot quite remember. You spend more time on admin than coaching.",fix:"Score every candidate, build lineups, submit to rosters in one flow."},
+                {emoji:"💸",title:"Pro tools are built for pro budgets",body:"Hudl costs $800+ per year. You are a high school coach spending your own money. The math does not work.",fix:"CoachIQ starts free. Pro is $9.99 per month — less than one referee fee."},
+                {emoji:"🗓",title:"Game day prep is a scramble",body:"You are texting the formation to players at 6am, writing notes on your hand, hoping you remember the sub plan.",fix:"Game plans with formation builder, sub triggers, and opponent notes — all in one place."},
+                {emoji:"😤",title:"Your players do not know how they are doing",body:"Players only find out they are not performing when they get dropped. No feedback loop, no improvement incentive.",fix:"Email individual match reports after every game. Players see their own ratings."},
+              ].map(({emoji,title,body,fix})=>(
+                <div key={title} className="lp-reveal"
+                  style={{background:"#0d0d0d",border:"1px solid #1e2419",borderRadius:14,padding:28,
+                    display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{fontSize:32}}>{emoji}</div>
+                  <div>
+                    <div style={{fontSize:15,fontWeight:700,color:"#f5f0e8",marginBottom:8,lineHeight:1.4}}>{title}</div>
+                    <div style={{fontSize:13,color:"#6b6458",lineHeight:1.7}}>{body}</div>
+                  </div>
+                  <div style={{marginTop:"auto",paddingTop:14,borderTop:"1px solid #1e2419",
+                    display:"flex",gap:8,alignItems:"flex-start"}}>
+                    <span style={{color:"#ff5a1f",fontWeight:700,fontSize:13,flexShrink:0}}>✓</span>
+                    <span style={{fontSize:13,color:"#c8bfb0",lineHeight:1.6}}>{fix}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FEATURE SHOWCASE */}
+        <section style={{padding:"90px 24px",background:"#0a1a0d"}}>
+          <div style={{maxWidth:1060,margin:"0 auto"}}>
+            <div className="lp-reveal" style={{textAlign:"center",marginBottom:52}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"2.5px",textTransform:"uppercase",color:"#ff5a1f",marginBottom:14}}>See It In Action</div>
+              <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 16px"}}>
+                Built for the Sideline
+              </h2>
+              <p style={{fontSize:17,color:"#c8bfb0",maxWidth:480,margin:"0 auto",lineHeight:1.7}}>
+                Every screen designed to be used one-handed on a phone during a real game.
+              </p>
+            </div>
+            <FeatureShowcase/>
           </div>
         </section>
 
@@ -3124,7 +3447,7 @@ function LandingPage({onAuth}){
                   <span style={{fontSize:24,color:"#c8bfb0",verticalAlign:"super"}}>$</span>9<span style={{fontSize:22}}>99</span>
                 </div>
                 <div style={{fontSize:14,color:"#6b6458",marginBottom:24}}>per month</div>
-                {["Unlimited teams","Varsity + JV + JVB rosters","Full tryout manager","Unlimited players",
+                {["Unlimited teams","Manage multiple squads","Full tryout manager","Unlimited players",
                   "Season report PDF","Email player reports","Opponent database","Shareable player profiles"].map(f=>(
                   <div key={f} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:14,color:"#c8bfb0"}}>
                     <span style={{color:"#ff5a1f",fontWeight:700}}>✓</span>{f}
