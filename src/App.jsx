@@ -3375,8 +3375,7 @@ function LandingPage({onAuth}){
           <div style={{position:"absolute",inset:0,zIndex:0,
             background:"radial-gradient(ellipse 140% 80% at 50% 120%,#0d2a12 0%,transparent 65%)"}}/>
           <div style={{position:"absolute",inset:0,zIndex:0,
-            backgroundImage:"linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px)",
-            backgroundSize:"60px 60px"}}/>
+            backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='62'%3E%3Cpolygon points='27,1 53,15 53,47 27,61 1,47 1,15' fill='none' stroke='%23ffffff06' stroke-width='1'/%3E%3Cpolygon points='0,31 14,54 40,54 54,31 40,8 14,8' fill='none' stroke='%23ffffff06' stroke-width='1'/%3E%3C/svg%3E\")"}}/>
           <div style={{position:"relative",zIndex:1}}>
             <div style={{display:"inline-flex",alignItems:"center",gap:8,
               background:"rgba(255,90,31,.12)",border:"1px solid rgba(255,90,31,.3)",
@@ -4310,7 +4309,7 @@ export default function CoachIQStats(){
 
           {/* Page content */}
           <div style={{flex:1,overflowY:"auto",background:C.bg,
-            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3Cpath d='M28 52 L54 67 L54 97 L28 112 L2 97 L2 67 Z' fill='none' stroke='%23ff6b0011' stroke-width='1'/%3E%3C/svg%3E")`}}>
+            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='62'%3E%3Cpolygon points='27,1 53,15 53,47 27,61 1,47 1,15' fill='none' stroke='%23ff6b0018' stroke-width='1'/%3E%3Cpolygon points='0,31 14,54 40,54 54,31 40,8 14,8' fill='none' stroke='%23ff6b0018' stroke-width='1'/%3E%3C/svg%3E")`}}>
             {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/>}
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
