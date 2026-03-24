@@ -4028,6 +4028,7 @@ export default function CoachIQStats(){
 
   // Hash-based player profile routing — works without auth
   if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
+  if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
 
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
@@ -4578,6 +4579,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     };
     const plan = {
       id:`gp${Date.now()}`, ...form,
+      shareId:`s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,
       lineup, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
       instructions:"", createdAt: new Date().toISOString()
     };
@@ -8119,5 +8121,378 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
         )}
       </div>
     </div>
+  );
+}
+
+// ─── GAME PLAN SHARE PAGE ─────────────────────────────────────────────────────
+function GamePlanSharePage(){
+  const hash    = window.location.hash; // #/plan/sXXXX
+  const shareId = hash.replace("#/plan/","");
+  const [plan,    setPlan]    = useState(null);
+  const [roster,  setRoster]  = useState([]);
+  const [opp,     setOpp]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  useEffect(()=>{
+    async function load(){
+      try{
+        // Load all game plans across all teams to find the matching shareId
+        const {data:gpRows} = await supabase.from("game_plans").select("*");
+        let foundPlan = null;
+        let teamId    = null;
+        for(const row of (gpRows||[])){
+          const plans = Array.isArray(row.data) ? row.data : [row.data];
+          const match = plans.find(p=>p.shareId===shareId);
+          if(match){ foundPlan=match; teamId=row.team_id; break; }
+        }
+        if(!foundPlan){ setError("Game plan not found."); setLoading(false); return; }
+        setPlan(foundPlan);
+
+        // Load roster for that team
+        if(teamId){
+          const {data:rRow} = await supabase.from("rosters").select("*").eq("team_id",teamId);
+          setRoster(rRow?.[0]?.players || []);
+        }
+
+        // Load opponent record
+        if(foundPlan.opponent){
+          const {data:oppRows} = await supabase.from("opponents").select("*");
+          const oppMatch = (oppRows||[]).find(row=>{
+            const o = row.data;
+            return o?.name?.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase();
+          });
+          if(oppMatch) setOpp(oppMatch.data);
+        }
+        setLoading(false);
+      }catch(e){
+        setError("Failed to load game plan.");
+        setLoading(false);
+      }
+    }
+    load();
+  },[shareId]);
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
+      justifyContent:"center",flexDirection:"column",gap:16,fontFamily:"'Outfit',sans-serif"}}>
+      <AppLogo size={52} glow={true}/>
+      <div style={{color:"#ff6b00",fontSize:14}}>Loading game plan…</div>
+    </div>
+  );
+  if(error) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{color:"#ff4444",fontSize:16}}>{error}</div>
+    </div>
+  );
+
+  const ZONE_NAMES = {GK:"Goalkeeper",DEF:"Defenders",MID:"Midfielders",FWD:"Forwards"};
+  const ZONE_COLS  = {GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
+  const rColor     = p => posColor(primaryPos(p));
+
+  // Opponent threat color
+  const threatCol  = t => t==="key"?"#ff2200":t==="danger"?"#ff5500":t==="watch"?"#ffb300":"#7a4a2a";
+
+  // Build opponent squad from formation
+  const FORM_POS = {
+    "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
+    "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
+    "4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],
+    "3-5-2":  ["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],
+    "5-3-2":  ["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],
+    "4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],
+    "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
+  };
+  const oppPositions = opp?.formation ? (FORM_POS[opp.formation]||[]) : [];
+  const oppPlayers   = opp?.oppPlayers || {};
+  function getOppP(pos,idx){ return (oppPlayers[pos]||[])[idx]||{}; }
+  const extras = oppPlayers["extra"]||[];
+
+  // Build threat players list
+  const allOppPlayers = [
+    ...oppPositions.map((pos,idx)=>({...getOppP(pos,idx),pos})),
+    ...extras.map(p=>({...p,pos:p.customPos||"SUB"})),
+  ].filter(p=>p.name||p.number);
+  const threats = allOppPlayers.filter(p=>p.threat);
+
+  const S = { // shared styles
+    card: {background:"#111",border:"1px solid #2a1000",borderRadius:14,padding:"18px 20px",marginBottom:16},
+    label: {fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",
+            color:"#ff6b00",marginBottom:8,display:"block"},
+    body:  {fontSize:14,color:"#c8bfb0",lineHeight:1.7,whiteSpace:"pre-wrap"},
+  };
+
+  return(
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;800;900&family=Outfit:wght@400;500;600;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#080808;color:#f5f0e8;font-family:'Outfit',sans-serif;}
+        @media print{
+          body{background:#fff!important;color:#000!important;}
+          .no-print{display:none!important;}
+          .print-page{background:#fff!important;color:#000!important;}
+          .card-dark{background:#f8f8f8!important;border-color:#ddd!important;}
+          .print-text{color:#000!important;}
+          .print-muted{color:#555!important;}
+          .print-accent{color:#c94d00!important;}
+          @page{margin:15mm;size:A4 portrait;}
+        }
+      `}</style>
+
+      <div className="print-page" style={{maxWidth:860,margin:"0 auto",padding:"24px 20px"}}>
+
+        {/* Print / Back buttons */}
+        <div className="no-print" style={{display:"flex",gap:10,marginBottom:24,alignItems:"center"}}>
+          <button onClick={()=>window.history.back()}
+            style={{background:"#181818",border:"1px solid #2a1000",borderRadius:8,
+              padding:"8px 16px",color:"#c8bfb0",cursor:"pointer",fontSize:13}}>
+            ← Back
+          </button>
+          <div style={{flex:1}}/>
+          <button onClick={()=>window.print()}
+            style={{background:"#ff6b00",border:"none",borderRadius:8,
+              padding:"10px 22px",color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+            ⬇ Print / Save PDF
+          </button>
+        </div>
+
+        {/* ── HEADER ─────────────────────────────────────────────────── */}
+        <div style={{textAlign:"center",marginBottom:28,paddingBottom:20,
+          borderBottom:"2px solid #ff6b00"}}>
+          <div style={{marginBottom:10}}>
+            <AppLogo size={44} glow={false}/>
+          </div>
+          <div className="print-accent" style={{fontSize:11,fontWeight:700,letterSpacing:3,
+            color:"#ff6b0088",textTransform:"uppercase",marginBottom:6}}>Game Plan</div>
+          <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:36,fontWeight:900,
+            letterSpacing:1,color:"#f5f0e8",marginBottom:8}}>
+            vs {plan.opponent}
+          </h1>
+          <div className="print-muted" style={{color:"#7a4a2a",fontSize:14,fontWeight:500}}>
+            {plan.date} &nbsp;·&nbsp; {plan.location} &nbsp;·&nbsp;
+            <span style={{color:"#ff6b00",fontWeight:700}}>{plan.formation}</span>
+          </div>
+        </div>
+
+        {/* ── OUR LINEUP ─────────────────────────────────────────────── */}
+        <div className="card-dark" style={S.card}>
+          <span className="print-accent" style={S.label}>Our Starting XI</span>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {["FWD","MID","DEF","GK"].map(zone=>{
+              const slots = plan.lineup?.[zone]||[];
+              const filled = slots.filter(Boolean);
+              if(!filled.length) return null;
+              return(
+                <div key={zone}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:1,
+                    color:ZONE_COLS[zone],marginBottom:6,textTransform:"uppercase"}}>
+                    {ZONE_NAMES[zone]}
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {slots.map((pid,i)=>{
+                      if(!pid) return null;
+                      const p = roster.find(r=>r.id===pid);
+                      if(!p) return null;
+                      const col = rColor(p);
+                      return(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+                          padding:"7px 12px",background:"#1a0800",
+                          border:"1.5px solid "+ZONE_COLS[zone]+"44",borderRadius:9,
+                          minWidth:120}}>
+                          <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
+                            background:col+"22",border:"2px solid "+col+"55",
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                            color:col,fontSize:15}}>{p.number}</div>
+                          <div>
+                            <div className="print-text" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>{p.name}</div>
+                            <div className="print-muted" style={{color:"#7a4a2a",fontSize:11}}>{primaryPos(p)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Subs */}
+          {plan.subs?.length>0&&(
+            <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid #2a1000"}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:1,
+                color:"#7a4a2a",marginBottom:8,textTransform:"uppercase"}}>Substitutes</div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {plan.subs.map((sub,i)=>{
+                  const on  = roster.find(r=>r.id===sub.playerOn);
+                  const off = roster.find(r=>r.id===sub.playerOff);
+                  if(!on&&!off) return null;
+                  return(
+                    <div key={i} className="print-muted" style={{fontSize:13,color:"#7a4a2a"}}>
+                      <span style={{color:"#ff6b00",fontWeight:700}}>{sub.minute}'</span>
+                      {on&&<> <span style={{color:"#66bb6a"}}>▲ {on.name}</span></>}
+                      {off&&<> <span style={{color:"#ff4444"}}>▼ {off.name}</span></>}
+                      {sub.condition&&sub.condition!=="Regardless"&&
+                        <span style={{color:"#555"}}> ({sub.condition})</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── MATCH INSTRUCTIONS ─────────────────────────────────────── */}
+        {plan.instructions&&(
+          <div className="card-dark" style={S.card}>
+            <span className="print-accent" style={S.label}>Match Instructions</span>
+            <p className="print-text" style={S.body}>{plan.instructions}</p>
+          </div>
+        )}
+
+        {/* ── SCOUT REPORT ───────────────────────────────────────────── */}
+        {opp&&(
+          <>
+            <div style={{textAlign:"center",margin:"24px 0 16px",
+              borderTop:"1px solid #2a1000",paddingTop:20}}>
+              <div className="print-accent" style={{fontSize:11,fontWeight:700,
+                letterSpacing:3,color:"#ff6b0088",textTransform:"uppercase"}}>
+                Scout Report
+              </div>
+              <h2 style={{fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:900,
+                color:"#f5f0e8",marginTop:4}}>{opp.name}</h2>
+              {opp.formation&&(
+                <div style={{fontSize:13,color:"#ff6b00",fontWeight:700,marginTop:4}}>
+                  Formation: {opp.formation}
+                </div>
+              )}
+            </div>
+
+            {/* Their players */}
+            {allOppPlayers.length>0&&(
+              <div className="card-dark" style={S.card}>
+                <span className="print-accent" style={S.label}>Their Squad</span>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {allOppPlayers.map((p,i)=>{
+                    const tc = p.threat ? threatCol(p.threat) : "#3a1a00";
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+                        padding:"7px 12px",background:"#1a0800",
+                        border:"1.5px solid "+tc+"66",borderRadius:9,minWidth:130}}>
+                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                          background:tc+"22",border:"1.5px solid "+tc+"55",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:800,
+                          color:tc,fontSize:11}}>{p.pos||"?"}</div>
+                        <div>
+                          <div className="print-text" style={{color:"#f5f0e8",fontWeight:700,fontSize:13}}>
+                            {p.number&&<span style={{color:"#7a4a2a",marginRight:4}}>#{p.number}</span>}
+                            {p.name||"Unknown"}
+                          </div>
+                          {p.threat&&(
+                            <div style={{fontSize:10,fontWeight:700,color:tc,textTransform:"uppercase",
+                              letterSpacing:.5}}>{p.threat}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Individual player notes */}
+                {allOppPlayers.filter(p=>p.notes).map((p,i)=>(
+                  <div key={i} style={{marginTop:10,padding:"8px 12px",background:"#0d0400",
+                    borderRadius:8,borderLeft:"3px solid "+threatCol(p.threat||"")}}>
+                    <span style={{color:"#ff6b00",fontWeight:700,fontSize:12}}>
+                      {p.pos} {p.number&&"#"+p.number} {p.name}:
+                    </span>
+                    <span className="print-muted" style={{color:"#c8bfb0",fontSize:12,marginLeft:6}}>
+                      {p.notes}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Tactical tendencies */}
+            {opp.tendencies&&Object.values(opp.tendencies).some(Boolean)&&(
+              <div className="card-dark" style={S.card}>
+                <span className="print-accent" style={S.label}>Tactical Tendencies</span>
+                {[
+                  ["Pressing Style",  opp.tendencies?.pressing],
+                  ["Build-up Play",   opp.tendencies?.buildUp],
+                  ["Attacking Shape", opp.tendencies?.attackShape],
+                  ["Defensive Shape", opp.tendencies?.defShape],
+                  ["Known Weaknesses",opp.tendencies?.weaknesses],
+                ].filter(([,v])=>v).map(([label,val])=>(
+                  <div key={label} style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7a4a2a",
+                      letterSpacing:.5,marginBottom:3}}>{label.toUpperCase()}</div>
+                    <div className="print-text" style={S.body}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Set pieces */}
+            {opp.setPieces&&Object.values(opp.setPieces).some(Boolean)&&(
+              <div className="card-dark" style={S.card}>
+                <span className="print-accent" style={S.label}>Their Set Pieces</span>
+                {[
+                  ["Corners — Attacking",      opp.setPieces?.cornersAtk],
+                  ["Corners — Our Defence",    opp.setPieces?.cornersDef],
+                  ["Free Kicks — Attacking",   opp.setPieces?.freeKicksAtk],
+                  ["Free Kicks — Our Defence", opp.setPieces?.freeKicksDef],
+                  ["Throw-ins — Attacking",    opp.setPieces?.throwInsAtk],
+                  ["Throw-ins — Our Defence",  opp.setPieces?.throwInsDef],
+                ].filter(([,v])=>v).map(([label,val])=>(
+                  <div key={label} style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7a4a2a",
+                      letterSpacing:.5,marginBottom:3}}>{label.toUpperCase()}</div>
+                    <div className="print-text" style={S.body}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Scout notes */}
+            {opp.scoutNotes&&(
+              <div className="card-dark" style={S.card}>
+                <span className="print-accent" style={S.label}>General Scout Notes</span>
+                <p className="print-text" style={S.body}>{opp.scoutNotes}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── OUR RESPONSE ───────────────────────────────────────────── */}
+        {opp?.counterPlan&&Object.values(opp.counterPlan).some(Boolean)&&(
+          <div className="card-dark" style={S.card}>
+            <span className="print-accent" style={S.label}>Our Game Plan Response</span>
+            {[
+              ["How We Attack Them",      opp.counterPlan?.howWeAttack, "#ff6b00"],
+              ["How We Defend Them",      opp.counterPlan?.howWeDefend, "#ffb300"],
+              ["Key Matchups",            opp.counterPlan?.keyMatchups,  "#42a5f5"],
+              ["Focus Points for Team",   opp.counterPlan?.focusPoints,  "#66bb6a"],
+            ].filter(([,v])=>v).map(([label,val,col])=>(
+              <div key={label} style={{marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:col,
+                  letterSpacing:.5,marginBottom:4}}>{label.toUpperCase()}</div>
+                <div className="print-text" style={S.body}>{val}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{textAlign:"center",marginTop:24,paddingTop:16,
+          borderTop:"1px solid #2a1000",fontSize:12,color:"#3a1a00"}}>
+          Powered by CoachIQ
+        </div>
+
+      </div>
+    </>
   );
 }
