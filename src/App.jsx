@@ -4681,7 +4681,20 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
-<button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+          <button onClick={()=>{
+              const link=`${window.location.origin}${window.location.pathname}#/plan/${plan.shareId||plan.id}`;
+              navigator.clipboard?.writeText(link).then(()=>alert("Link copied!")).catch(()=>alert("Link: "+link));
+            }}
+            style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
+              padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⎘ Share
+          </button>
+          <button onClick={()=>window.open(`${window.location.origin}${window.location.pathname}#/plan/${plan.shareId||plan.id}`,"_blank")}
+            style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+              padding:"8px 12px",color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
+            ⬡ View / Print
+          </button>
+          <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Trash2 size={13}/>Delete
           </button>
@@ -4734,7 +4747,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                         </div>
                       </div>
                       {inUse&&<span style={{color:C.muted,fontSize:10}}>In use</span>}
-                      {notAvail&&!inUse&&<AvailBadge status={p.availability}/>}
+                      {p.availability&&p.availability!=="available"&&!inUse&&<AvailBadge status={p.availability}/>}
                     </div>
                   );
                 })}
@@ -8151,7 +8164,8 @@ function GamePlanSharePage(){
 
         // Load roster for that team
         if(teamId){
-          const {data:rRow} = await supabase.from("rosters").select("*").eq("team_id",teamId);
+          const {data:rRows} = await supabase.from("rosters").select("*");
+        const rRow = (rRows||[]).filter(r=>r.team_id===teamId);
           setRoster(rRow?.[0]?.players || []);
         }
 
