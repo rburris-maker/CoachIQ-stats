@@ -8247,20 +8247,24 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
 
 // ─── PITCH WITH PLAYERS ───────────────────────────────────────────────────────
 function PitchWithPlayers({lineup, roster}){
-  var ZONE_Y   = {GK:148, DEF:120, MID:88, FWD:52};
-  var ZONE_COL = {GK:"#1a1a1a", DEF:"#333", MID:"#555", FWD:"#c94d00"};
+  var ZONE_Y   = {GK:152, DEF:124, MID:94, FWD:56};
+  var ZONE_COL = {GK:"#1a1a1a", DEF:"#1565c0", MID:"#2e7d32", FWD:"#c94d00"};
+  // Field usable x: 7 to 103 (SVG viewBox 0-110, field rect x=4 w=102)
+  var FIELD_LEFT = 7;
+  var FIELD_WIDTH = 96;
 
-  function getPositions(zone, count){
+  function getPositions(count){
     var positions = [];
-    var spacing = 90 / (count + 1);
-    for(var i=0;i<count;i++) positions.push(10 + spacing * (i+1));
+    var spacing = FIELD_WIDTH / (count + 1);
+    for(var i=0;i<count;i++) positions.push(FIELD_LEFT + spacing * (i+1));
     return positions;
   }
 
   var slots = [];
   ["GK","DEF","MID","FWD"].forEach(function(zone){
     var pids = (lineup[zone]||[]).filter(Boolean);
-    var xs   = getPositions(zone, pids.length);
+    if(!pids.length) return;
+    var xs = getPositions(pids.length);
     pids.forEach(function(pid,i){
       var p = roster.find(function(r){return r.id===pid;});
       if(p) slots.push({p:p, x:xs[i], y:ZONE_Y[zone], col:ZONE_COL[zone]});
@@ -8301,9 +8305,7 @@ function ActivityBlock({title, description, coachingPoints, pitchContent, showDi
         <div style={{flex:1,padding:"4px 8px",fontSize:11,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>
           {"Activity: "+title}
         </div>
-        <div style={{padding:"4px 8px",fontSize:11,fontFamily:"Arial,sans-serif",borderLeft:"1px solid #000",minWidth:70}}>
-          Duration:
-        </div>
+
       </div>
       <div style={{display:"flex",minHeight:160}}>
         <div style={{width:190,flexShrink:0,borderRight:"1px solid #000",padding:6}}>
