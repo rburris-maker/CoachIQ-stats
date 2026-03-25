@@ -2517,11 +2517,12 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   );
 }
 
-function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam}){
+function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam, games}){
   const [msg,setMsg]             = useState(null);
   const [importing,setImporting] = useState(false);
   const [confirmClear,setConfirmClear] = useState(false);
-  const [editPlayer,setEditPlayer]     = useState(null);  // null | player obj | {new:true}
+  const [editPlayer,setEditPlayer]     = useState(null);
+  const [selPlayer,setSelPlayer]       = useState(null); // player id for stats detail
   const fileRef = useRef(null);
 
   async function handleUpload(e){
@@ -2563,6 +2564,102 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
   const byPos = Object.entries(POS_META).map(([pos,meta])=>({
     pos, ...meta, players: players.filter(p=>primaryPos(p)===pos)
   })).filter(g=>g.players.length>0);
+
+  // ── Player detail view ─────────────────────────────────────────────────────
+  if(selPlayer){
+    const player = players.find(p=>p.id===selPlayer);
+    if(!player){ setSelPlayer(null); return null; }
+    const hist   = getHistory(selPlayer, games||[]);
+    const avg    = avgRating(selPlayer, games||[]);
+    const tots   = hist.reduce((acc,h)=>{
+      ["goals","assists","shots","shotsOnTarget","keyPasses","tackles","interceptions","saves"]
+        .forEach(k=>{acc[k]=(acc[k]||0)+(h[k]||0);});
+      return acc;
+    },{});
+    const rTrend = hist.map((h,i)=>({name:`G${i+1}`,rating:h.rating,game:h.opponent}));
+    const radar  = [
+      {stat:"Goals",  value:Math.min(10,(tots.goals||0)*2)},
+      {stat:"Assists",value:Math.min(10,(tots.assists||0)*2)},
+      {stat:"Passing",value:hist.length?Math.round(hist.reduce((a,h)=>a+(h.passesAttempted>0?h.passesCompleted/h.passesAttempted:0),0)/hist.length*10):0},
+      {stat:"Defence",value:Math.min(10,Math.round(((tots.tackles||0)+(tots.interceptions||0))/(hist.length||1)))},
+      {stat:"Shots",  value:Math.min(10,Math.round((tots.shots||0)/(hist.length||1)))},
+    ];
+    const col = posColor(primaryPos(player));
+    return(
+      <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
+        {editPlayer&&<PlayerModal player={editPlayer} onSave={savePlayer} onDelete={()=>deletePlayer(editPlayer.id)} onClose={()=>setEditPlayer(null)}/>}
+        <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
+          <button onClick={()=>setSelPlayer(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}/>
+          <button onClick={()=>setEditPlayer({...player})}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"8px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
+            <Pencil size={13}/>Edit
+          </button>
+          <button onClick={()=>{if(window.confirm(`Remove ${player.name}?`)){setPlayers(prev=>prev.filter(p=>p.id!==player.id));setSelPlayer(null);}}}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",background:C.surface,border:`1px solid ${C.danger}33`,borderRadius:8,color:C.danger,cursor:"pointer",fontSize:12,fontWeight:600}}>
+            <Trash2 size={13}/>Remove
+          </button>
+        </div>
+        {/* Player header */}
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
+          <div style={{display:"flex",gap:18,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{width:68,height:68,borderRadius:14,background:col+"22",border:`3px solid ${col}55`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:col,fontSize:28,flexShrink:0}}>{player.number}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                {allPos(player).map(p=><Tag key={p} color={posColor(p)}>{POS_META[p]?.group} · {p}</Tag>)}
+                {player.captain&&<Tag color={C.warning}>CAPTAIN</Tag>}
+              </div>
+              <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:800,margin:0}}>{player.name}</h2>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:rColor(avg),fontSize:48,fontWeight:900,fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{avg.toFixed(1)}</div>
+              <div style={{color:rColor(avg),fontSize:12,fontWeight:700}}>Season Avg</div>
+            </div>
+          </div>
+        </div>
+        {/* Stat badges */}
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+          {[["Goals",tots.goals||0],["Assists",tots.assists||0],["Shots",tots.shots||0],["Key Passes",tots.keyPasses||0],["Tackles",tots.tackles||0],["Games",hist.length]].map(([l,v])=><Badge key={l} label={l} value={v}/>)}
+        </div>
+        {/* Charts */}
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px"}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>RATING TREND</div>
+            {hist.length>0 ? (
+              <ResponsiveContainer width="100%" height={145}>
+                <AreaChart data={rTrend} margin={{top:4,right:4,left:-24,bottom:0}}>
+                  <defs><linearGradient id="rt2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff6b00" stopOpacity={.4}/><stop offset="100%" stopColor="#ff6b00" stopOpacity={0}/></linearGradient></defs>
+                  <XAxis dataKey="name" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+                  <YAxis domain={[4,10]} tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12}} formatter={v=>[`${v}/10`,"Rating"]}/>
+                  <Area type="monotone" dataKey="rating" stroke={C.accent} fill="url(#rt2)" strokeWidth={2}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : <div style={{color:C.muted,fontSize:13,padding:"20px 0",textAlign:"center"}}>No games yet</div>}
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px"}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>SKILL PROFILE</div>
+            <ResponsiveContainer width="100%" height={145}>
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radar}>
+                <PolarGrid stroke={C.border}/>
+                <PolarAngleAxis dataKey="stat" tick={{fill:C.muted,fontSize:10}}/>
+                <Radar dataKey="value" stroke={C.accent} fill={C.accent} fillOpacity={.18} strokeWidth={2}/>
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        {/* Availability */}
+        {player.availability&&player.availability!=="available"&&(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>AVAILABILITY</div>
+            <AvailBadge status={player.availability}/>
+            {player.availNote&&<div style={{color:C.muted,fontSize:13,marginTop:6}}>{player.availNote}</div>}
+            {player.returnDate&&<div style={{color:C.muted,fontSize:12,marginTop:4}}>Return: {player.returnDate}</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return(
     <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
@@ -2660,7 +2757,8 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                 <div key={p.id}
                   style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",
                     background:C.surface,borderRadius:9,border:`1px solid ${group.color}18`,
-                    transition:"border-color .15s"}}
+                    transition:"border-color .15s",cursor:"pointer"}}
+                  onClick={()=>setSelPlayer(p.id)}
                   onMouseEnter={e=>e.currentTarget.style.borderColor=group.color+"44"}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=group.color+"18"}>
 
@@ -2682,14 +2780,20 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                   </div>
 
                   {/* Edit button */}
-                  <button onClick={()=>setEditPlayer(p)}
+                  <button onClick={e=>{e.stopPropagation();setEditPlayer(p);}}
                     style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",
                       background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
                       color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer",
-                      transition:"all .15s"}}
+                      transition:"all .15s",flexShrink:0}}
                     onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
                     onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>
                     <Pencil size={12}/> Edit
+                  </button>
+                  <button onClick={e=>{e.stopPropagation();setSelPlayer(p.id);}}
+                    style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",
+                      background:C.accent+"11",border:`1px solid ${C.accent}33`,borderRadius:8,
+                      color:C.accent,fontWeight:600,fontSize:12,cursor:"pointer",flexShrink:0}}>
+                    <Activity size={12}/> Stats
                   </button>
                 </div>
               ))}
@@ -2720,8 +2824,7 @@ const SIDEBAR_GROUPS = [
     {id:"opponents", label:"Opponents", icon:Award},
   ]},
   { label:"SQUAD", items:[
-    {id:"players",  label:"Players",   icon:Users},
-    {id:"roster",   label:"Roster",    icon:ClipboardList},
+    {id:"roster",   label:"Squad",     icon:Users},
     {id:"tryouts",  label:"Tryouts",   icon:ClipboardCheck},
   ]},
   { label:"PLANNING", items:[
@@ -4315,9 +4418,8 @@ export default function CoachIQStats(){
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
-            {view==="players"   &&<PlayersView   games={games} roster={roster} setRoster={setRoster}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
-            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
+            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
