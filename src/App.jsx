@@ -4723,11 +4723,16 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
-          <button onClick={()=>{
+          <button onClick={async ()=>{
               let sid = plan.shareId;
               if(!sid){
                 sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
+                const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
+                try{
+                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+                }catch(e){ console.error("shareId save failed",e); }
               }
               const link=`${window.location.origin}${window.location.pathname}#/plan/${sid}`;
               setShareLink(link);
@@ -4736,13 +4741,20 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
             ⎘ Share
           </button>
-          <button onClick={()=>{
+          <button onClick={async ()=>{
               let sid = plan.shareId;
               if(!sid){
                 sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+                // Update local state
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
+                // Wait for Supabase to persist before opening
+                const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
+                try{
+                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+                }catch(e){ console.error("shareId save failed",e); }
               }
-              setTimeout(()=>window.open(`${window.location.origin}${window.location.pathname}#/plan/${sid}`,"_blank"),150);
+              window.open(`${window.location.origin}${window.location.pathname}#/plan/${sid}`,"_blank");
             }}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 12px",color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
@@ -8351,12 +8363,28 @@ function GamePlanSharePage(){
         var foundPlan=null, teamId=null;
         for(var ri=0;ri<gpRows.length;ri++){
           var row   = gpRows[ri];
+          if(!row.data) continue;
           var plans = Array.isArray(row.data)?row.data:[row.data];
           var match = null;
           for(var pi=0;pi<plans.length;pi++){
-            if(plans[pi]&&(plans[pi].shareId===shareId||plans[pi].id===shareId)){match=plans[pi];break;}
+            var gp = plans[pi];
+            if(!gp) continue;
+            if(gp.shareId===shareId||gp.id===shareId){match=gp;break;}
           }
           if(match){foundPlan=match;teamId=row.team_id;break;}
+        }
+        // Also try searching by plan id directly in case shareId wasn't set
+        if(!foundPlan){
+          for(var ri2=0;ri2<gpRows.length;ri2++){
+            var row2  = gpRows[ri2];
+            if(!row2.data) continue;
+            var plans2 = Array.isArray(row2.data)?row2.data:[row2.data];
+            for(var pi2=0;pi2<plans2.length;pi2++){
+              var gp2 = plans2[pi2];
+              if(gp2&&gp2.id&&gp2.id===shareId){foundPlan=gp2;teamId=row2.team_id;break;}
+            }
+            if(foundPlan) break;
+          }
         }
         if(!foundPlan){setError("Game plan not found.");setLoading(false);return;}
         setPlan(foundPlan);
