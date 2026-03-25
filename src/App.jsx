@@ -4410,7 +4410,7 @@ export default function CoachIQStats(){
 
           {/* Page content */}
           <div style={{flex:1,overflowY:"auto",background:C.bg}}>
-            {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name}/> }
+            {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name} schedule={schedule}/> }
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
               if(player) setRoster(prev=>[...prev,player]);
@@ -4438,10 +4438,11 @@ export default function CoachIQStats(){
 
 // ─── GAME PLAN VIEW ───────────────────────────────────────────────────────────
 // ─── HOME VIEW ────────────────────────────────────────────────────────────────
-function HomeView({games, gamePlans, practices, roster, setView, teamName}){
+function HomeView({games, gamePlans, practices, roster, setView, teamName, schedule}){
   const ts   = teamSum(games);
   const done = games.filter(g=>g.status==="completed");
-  const upcoming = [...gamePlans].sort((a,b)=>a.date.localeCompare(b.date)).find(gp=>gp.date>=new Date().toISOString().split("T")[0]);
+  const today = new Date().toISOString().split("T")[0];
+  const upcoming = [...gamePlans].sort((a,b)=>a.date.localeCompare(b.date)).find(gp=>gp.date>=today);
   const recent = done.slice(0,3);
   const topPlayers = useMemo(()=>
     roster.map(p=>({...p,avg:avgRating(p.id,games)})).sort((a,b)=>b.avg-a.avg).slice(0,3)
@@ -4449,12 +4450,39 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
   const lastPractice = practices[0];
   const unavailable = roster.filter(p=>p.availability&&p.availability!=="available");
   const form5 = done.slice(0,5).map(g=>g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D");
+
+  // Analytics highlights
+  const teamAvgRating = useMemo(()=>{
+    const allRatings = done.flatMap(g=>(g.stats||[]).map(s=>s.rating).filter(Boolean));
+    if(!allRatings.length) return null;
+    return (allRatings.reduce((a,b)=>a+b,0)/allRatings.length).toFixed(1);
+  },[done]);
+  const goalsScored    = done.reduce((a,g)=>a+(g.ourScore||0),0);
+  const goalsConceded  = done.reduce((a,g)=>a+(g.theirScore||0),0);
+  const topScorer      = useMemo(()=>{
+    const tally={};
+    done.forEach(g=>(g.stats||[]).forEach(s=>{if(s.goals>0) tally[s.playerId]=(tally[s.playerId]||0)+s.goals;}));
+    const best=Object.entries(tally).sort((a,b)=>b[1]-a[1])[0];
+    if(!best) return null;
+    const p=roster.find(r=>r.id===best[0]);
+    return p?{name:p.name,goals:best[1]}:null;
+  },[done,roster]);
+
+  // Upcoming schedule — next 3 events (games + practices combined)
+  const upcomingEvents = useMemo(()=>{
+    const events = [];
+    games.filter(g=>g.status!=="completed"&&g.date>=today).forEach(g=>
+      events.push({type:"game",date:g.date,label:"vs "+g.opponent,sub:g.location,color:C.accent}));
+    practices.filter(p=>p.date&&p.date>=today).forEach(p=>
+      events.push({type:"practice",date:p.date,label:p.title||"Practice",sub:p.duration?p.duration+" min":"",color:"#66bb6a"}));
+    return events.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
+  },[games,practices,today]);
   const FOCUS_COLS={"Mixed":C.accent,"Attacking":"#ff6b00","Defending":"#42a5f5","Transition":"#7c6af5","Set Pieces":"#ffb300","Fitness":"#ef5350","Technical":"#66bb6a"};
   const QUICK=[
     {label:"Start Live Game",icon:Radio,  color:"#ff6b00",view:"live",    desc:"Track stats in real time"},
     {label:"New Game Plan",  icon:BookOpen,color:"#ffb300",view:"gameplan",desc:"Prepare for your next match"},
     {label:"Log Practice",   icon:Dumbbell,color:"#66bb6a",view:"practice",desc:"Record today's session"},
-    {label:"View Squad",     icon:Users,   color:"#42a5f5",view:"players", desc:"Player profiles and ratings"},
+    {label:"View Squad",     icon:Users,   color:"#42a5f5",view:"roster",  desc:"Player profiles and ratings"},
   ];
   return(
     <div style={{padding:24,maxWidth:1000,margin:"0 auto"}}>
@@ -4514,6 +4542,46 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
           </button>
         );})}
       </div>
+
+      {/* ── Analytics highlights strip ── */}
+      {done.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+          {[
+            {label:"Goals Scored",   value:goalsScored,   color:C.accent},
+            {label:"Goals Conceded", value:goalsConceded,  color:C.danger},
+            {label:"Team Avg Rating",value:teamAvgRating||"—", color:teamAvgRating?rColor(parseFloat(teamAvgRating)):C.muted},
+            {label:"Top Scorer",     value:topScorer?topScorer.name.split(" ").pop()+" ("+topScorer.goals+")":"—", color:"#ffb300"},
+          ].map(({label,value,color})=>(
+            <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px"}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>{label.toUpperCase()}</div>
+              <div style={{color,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900,lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Upcoming events ── */}
+      {upcomingEvents.length>0&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1}}>UPCOMING</div>
+            <button onClick={()=>setView("calendar")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>Calendar →</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {upcomingEvents.map((evt,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 10px",
+                background:C.surface,borderRadius:9,border:`1px solid ${evt.color}22`}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:evt.color,flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{color:C.text,fontWeight:600,fontSize:13}}>{evt.label}</div>
+                  {evt.sub&&<div style={{color:C.muted,fontSize:11}}>{evt.sub}</div>}
+                </div>
+                <div style={{color:C.muted,fontSize:12,fontWeight:600,flexShrink:0}}>{evt.date}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         {/* Upcoming game plan */}
@@ -4600,7 +4668,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName}){
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>TOP PERFORMERS</div>
-              <button onClick={()=>setView("players")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>All →</button>
+              <button onClick={()=>setView("roster")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>All →</button>
             </div>
             {topPlayers.map((p,i)=>(
               <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0}}>
