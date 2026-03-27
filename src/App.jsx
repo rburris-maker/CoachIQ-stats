@@ -712,6 +712,21 @@ function getHistory(pid, games) {
   }).filter(Boolean);
 }
 
+function formTrend(pid, games){
+  // Compare last 3 games avg vs previous 3 games avg
+  const hist = getHistory(pid, games);
+  if(hist.length < 2) return null;
+  const last3 = hist.slice(0,3);
+  const prev3 = hist.slice(3,6);
+  const lastAvg = last3.reduce((a,h)=>a+h.rating,0)/last3.length;
+  if(prev3.length===0) return null;
+  const prevAvg = prev3.reduce((a,h)=>a+h.rating,0)/prev3.length;
+  const diff = lastAvg - prevAvg;
+  if(diff > 0.3)  return "up";
+  if(diff < -0.3) return "down";
+  return "flat";
+}
+
 function avgRating(pid, games) {
   const h = getHistory(pid, games); if (!h.length) return 0;
   return Math.round((h.reduce((a,x)=>a+x.rating,0)/h.length)*10)/10;
@@ -1088,7 +1103,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 
     return(
       <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
-        <button onClick={()=>{setSel(null);setAiTxt("");setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+        <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
+          <button onClick={()=>{setSel(null);setAiTxt("");setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}/>
+          <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
+            style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
+              padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            {game.status==="completed"?"⎘ Share Report":"⎘ Share Preview"}
+          </button>
+        </div>
 
         <div style={{background:`linear-gradient(135deg,#0d0400,#1a0800)`,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
@@ -2770,11 +2793,18 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                     {p.number}
                   </div>
 
-                  {/* Name + captain */}
+                  {/* Name + captain + form */}
                   <div style={{flex:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span style={{color:C.text,fontWeight:700,fontSize:14}}>{p.name}</span>
                       {p.captain && <Tag color={C.warning}>© Captain</Tag>}
+                      {(()=>{
+                        const trend=formTrend(p.id,games||[]);
+                        if(!trend) return null;
+                        const cfg={up:{arrow:"↑",col:"#66bb6a"},down:{arrow:"↓",col:C.danger},flat:{arrow:"→",col:C.muted}};
+                        const t=cfg[trend];
+                        return <span style={{fontSize:12,color:t.col,fontWeight:800}} title={trend==="up"?"Form improving":trend==="down"?"Form dropping":"Form steady"}>{t.arrow}</span>;
+                      })()}
                     </div>
                     <div style={{color:C.muted,fontSize:11,marginTop:2}}>{POS_META[primaryPos(p)]?.group}</div>
                   </div>
@@ -4132,6 +4162,7 @@ export default function CoachIQStats(){
   // Hash-based player profile routing — works without auth
   if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
+  if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
 
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
@@ -8653,6 +8684,272 @@ function GamePlanSharePage(){
 
           </div>
         </div>
+
+        <div style={{borderTop:"1px solid #ddd",marginTop:16,paddingTop:8,textAlign:"center",fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>CoachIQ</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MATCH REPORT PAGE ────────────────────────────────────────────────────────
+function MatchReportPage(){
+  var hash   = window.location.hash;
+  var gameId = hash.replace("#/report/","");
+  var _s0=useState(null);  var game=_s0[0];    var setGame=_s0[1];
+  var _s1=useState([]);    var roster=_s1[0];  var setRoster=_s1[1];
+  var _s2=useState(null);  var opp=_s2[0];     var setOpp=_s2[1];
+  var _s3=useState(null);  var gplan=_s3[0];   var setGplan=_s3[1];
+  var _s4=useState(true);  var loading=_s4[0]; var setLoading=_s4[1];
+  var _s5=useState(null);  var error=_s5[0];   var setError=_s5[1];
+
+  useEffect(function(){
+    async function load(){
+      try{
+        // Load all games
+        var gRes=await supabase.from("games").select("*");
+        var gRows=gRes.data||[];
+        var foundGame=null, teamId=null;
+        for(var ri=0;ri<gRows.length;ri++){
+          var row=gRows[ri];
+          var gs=Array.isArray(row.data)?row.data:[row.data];
+          for(var gi=0;gi<gs.length;gi++){
+            if(gs[gi]&&gs[gi].id===gameId){foundGame=gs[gi];teamId=row.team_id;break;}
+          }
+          if(foundGame) break;
+        }
+        if(!foundGame){setError("Game not found.");setLoading(false);return;}
+        setGame(foundGame);
+
+        // Load roster
+        if(teamId){
+          var rRes=await supabase.from("rosters").select("*");
+          var rRows=(rRes.data||[]).filter(function(r){return r.team_id===teamId;});
+          setRoster(rRows[0]?rRows[0].players:[]);
+        }
+
+        // Load opponent scout
+        if(foundGame.opponent){
+          var oRes=await supabase.from("opponents").select("*");
+          var oRows=oRes.data||[];
+          for(var oi=0;oi<oRows.length;oi++){
+            var od=oRows[oi].data;
+            if(od&&od.name&&od.name.trim().toLowerCase()===foundGame.opponent.trim().toLowerCase()){
+              setOpp(od); break;
+            }
+          }
+        }
+
+        // Load linked game plan (for upcoming games)
+        if(foundGame.status!=="completed"){
+          var gpRes=await supabase.from("game_plans").select("*");
+          var gpRows=gpRes.data||[];
+          for(var gpi=0;gpi<gpRows.length;gpi++){
+            var gprow=gpRows[gpi];
+            if(!gprow.data) continue;
+            var plans=Array.isArray(gprow.data)?gprow.data:[gprow.data];
+            var match=plans.find(function(p){
+              return p.opponent&&p.opponent.trim().toLowerCase()===foundGame.opponent.trim().toLowerCase()&&p.date===foundGame.date;
+            });
+            if(match){setGplan(match);break;}
+          }
+        }
+        setLoading(false);
+      }catch(e){setError("Failed to load.");setLoading(false);}
+    }
+    load();
+  },[gameId]);
+
+  if(loading) return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>Loading report...</div>);
+  if(error)   return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>{error}</div>);
+
+  var isCompleted = game.status==="completed";
+  var res  = isCompleted?(game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D"):null;
+  var resLabel = res==="W"?"VICTORY":res==="L"?"DEFEAT":"DRAW";
+  var resCol   = res==="W"?"#2e7d32":res==="L"?"#c62828":"#b45a00";
+
+  // Build player rows for completed games
+  var rows=[];
+  if(isCompleted&&game.stats){
+    rows = game.stats.map(function(s){
+      var p=roster.find(function(r){return r.id===s.playerId;});
+      var cs=game.ourScore>0&&game.theirScore===0;
+      var r=calcRating(s,p?primaryPos(p):"CM",cs);
+      return {p:p,s:s,rating:r.rating,label:r.label};
+    }).filter(function(r){return r.p;})
+      .sort(function(a,b){return b.rating-a.rating;});
+  }
+  var squadAvg = rows.length?Math.round(rows.reduce(function(a,r){return a+r.rating;},0)/rows.length*10)/10:null;
+  var topPlayer = rows[0]||null;
+  var topScorer = rows.slice().sort(function(a,b){return (b.s.goals||0)-(a.s.goals||0);})[0];
+
+  // Unavailable players
+  var unavail = roster.filter(function(p){return p.availability&&p.availability!=="available";});
+
+  var LBL={fontSize:10,fontWeight:"bold",letterSpacing:1,color:"#555",marginBottom:6,display:"block",textTransform:"uppercase",fontFamily:"Arial,sans-serif"};
+  var BODY={fontSize:12,color:"#222",lineHeight:1.75,fontFamily:"Arial,sans-serif"};
+  var SEC={borderTop:"1px solid #eee",paddingTop:12,marginBottom:14};
+
+  return(
+    <div>
+      <style>{"*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;color:#000;font-family:Arial,sans-serif;}@media print{.no-print{display:none!important;}@page{margin:10mm 12mm;size:A4 portrait;}}"}</style>
+      <div style={{maxWidth:760,margin:"0 auto",padding:"20px 16px",background:"#fff"}}>
+
+        <div className="no-print" style={{display:"flex",gap:10,marginBottom:20}}>
+          <button onClick={function(){window.history.back();}} style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,background:"#f5f5f5",cursor:"pointer",fontSize:13}}>Back</button>
+          <div style={{flex:1}}/>
+          <button onClick={function(){window.print();}} style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>Print / Save PDF</button>
+        </div>
+
+        {/* Header */}
+        <div style={{borderBottom:"2.5px solid #000",paddingBottom:10,marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+          <div style={{flexShrink:0}}><AppLogo size={40} glow={false}/></div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:"bold",letterSpacing:1,color:"#777",textTransform:"uppercase",marginBottom:3,fontFamily:"Arial,sans-serif"}}>
+              {isCompleted?"Match Report":"Match Preview"}
+            </div>
+            <div style={{fontSize:18,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>{"vs "+game.opponent}</div>
+            <div style={{fontSize:11,color:"#666",marginTop:2,fontFamily:"Arial,sans-serif"}}>
+              {[game.date,game.location,game.formation].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+          {isCompleted&&(
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontSize:36,fontWeight:"bold",fontFamily:"Arial,sans-serif",lineHeight:1}}>
+                {game.ourScore}<span style={{color:"#aaa",fontSize:24}}> – </span>{game.theirScore}
+              </div>
+              <div style={{fontSize:11,fontWeight:"bold",color:resCol,letterSpacing:1,marginTop:3,fontFamily:"Arial,sans-serif"}}>{resLabel}</div>
+            </div>
+          )}
+        </div>
+
+        {/* ── COMPLETED GAME REPORT ── */}
+        {isCompleted&&(
+          <div>
+            {/* Key stats strip */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+              {[
+                {label:"Squad Rating",   value:squadAvg?squadAvg+"/10":"—"},
+                {label:"Top Performer",  value:topPlayer?topPlayer.p.name.split(" ").pop()+" ("+topPlayer.rating.toFixed(1)+")":"—"},
+                {label:"Top Scorer",     value:topScorer&&topScorer.s.goals>0?topScorer.p.name.split(" ").pop()+" ("+topScorer.s.goals+")":"—"},
+                {label:"Result",         value:resLabel},
+              ].map(function(item){
+                return(
+                  <div key={item.label} style={{border:"1px solid #ddd",borderRadius:8,padding:"10px 12px"}}>
+                    <div style={{fontSize:9,fontWeight:"bold",letterSpacing:1,color:"#777",marginBottom:4,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{item.label}</div>
+                    <div style={{fontSize:13,fontWeight:"bold",color:"#111",fontFamily:"Arial,sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Player ratings table */}
+            <div style={{marginBottom:16}}>
+              <span style={LBL}>Player Ratings</span>
+              <table style={{width:"100%",borderCollapse:"collapse",fontFamily:"Arial,sans-serif",fontSize:11}}>
+                <thead>
+                  <tr style={{borderBottom:"2px solid #000"}}>
+                    {["Player","Position","Rating","Goals","Assists","Shots","Tackles","Passes"].map(function(h){
+                      return <th key={h} style={{textAlign:"left",padding:"5px 8px",fontSize:9,letterSpacing:1,color:"#555",textTransform:"uppercase",fontWeight:"bold"}}>{h}</th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(function(r,i){
+                    return(
+                      <tr key={i} style={{borderBottom:"1px solid #eee",background:i===0?"#f9f9f9":"transparent"}}>
+                        <td style={{padding:"6px 8px",fontWeight:i===0?"bold":"normal"}}>
+                          {i===0&&<span style={{color:"#c94d00",marginRight:4}}>★</span>}
+                          {r.p.name}
+                        </td>
+                        <td style={{padding:"6px 8px",color:"#666"}}>{primaryPos(r.p)}</td>
+                        <td style={{padding:"6px 8px",fontWeight:"bold",color:r.rating>=7?"#2e7d32":r.rating>=5?"#b45a00":"#c62828"}}>{r.rating.toFixed(1)}</td>
+                        <td style={{padding:"6px 8px"}}>{r.s.goals||0}</td>
+                        <td style={{padding:"6px 8px"}}>{r.s.assists||0}</td>
+                        <td style={{padding:"6px 8px"}}>{r.s.shots||0}</td>
+                        <td style={{padding:"6px 8px"}}>{r.s.tackles||0}</td>
+                        <td style={{padding:"6px 8px"}}>{r.s.passesCompleted||0}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Scout notes if available */}
+            {opp&&opp.scoutNotes&&(
+              <div style={SEC}>
+                <span style={LBL}>Opponent Notes</span>
+                <div style={BODY}>{opp.scoutNotes}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── UPCOMING GAME PREVIEW ── */}
+        {!isCompleted&&(
+          <div style={{display:"flex",gap:24}}>
+
+            {/* Left — lineup + instructions */}
+            <div style={{width:210,flexShrink:0}}>
+              {gplan&&gplan.lineup&&Object.values(gplan.lineup).some(function(s){return s.filter(Boolean).length>0;})&&(
+                <div style={{marginBottom:14}}>
+                  <span style={LBL}>Planned Lineup</span>
+                  <SharePitch lineup={gplan.lineup} roster={roster}/>
+                </div>
+              )}
+              {gplan&&gplan.instructions&&(
+                <div style={{borderTop:"1px solid #eee",paddingTop:12,marginBottom:14}}>
+                  <span style={LBL}>Match Instructions</span>
+                  <div style={BODY}>{gplan.instructions}</div>
+                </div>
+              )}
+              {unavail.length>0&&(
+                <div style={{borderTop:"1px solid #eee",paddingTop:12}}>
+                  <span style={LBL}>Unavailable</span>
+                  <div style={BODY}>
+                    {unavail.map(function(p){
+                      return <div key={p.id} style={{marginBottom:3}}>{p.name}{p.availNote?" — "+p.availNote:""}</div>;
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right — scout */}
+            <div style={{flex:1,borderLeft:"1.5px solid #ddd",paddingLeft:20}}>
+              {opp?(
+                <div>
+                  <div style={{marginBottom:14}}>
+                    <span style={LBL}>{"Scout — "+opp.name+(opp.formation?" ("+opp.formation+")":"")}</span>
+                    {opp.scoutNotes&&<div style={Object.assign({},BODY,{marginBottom:8})}>{opp.scoutNotes}</div>}
+                    {opp.tendencies&&opp.tendencies.pressing&&<div style={BODY}>{"Pressing: "+opp.tendencies.pressing}</div>}
+                    {opp.tendencies&&opp.tendencies.weaknesses&&<div style={BODY}>{"Weaknesses: "+opp.tendencies.weaknesses}</div>}
+                  </div>
+                  {opp.counterPlan&&opp.counterPlan.howWeAttack&&(
+                    <div style={SEC}>
+                      <span style={LBL}>How We Attack</span>
+                      <div style={BODY}>{opp.counterPlan.howWeAttack}</div>
+                    </div>
+                  )}
+                  {opp.counterPlan&&opp.counterPlan.howWeDefend&&(
+                    <div style={SEC}>
+                      <span style={LBL}>How We Defend</span>
+                      <div style={BODY}>{opp.counterPlan.howWeDefend}</div>
+                    </div>
+                  )}
+                  {opp.counterPlan&&opp.counterPlan.focusPoints&&(
+                    <div style={SEC}>
+                      <span style={LBL}>Focus Points</span>
+                      <div style={BODY}>{opp.counterPlan.focusPoints}</div>
+                    </div>
+                  )}
+                </div>
+              ):(
+                <div style={{color:"#aaa",fontSize:13,fontStyle:"italic",fontFamily:"Arial,sans-serif"}}>No scout data found for this opponent.</div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div style={{borderTop:"1px solid #ddd",marginTop:16,paddingTop:8,textAlign:"center",fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>CoachIQ</div>
       </div>
