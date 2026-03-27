@@ -2540,7 +2540,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   );
 }
 
-function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam, games}){
+function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam, games, practices}){
   const [msg,setMsg]             = useState(null);
   const [importing,setImporting] = useState(false);
   const [confirmClear,setConfirmClear] = useState(false);
@@ -2671,6 +2671,48 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
             </ResponsiveContainer>
           </div>
         </div>
+        {/* Attendance summary */}
+        {(()=>{
+          const totalSessions=(games||[]).length>0||(practices||[]).length>0 ? practices.length : 0;
+          if(!totalSessions) return null;
+          const attended = practices.filter(s=>{
+            const att=s.attendance||{};
+            return att[player.id]==="present"||(!att[player.id]&&Object.keys(att).length===0);
+          }).length;
+          const absent   = practices.filter(s=>(s.attendance||{})[player.id]==="absent").length;
+          const injured  = practices.filter(s=>(s.attendance||{})[player.id]==="injured").length;
+          const tracked  = practices.filter(s=>Object.keys(s.attendance||{}).length>0).length;
+          if(!tracked) return null;
+          const trackedAtt = practices.filter(s=>{
+            const att=s.attendance||{};
+            return Object.keys(att).length>0 && (att[player.id]==="present"||!att[player.id]);
+          }).length;
+          const pct = tracked>0?Math.round((trackedAtt/tracked)*100):0;
+          return(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>PRACTICE ATTENDANCE</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                {[
+                  {label:"Sessions",value:tracked,color:C.muted},
+                  {label:"Present", value:trackedAtt,color:C.accent},
+                  {label:"Absent",  value:absent,color:C.danger},
+                  {label:"Injured", value:injured,color:C.warning},
+                  {label:"Rate",    value:pct+"%",color:pct>=80?C.accent:pct>=60?C.warning:C.danger},
+                ].map(({label,value,color})=>(
+                  <div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:9,padding:"8px 14px",textAlign:"center"}}>
+                    <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1}}>{label.toUpperCase()}</div>
+                    <div style={{color,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:900}}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Attendance bar */}
+              <div style={{height:6,background:C.border,borderRadius:99,overflow:"hidden"}}>
+                <div style={{width:pct+"%",height:"100%",background:pct>=80?C.accent:pct>=60?C.warning:C.danger,borderRadius:99,transition:"width .3s"}}/>
+              </div>
+            </div>
+          );
+        })()}
         {/* Availability */}
         {player.availability&&player.availability!=="available"&&(
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14}}>
@@ -4450,7 +4492,7 @@ export default function CoachIQStats(){
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices}/>}
-            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games}/>}
+            {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
@@ -7660,21 +7702,46 @@ function OpponentsView({opponents, setOpponents, games, gamePlans}){
               </div>
               {oppGames.length===0
                 ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games recorded yet</div>
-                :oppGames.map(g=>{
+                :oppGames.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(g=>{
                   const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";
                   const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
+                  // Find top scorer for this game
+                  const scorer = (g.stats||[]).filter(s=>s.goals>0)
+                    .sort((a,b)=>b.goals-a.goals)[0];
+                  const scorerName = scorer
+                    ? (()=>{ const p=roster.find(r=>r.id===scorer.playerId); return p?p.name.split(" ").pop()+" ("+scorer.goals+")":null; })()
+                    : null;
+                  const squadAvg = (g.stats||[]).length
+                    ? (g.stats.reduce((a,s)=>a+(s.rating||0),0)/g.stats.length).toFixed(1)
+                    : null;
                   return(
-                    <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
-                      padding:"10px 12px",background:C.surface,borderRadius:9}}>
-                      <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
-                        border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
-                      <div style={{flex:1}}>
-                        <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
+                    <div key={g.id} style={{marginBottom:8,padding:"10px 12px",background:C.surface,borderRadius:9,
+                      border:`1px solid ${C.border}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:scorerName||squadAvg?6:0}}>
+                        <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
+                          border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
+                          {g.formation&&<div style={{color:C.muted,fontSize:11}}>Formation: {g.formation}</div>}
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                          <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>
+                            {g.ourScore}–{g.theirScore}
+                          </div>
+                          <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+g.id,"_blank")}
+                            style={{background:"none",border:"none",color:C.accent,cursor:"pointer",
+                              fontSize:11,fontWeight:700,padding:0}}>
+                            Report →
+                          </button>
+                        </div>
                       </div>
-                      <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>
-                        {g.ourScore}–{g.theirScore}
-                      </div>
+                      {(scorerName||squadAvg)&&(
+                        <div style={{display:"flex",gap:12,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+                          {scorerName&&<span style={{color:C.muted,fontSize:11}}>⚽ {scorerName}</span>}
+                          {squadAvg&&<span style={{color:C.muted,fontSize:11}}>Avg rating: <span style={{color:rColor(parseFloat(squadAvg)),fontWeight:700}}>{squadAvg}</span></span>}
+                        </div>
+                      )}
                     </div>
                   );
                 })
