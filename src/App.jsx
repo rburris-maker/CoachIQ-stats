@@ -4175,7 +4175,8 @@ export default function CoachIQStats(){
   async function handleUpgrade(){
     setUpgrading(true);
     try{
-      const {data:{user}} = await supabase.auth.getUser();
+      const user = session?.user;
+      if(!user) throw new Error("Not logged in");
       const res = await fetch("/api/create-checkout",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
