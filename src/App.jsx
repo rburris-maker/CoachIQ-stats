@@ -5775,6 +5775,50 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         `;
         portal.appendChild(headerDiv);
 
+
+        function buildDiagramSVG(diagramData, size=200){
+          if(!diagramData) return "";
+          let parsed = {};
+          try { parsed = JSON.parse(diagramData); } catch(e){ return ""; }
+          const elements = Array.isArray(parsed) ? parsed : (parsed.elements||[]);
+          const ft = parsed.fieldType || "full";
+          const W=520, H=360;
+          const scale = size/W;
+          const sh = Math.round(H*scale);
+
+          function arrowSVG(el){
+            const angle=Math.atan2(el.y2-el.y1,el.x2-el.x1);
+            const ax1=el.x2-14*Math.cos(angle-0.4), ay1=el.y2-14*Math.sin(angle-0.4);
+            const ax2=el.x2-14*Math.cos(angle+0.4), ay2=el.y2-14*Math.sin(angle+0.4);
+            const dash=el.dashed?'stroke-dasharray="6,4"':"";
+            return `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" stroke="${el.color}" stroke-width="2.5" ${dash}/>
+                    <polygon points="${el.x2},${el.y2} ${ax1},${ay1} ${ax2},${ay2}" fill="${el.color}"/>`;
+          }
+
+          const pitchLines = ft==="half"
+            ? `<rect x="20" y="20" width="${W-40}" height="${H-40}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+               <rect x="${W/2-90}" y="${H-80}" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-45}" y="${H-48}" width="90" height="28" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>`
+            : `<rect x="20" y="20" width="${W-40}" height="${H-40}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+               <line x1="20" y1="${H/2}" x2="${W-20}" y2="${H/2}" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <circle cx="${W/2}" cy="${H/2}" r="50" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-90}" y="20" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-90}" y="${H-80}" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>`;
+
+          const elSVG = elements.map(el=>{
+            if(el.type==="dot") return `<circle cx="${el.x}" cy="${el.y}" r="10" fill="${el.color}" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>`;
+            if(el.type==="cone") return `<polygon points="${el.x},${el.y-10} ${el.x+8},${el.y+6} ${el.x-8},${el.y+6}" fill="#ff8800"/>`;
+            if(el.type==="line") return arrowSVG(el);
+            return "";
+          }).join("\n");
+
+          return '<svg viewBox="0 0 '+W+' '+H+'" width="'+size+'" height="'+sh+'" style="display:block;border-radius:6px;border:1px solid #444;margin-bottom:6px;">'
+            +'<rect width="'+W+'" height="'+H+'" fill="#2d5a1b"/>'
+            +pitchLines
+            +elSVG
+            +'</svg>';
+        }
+
         // Sections
         const SECTION_PRINT = [
           {key:"warmup",   label:"Warmup",    color:"#2d7a3a"},
@@ -5806,11 +5850,16 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             const intColor = INTENSITY_COLORS[card.intensity]||"#cc8800";
             const cardDiv = document.createElement("div");
             cardDiv.style.cssText = "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;";
+            const diagSVG = card.diagram ? buildDiagramSVG(card.diagram, 180) : "";
+            cardDiv.style.cssText = card.diagram
+              ? "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;align-items:flex-start;"
+              : "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;";
             cardDiv.innerHTML = `
               <div style="min-width:24px;font-size:16px;font-weight:900;color:#cc8800;font-family:'Arial Black',Arial,sans-serif;">${idx+1}</div>
+              ${diagSVG ? `<div style="flex-shrink:0;">${diagSVG}</div>` : ""}
               <div style="flex:1;">
                 <div style="font-size:14px;font-weight:700;color:#1a0d00;margin-bottom:${card.notes?"3px":"0"};">${card.name||"Unnamed drill"}</div>
-                ${card.notes?`<div style="font-size:12px;color:#6b3d1e;line-height:1.6;">${card.notes}</div>`:""}
+                ${card.notes?`<div style="font-size:12px;color:#6b3d1e;line-height:1.6;white-space:pre-wrap;">${card.notes}</div>`:""}
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
                 ${card.duration?`<div style="font-size:13px;font-weight:700;color:#1a0d00;">${card.duration} min</div>`:""}
@@ -9274,8 +9323,13 @@ function DrillCanvas({diagram, onSave, onClose}){
   function setTool(t){ setToolState(t); toolRef.current=t; }
   const [drawing, setDrawing] = useState(false);
   const [startPt, setStartPt] = useState(null);
-  const [elements, setElements] = useState(diagram ? JSON.parse(diagram) : []);
+  const [fieldType, setFieldType] = useState("full"); // full | half
+  const parsed = diagram ? (() => { try { return JSON.parse(diagram); } catch(e) { return []; } })() : [];
+  const initElements = Array.isArray(parsed) ? parsed : (parsed.elements||[]);
+  const initField    = parsed.fieldType || "full";
+  const [elements, setElements] = useState(initElements);
   const [history,  setHistory]  = useState([]);
+  useEffect(()=>{ setFieldType(initField); },[]);
 
   // Draw everything on canvas
   useEffect(()=>{
@@ -9290,19 +9344,32 @@ function DrillCanvas({diagram, onSave, onClose}){
     ctx.fillRect(0,0,W,H);
     ctx.strokeStyle = "rgba(255,255,255,0.8)";
     ctx.lineWidth = 1.5;
-    // Outer
-    ctx.strokeRect(20,20,W-40,H-40);
-    // Halfway
-    ctx.beginPath(); ctx.moveTo(20,H/2); ctx.lineTo(W-20,H/2); ctx.stroke();
-    // Centre circle
-    ctx.beginPath(); ctx.arc(W/2,H/2,50,0,Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(W/2,H/2,3,0,Math.PI*2); ctx.fillStyle="white"; ctx.fill();
-    // Top penalty area
-    ctx.strokeRect(W/2-90,20,180,60);
-    ctx.strokeRect(W/2-45,20,90,28);
-    // Bottom penalty area
-    ctx.strokeRect(W/2-90,H-80,180,60);
-    ctx.strokeRect(W/2-45,H-48,90,28);
+    if(fieldType==="half"){
+      // Half field - one penalty area at bottom
+      ctx.strokeRect(20,20,W-40,H-40);
+      // Penalty area
+      ctx.strokeRect(W/2-90,H-80,180,60);
+      ctx.strokeRect(W/2-45,H-48,90,28);
+      // Penalty spot
+      ctx.beginPath(); ctx.arc(W/2,H-60,2,0,Math.PI*2); ctx.fillStyle="white"; ctx.fill();
+      // Penalty arc
+      ctx.beginPath(); ctx.arc(W/2,H-60,50,Math.PI*1.2,Math.PI*1.8); ctx.stroke();
+      // Top line label
+      ctx.fillStyle="rgba(255,255,255,0.3)";
+      ctx.font="11px Arial";
+      ctx.textAlign="center";
+      ctx.fillText("← Half Field →",W/2,35);
+    } else {
+      // Full field
+      ctx.strokeRect(20,20,W-40,H-40);
+      ctx.beginPath(); ctx.moveTo(20,H/2); ctx.lineTo(W-20,H/2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2,H/2,50,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2,H/2,3,0,Math.PI*2); ctx.fillStyle="white"; ctx.fill();
+      ctx.strokeRect(W/2-90,20,180,60);
+      ctx.strokeRect(W/2-45,20,90,28);
+      ctx.strokeRect(W/2-90,H-80,180,60);
+      ctx.strokeRect(W/2-45,H-48,90,28);
+    }
 
     // Draw elements
     elements.forEach(el=>{
@@ -9353,7 +9420,7 @@ function DrillCanvas({diagram, onSave, onClose}){
         ctx.fill();
       }
     });
-  },[elements]);
+  },[elements, fieldType]);
 
   function getPos(e){
     const canvas = canvasRef.current;
@@ -9463,8 +9530,21 @@ function DrillCanvas({diagram, onSave, onClose}){
           <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:18}}>✕</button>
         </div>
 
-        {/* Tools */}
-        <div style={{display:"flex",gap:6,padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+        {/* Field type + Tools */}
+        <div style={{display:"flex",gap:6,padding:"8px 14px 0",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:4,marginBottom:6}}>
+            {["full","half"].map(ft=>(
+              <button key={ft} onClick={()=>setFieldType(ft)}
+                style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontWeight:700,
+                  border:`2px solid ${fieldType===ft?C.accent:C.border}`,
+                  background:fieldType===ft?C.accent+"22":"transparent",
+                  color:fieldType===ft?C.accent:C.muted}}>
+                {ft==="full"?"Full Field":"Half Field"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,padding:"4px 14px 10px",borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
           {TOOLS.map(t=>(
             <button key={t.k} onClick={()=>setTool(t.k)}
               style={{padding:"5px 10px",borderRadius:7,cursor:"pointer",fontSize:11,fontWeight:700,
