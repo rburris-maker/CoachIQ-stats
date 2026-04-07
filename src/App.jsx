@@ -4023,6 +4023,10 @@ export default function CoachIQStats(){
     setScheduleState((sc.data||[]).map(x=>x.data));
     setTryoutsState((tr.data||[]).map(x=>x.data));
     setOpponentsState((op.data||[]).map(x=>x.data));
+    try{
+      const {data:tSub} = await supabase.from("teams").select("subscription_status").eq("id",tid).single();
+      setIsPro(tSub?.subscription_status==="pro");
+    }catch(e){ setIsPro(false); }
   }
 
   // ── Save status helpers ───────────────────────────────────────────────────
@@ -4192,6 +4196,7 @@ export default function CoachIQStats(){
   }
 
   async function switchTeam(id){
+    setIsPro(false);
     setActiveTeamId(id);
     setView("home");
     setDataLoading(true);
@@ -4223,6 +4228,7 @@ export default function CoachIQStats(){
   async function handleSignOut(){
     await supabase.auth.signOut();
     setSession(null);
+    setIsPro(false);
     setTeamsState([]); setGamesState([]); setRosterState([]);
   }
 
