@@ -1313,7 +1313,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 }
 
 // ─── LIVE TRACK ───────────────────────────────────────────────────────────────
-function LiveTrackView({games,setGames}){
+function LiveTrackView({games,setGames,isPro,onUpgrade}){
+  if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Live game tracking and player ratings">{null}</ProGate>;
   const [live,setLive]           = useState(null);
   const [stats,setStats]         = useState({});
   const [min,setMin]             = useState(0);
@@ -1976,7 +1977,8 @@ function PlayersView({games, roster, setRoster}){
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function AnalyticsView({games, roster, practices}){
+function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
+  if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Season analytics and reports">{null}</ProGate>;
   const [analyticsTab, setAnalyticsTab] = useState("charts"); // charts | report
   const [reportFrom,   setReportFrom]   = useState("");
   const [reportTo,     setReportTo]     = useState("");
@@ -3967,7 +3969,7 @@ export default function CoachIQStats(){
     try{
       // Load teams
       const {data:teamsData} = await supabase.from("teams").select("*");
-      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id}));
+      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
 
       if(myTeams.length===0){
         // First login — create default team with empty roster
@@ -3978,6 +3980,7 @@ export default function CoachIQStats(){
       }
       setTeamsState(myTeams);
       const tid = myTeams[0]?.id;
+      setIsPro(myTeams[0]?.subscription_status==="pro");
       setActiveTeamId(tid);
 
       if(tid){
@@ -4023,10 +4026,7 @@ export default function CoachIQStats(){
     setScheduleState((sc.data||[]).map(x=>x.data));
     setTryoutsState((tr.data||[]).map(x=>x.data));
     setOpponentsState((op.data||[]).map(x=>x.data));
-    try{
-      const {data:tSub} = await supabase.from("teams").select("subscription_status").eq("id",tid).single();
-      setIsPro(tSub?.subscription_status==="pro");
-    }catch(e){ setIsPro(false); }
+
   }
 
   // ── Save status helpers ───────────────────────────────────────────────────
@@ -7606,7 +7606,8 @@ function OppSquadGrid({positions, oppPlayers, update, updateOppPlayer, getOppPla
   );
 }
 
-function OpponentsView({opponents, setOpponents, games, gamePlans}){
+function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgrade}){
+  if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Opponent intelligence database">{null}</ProGate>;
   const [sel,    setSel]    = useState(null);
   const [adding, setAdding] = useState(false);
   const [newName,setNewName]= useState("");
@@ -8662,6 +8663,32 @@ function SharePitch({lineup, roster}){
         );
       })}
     </svg>
+  );
+}
+
+
+// ─── PRO GATE ─────────────────────────────────────────────────────────────────
+function ProGate({isPro, onUpgrade, feature, children}){
+  if(isPro) return children;
+  return(
+    <div style={{padding:40,maxWidth:500,margin:"60px auto",textAlign:"center"}}>
+      <div style={{width:64,height:64,borderRadius:16,background:C.accent+"22",
+        border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",
+        justifyContent:"center",margin:"0 auto 20px",fontSize:28}}>★</div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,
+        fontWeight:900,marginBottom:10}}>Pro Feature</h2>
+      <p style={{color:C.muted,fontSize:14,lineHeight:1.7,marginBottom:24}}>
+        {feature} is available on CoachIQ Pro.<br/>
+        Upgrade to unlock all features.
+      </p>
+      <button onClick={onUpgrade}
+        style={{padding:"13px 32px",background:C.accent,border:"none",borderRadius:12,
+          color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",
+          fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        Upgrade to Pro → $9.99/mo
+      </button>
+      <div style={{color:C.muted,fontSize:12,marginTop:12}}>Cancel anytime</div>
+    </div>
   );
 }
 
