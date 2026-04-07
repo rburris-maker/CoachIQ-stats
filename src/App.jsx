@@ -5576,7 +5576,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     boxSizing:"border-box",...extra});
 
   // ── Drill card helpers ────────────────────────────────────────────────────
-  function makeCard(name){ return {id:`dc${Date.now()}_${Math.random().toString(36).slice(2)}`,name,duration:"",notes:"",intensity:"medium"}; }
+  function makeCard(name,extra={}){ return {id:`dc${Date.now()}_${Math.random().toString(36).slice(2)}`,name,duration:"",notes:"",intensity:"medium",diagram:null,...extra}; }
 
   function addCardToBlock(session_or_form, setter, block, name){
     setter(prev=>{
@@ -5892,8 +5892,13 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
                     <div style={{minWidth:28,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:18}}>{idx+1}</div>
                     <div style={{flex:1}}>
-                      <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:card.notes?4:0}}>{card.name}</div>
-                      {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{card.notes}</div>}
+                      <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{card.name}</div>
+                      {card.diagram&&(
+                        <div style={{marginBottom:6}}>
+                          <DiagramPreview data={card.diagram}/>
+                        </div>
+                      )}
+                      {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{card.notes}</div>}
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
                       {card.duration&&<div style={{color:C.text,fontWeight:700,fontSize:13}}>{card.duration} min</div>}
@@ -5986,6 +5991,19 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
         </div>
 
+        {/* Drill Canvas Modal */}
+        {diagramCard&&(()=>{
+          const card=(blocks[diagramCard.sec]||[]).find(c=>c.id===diagramCard.cardId);
+          if(!card) return null;
+          return(
+            <DrillCanvas
+              diagram={card.diagram||null}
+              onSave={data=>{updateCard(diagramCard.sec,diagramCard.cardId,"diagram",data);setDiagramCard(null);}}
+              onClose={()=>setDiagramCard(null)}
+            />
+          );
+        })()}
+
         {/* Row 2: Session blocks + Drill library */}
         <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
 
@@ -6003,13 +6021,17 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     {secMins>0&&<div style={{color:C.muted,fontSize:11,marginLeft:4}}>{secMins} min</div>}
                     <div style={{flex:1}}/>
                     {/* Add from library quick-pick */}
-                    <select defaultValue="" onChange={e=>{if(e.target.value){
-                        setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard(e.target.value)]}}:p));
+                    <select defaultValue=""
+                      style={{padding:"4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontSize:11,cursor:"pointer",maxWidth:140}}
+                      onChange={e=>{
+                        if(!e.target.value) return;
+                        const d=(drills||[]).find(x=>x.id===e.target.value);
+                        if(!d) return;
+                        setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard(d.name,{notes:d.notes||"",intensity:d.intensity||"medium",diagram:d.diagram||null})]}}:p));
                         e.target.value="";
-                      }}}
-                      style={{padding:"4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontSize:11,cursor:"pointer",maxWidth:140}}>
+                      }}>
                       <option value="">+ From library</option>
-                      {(drills||[]).map(d=><option key={d.id} value={d.name}>{d.name}</option>)}
+                      {(drills||[]).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                     {/* Add blank card */}
                     <button onClick={()=>setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard("")]}}:p))}
@@ -6043,16 +6065,54 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                               style={{width:52,padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
                                 color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",textAlign:"center"}}/>
                             <span style={{color:C.muted,fontSize:11,flexShrink:0}}>min</span>
+                            {/* Diagram */}
+                            <button
+                              onClick={()=>setDiagramCard({sec:sec.key,cardId:card.id})}
+                              title="Draw drill diagram"
+                              style={{background:card.diagram?C.accent+"22":"none",
+                                border:`1px solid ${card.diagram?C.accent:C.border}`,
+                                borderRadius:6,color:card.diagram?C.accent:C.muted,
+                                cursor:"pointer",padding:"2px 6px",flexShrink:0,fontSize:10,fontWeight:700}}>
+                              ⬡
+                            </button>
+                            {/* Save to Library */}
+                            <button
+                              onClick={()=>{
+                                if(!card.name.trim()) return;
+                                const exists=(drills||[]).find(d=>d.name.toLowerCase()===card.name.trim().toLowerCase());
+                                if(exists){
+                                  if(!window.confirm(`"${card.name}" is already in your library. Update it?`)) return;
+                                  setDrills(prev=>prev.map(d=>d.name.toLowerCase()===card.name.trim().toLowerCase()
+                                    ?{...d,notes:card.notes||"",intensity:card.intensity||"medium",diagram:card.diagram||null}
+                                    :d));
+                                } else {
+                                  setDrills(prev=>[...prev,{
+                                    id:`d${Date.now()}`,
+                                    name:card.name.trim(),
+                                    notes:card.notes||"",
+                                    intensity:card.intensity||"medium",
+                                    diagram:card.diagram||null,
+                                  }]);
+                                }
+                                alert(`"${card.name}" saved to library!`);
+                              }}
+                              title="Save to drill library"
+                              style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,
+                                color:C.muted,cursor:"pointer",padding:"2px 6px",flexShrink:0,fontSize:10,fontWeight:700}}>
+                              ★
+                            </button>
                             {/* Delete */}
                             <button onClick={()=>removeCard(sec.key,card.id)}
                               style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,flexShrink:0}}><X size={13}/></button>
                           </div>
                           {/* Notes + intensity */}
                           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <input value={card.notes||""} onChange={e=>updateCard(sec.key,card.id,"notes",e.target.value)}
+                            <textarea value={card.notes||""} onChange={e=>updateCard(sec.key,card.id,"notes",e.target.value)}
                               placeholder="Notes, coaching points, setup..."
+                              rows={2}
                               style={{flex:1,padding:"5px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
-                                color:C.muted,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                                color:C.muted,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",
+                                resize:"vertical",lineHeight:1.5}}/>
                             {/* Intensity */}
                             <div style={{display:"flex",gap:4,flexShrink:0}}>
                               {INTENSITY.map(int=>(
@@ -9149,6 +9209,306 @@ function MatchReportPage(){
         )}
 
         <div style={{borderTop:"1px solid #ddd",marginTop:16,paddingTop:8,textAlign:"center",fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>CoachIQ</div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── DIAGRAM PREVIEW (SVG render of saved canvas for print) ──────────────────
+function DiagramPreview({data, size=160}){
+  if(!data) return null;
+  let elements=[];
+  try{ elements=JSON.parse(data); }catch(e){ return null; }
+
+  const W=520, H=360;
+  const scale = size/W;
+  const sh = H*scale;
+
+  function Arrow({x1,y1,x2,y2,color,dashed}){
+    const angle=Math.atan2(y2-y1,x2-x1);
+    const ax1=x2-14*Math.cos(angle-0.4), ay1=y2-14*Math.sin(angle-0.4);
+    const ax2=x2-14*Math.cos(angle+0.4), ay2=y2-14*Math.sin(angle+0.4);
+    return(
+      <g>
+        <line x1={x1} y1={y1} x2={x2} y2={y2}
+          stroke={color} strokeWidth="2.5"
+          strokeDasharray={dashed?"6,4":"none"}/>
+        <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={color}/>
+      </g>
+    );
+  }
+
+  return(
+    <svg viewBox={"0 0 "+W+" "+H} style={{width:size,height:sh,display:"block",borderRadius:6,border:"1px solid #444"}}>
+      <rect width={W} height={H} fill="#2d5a1b"/>
+      <rect x="20" y="20" width={W-40} height={H-40} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/>
+      <line x1="20" y1={H/2} x2={W-20} y2={H/2} stroke="rgba(255,255,255,0.7)" strokeWidth="1"/>
+      <circle cx={W/2} cy={H/2} r="50" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1"/>
+      <rect x={W/2-90} y="20" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1"/>
+      <rect x={W/2-90} y={H-80} width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1"/>
+      {elements.map(function(el,i){
+        if(el.type==="dot") return(
+          <g key={i}>
+            <circle cx={el.x} cy={el.y} r="10" fill={el.color} stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/>
+          </g>
+        );
+        if(el.type==="cone") return(
+          <polygon key={i} points={`${el.x},${el.y-10} ${el.x+8},${el.y+6} ${el.x-8},${el.y+6}`} fill="#ff8800"/>
+        );
+        if(el.type==="line") return(
+          <Arrow key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} color={el.color} dashed={el.dashed}/>
+        );
+        return null;
+      })}
+    </svg>
+  );
+}
+
+// ─── DRILL CANVAS ─────────────────────────────────────────────────────────────
+function DrillCanvas({diagram, onSave, onClose}){
+  const canvasRef = useRef(null);
+  const [tool, setTool]     = useState("red");    // red|blue|gk|ball|player|cone|erase
+  const [drawing, setDrawing] = useState(false);
+  const [startPt, setStartPt] = useState(null);
+  const [elements, setElements] = useState(diagram ? JSON.parse(diagram) : []);
+  const [history,  setHistory]  = useState([]);
+
+  // Draw everything on canvas
+  useEffect(()=>{
+    const canvas = canvasRef.current;
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // Draw pitch
+    ctx.fillStyle = "#2d5a1b";
+    ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = 1.5;
+    // Outer
+    ctx.strokeRect(20,20,W-40,H-40);
+    // Halfway
+    ctx.beginPath(); ctx.moveTo(20,H/2); ctx.lineTo(W-20,H/2); ctx.stroke();
+    // Centre circle
+    ctx.beginPath(); ctx.arc(W/2,H/2,50,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W/2,H/2,3,0,Math.PI*2); ctx.fillStyle="white"; ctx.fill();
+    // Top penalty area
+    ctx.strokeRect(W/2-90,20,180,60);
+    ctx.strokeRect(W/2-45,20,90,28);
+    // Bottom penalty area
+    ctx.strokeRect(W/2-90,H-80,180,60);
+    ctx.strokeRect(W/2-45,H-48,90,28);
+
+    // Draw elements
+    elements.forEach(el=>{
+      if(el.type==="dot"){
+        ctx.beginPath();
+        ctx.arc(el.x,el.y,10,0,Math.PI*2);
+        ctx.fillStyle=el.color;
+        ctx.fill();
+        ctx.strokeStyle="rgba(255,255,255,0.7)";
+        ctx.lineWidth=1.5;
+        ctx.stroke();
+        if(el.label){
+          ctx.fillStyle="white";
+          ctx.font="bold 9px Arial";
+          ctx.textAlign="center";
+          ctx.textBaseline="middle";
+          ctx.fillText(el.label,el.x,el.y);
+        }
+      } else if(el.type==="cone"){
+        ctx.beginPath();
+        ctx.moveTo(el.x,el.y-10);
+        ctx.lineTo(el.x+8,el.y+6);
+        ctx.lineTo(el.x-8,el.y+6);
+        ctx.closePath();
+        ctx.fillStyle="#ff8800";
+        ctx.fill();
+      } else if(el.type==="line"){
+        ctx.beginPath();
+        ctx.moveTo(el.x1,el.y1);
+        ctx.lineTo(el.x2,el.y2);
+        ctx.strokeStyle=el.color;
+        ctx.lineWidth=2.5;
+        if(el.dashed){
+          ctx.setLineDash([6,4]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Arrow head
+        const angle = Math.atan2(el.y2-el.y1, el.x2-el.x1);
+        ctx.beginPath();
+        ctx.moveTo(el.x2,el.y2);
+        ctx.lineTo(el.x2-14*Math.cos(angle-0.4),el.y2-14*Math.sin(angle-0.4));
+        ctx.lineTo(el.x2-14*Math.cos(angle+0.4),el.y2-14*Math.sin(angle+0.4));
+        ctx.closePath();
+        ctx.fillStyle=el.color;
+        ctx.fill();
+      }
+    });
+  },[elements]);
+
+  function getPos(e){
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const touch = e.touches?.[0] || e;
+    return {
+      x: (touch.clientX - rect.left) * scaleX,
+      y: (touch.clientY - rect.top)  * scaleY,
+    };
+  }
+
+  function handleDown(e){
+    e.preventDefault();
+    const pos = getPos(e);
+    if(tool==="ball"||tool==="player"){
+      setDrawing(true);
+      setStartPt(pos);
+    } else if(tool==="erase"){
+      // Remove closest element
+      setHistory(h=>[...h,JSON.stringify(elements)]);
+      setElements(prev=>{
+        let minDist=30, minIdx=-1;
+        prev.forEach((el,i)=>{
+          let d=999;
+          if(el.type==="dot"||el.type==="cone") d=Math.hypot(el.x-pos.x,el.y-pos.y);
+          else if(el.type==="line") d=Math.min(Math.hypot(el.x1-pos.x,el.y1-pos.y),Math.hypot(el.x2-pos.x,el.y2-pos.y));
+          if(d<minDist){minDist=d;minIdx=i;}
+        });
+        if(minIdx>=0){const n=[...prev];n.splice(minIdx,1);return n;}
+        return prev;
+      });
+    } else {
+      // Place dot or cone
+      setHistory(h=>[...h,JSON.stringify(elements)]);
+      const color = tool==="red"?"#e53935":tool==="blue"?"#1565c0":tool==="gk"?"#f9a825":"#ff8800";
+      if(tool==="cone"){
+        setElements(prev=>[...prev,{type:"cone",x:pos.x,y:pos.y}]);
+      } else {
+        setElements(prev=>[...prev,{type:"dot",x:pos.x,y:pos.y,color,label:""}]);
+      }
+    }
+  }
+
+  function handleUp(e){
+    if((tool==="ball"||tool==="player")&&drawing&&startPt){
+      const pos = getPos(e);
+      if(Math.hypot(pos.x-startPt.x,pos.y-startPt.y)>10){
+        setHistory(h=>[...h,JSON.stringify(elements)]);
+        setElements(prev=>[...prev,{
+          type:"line",
+          x1:startPt.x,y1:startPt.y,
+          x2:pos.x,y2:pos.y,
+          color:tool==="ball"?"#ffffff":"#ffeb3b",
+          dashed:tool==="player",
+        }]);
+      }
+    }
+    setDrawing(false);
+    setStartPt(null);
+  }
+
+  function undo(){
+    if(!history.length) return;
+    const prev = history[history.length-1];
+    setElements(JSON.parse(prev));
+    setHistory(h=>h.slice(0,-1));
+  }
+
+  function clear(){
+    if(window.confirm("Clear the diagram?")){ setHistory(h=>[...h,JSON.stringify(elements)]); setElements([]); }
+  }
+
+  const TOOLS = [
+    {k:"red",    label:"Red",    color:"#e53935"},
+    {k:"blue",   label:"Blue",   color:"#1565c0"},
+    {k:"gk",     label:"GK",     color:"#f9a825"},
+    {k:"cone",   label:"Cone",   color:"#ff8800"},
+    {k:"ball",   label:"Ball",   color:"#ffffff"},
+    {k:"player", label:"Run",    color:"#ffeb3b"},
+    {k:"erase",  label:"Erase",  color:C.danger},
+  ];
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:3000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+        width:"100%",maxWidth:560,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 18px",
+          borderBottom:`1px solid ${C.border}`}}>
+          <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:800,flex:1}}>
+            Drill Diagram
+          </div>
+          <button onClick={undo} style={{background:C.surface,border:`1px solid ${C.border}`,
+            borderRadius:7,padding:"5px 10px",color:C.muted,cursor:"pointer",fontSize:12}}>
+            ↩ Undo
+          </button>
+          <button onClick={clear} style={{background:C.surface,border:`1px solid ${C.border}`,
+            borderRadius:7,padding:"5px 10px",color:C.muted,cursor:"pointer",fontSize:12}}>
+            Clear
+          </button>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:18}}>✕</button>
+        </div>
+
+        {/* Tools */}
+        <div style={{display:"flex",gap:6,padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+          {TOOLS.map(t=>(
+            <button key={t.k} onClick={()=>setTool(t.k)}
+              style={{padding:"5px 10px",borderRadius:7,cursor:"pointer",fontSize:11,fontWeight:700,
+                border:`2px solid ${tool===t.k?t.color:C.border}`,
+                background:tool===t.k?t.color+"22":"transparent",
+                color:tool===t.k?t.color:C.muted}}>
+              {t.label}
+            </button>
+          ))}
+          <div style={{flex:1,textAlign:"right",color:C.muted,fontSize:10,alignSelf:"center",paddingRight:4}}>
+            {tool==="ball"?"Drag = ball path (solid arrow)":
+             tool==="player"?"Drag = player run (dotted arrow)":
+             "Tap to place"}
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div style={{padding:"10px 14px"}}>
+          <canvas ref={canvasRef} width={520} height={360}
+            style={{width:"100%",borderRadius:8,cursor:tool==="erase"?"crosshair":"crosshair",touchAction:"none"}}
+            onMouseDown={handleDown} onMouseUp={handleUp}
+            onTouchStart={handleDown} onTouchEnd={handleUp}
+          />
+        </div>
+
+        {/* Legend */}
+        <div style={{display:"flex",gap:16,padding:"6px 18px 10px",fontSize:10,color:C.muted,flexWrap:"wrap"}}>
+          <span style={{display:"flex",alignItems:"center",gap:4}}>
+            <span style={{width:20,height:2,background:"white",display:"inline-block"}}/>Ball path (solid)
+          </span>
+          <span style={{display:"flex",alignItems:"center",gap:4}}>
+            <span style={{width:20,height:0,borderTop:"2px dashed #ffeb3b",display:"inline-block"}}/>Player run (dashed)
+          </span>
+        </div>
+
+        {/* Footer */}
+        <div style={{display:"flex",gap:10,padding:"12px 18px",borderTop:`1px solid ${C.border}`}}>
+          <button onClick={onClose}
+            style={{flex:1,padding:"10px",background:C.surface,border:`1px solid ${C.border}`,
+              borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+            Cancel
+          </button>
+          <button onClick={()=>onSave(JSON.stringify(elements))}
+            style={{flex:2,padding:"10px",background:C.accent,border:"none",
+              borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif"}}>
+            Save Diagram
+          </button>
+        </div>
       </div>
     </div>
   );
