@@ -9215,6 +9215,20 @@ function MatchReportPage(){
 }
 
 
+function DiagramArrow({x1,y1,x2,y2,color,dashed}){
+  const angle=Math.atan2(y2-y1,x2-x1);
+  const ax1=x2-14*Math.cos(angle-0.4), ay1=y2-14*Math.sin(angle-0.4);
+  const ax2=x2-14*Math.cos(angle+0.4), ay2=y2-14*Math.sin(angle+0.4);
+  return(
+    <g>
+      <line x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={color} strokeWidth="2.5"
+        strokeDasharray={dashed?"6,4":"none"}/>
+      <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={color}/>
+    </g>
+  );
+}
+
 // ─── DIAGRAM PREVIEW (SVG render of saved canvas for print) ──────────────────
 function DiagramPreview({data, size=160}){
   if(!data) return null;
@@ -9224,20 +9238,6 @@ function DiagramPreview({data, size=160}){
   const W=520, H=360;
   const scale = size/W;
   const sh = H*scale;
-
-  function Arrow({x1,y1,x2,y2,color,dashed}){
-    const angle=Math.atan2(y2-y1,x2-x1);
-    const ax1=x2-14*Math.cos(angle-0.4), ay1=y2-14*Math.sin(angle-0.4);
-    const ax2=x2-14*Math.cos(angle+0.4), ay2=y2-14*Math.sin(angle+0.4);
-    return(
-      <g>
-        <line x1={x1} y1={y1} x2={x2} y2={y2}
-          stroke={color} strokeWidth="2.5"
-          strokeDasharray={dashed?"6,4":"none"}/>
-        <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={color}/>
-      </g>
-    );
-  }
 
   return(
     <svg viewBox={"0 0 "+W+" "+H} style={{width:size,height:sh,display:"block",borderRadius:6,border:"1px solid #444"}}>
@@ -9257,7 +9257,7 @@ function DiagramPreview({data, size=160}){
           <polygon key={i} points={`${el.x},${el.y-10} ${el.x+8},${el.y+6} ${el.x-8},${el.y+6}`} fill="#ff8800"/>
         );
         if(el.type==="line") return(
-          <Arrow key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} color={el.color} dashed={el.dashed}/>
+          <DiagramArrow key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} color={el.color} dashed={el.dashed}/>
         );
         return null;
       })}
