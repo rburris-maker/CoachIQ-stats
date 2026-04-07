@@ -1,7 +1,6 @@
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
-// Disable body parsing so we can verify Stripe signature
 export const config = { api: { bodyParser: false } };
 
 async function getRawBody(req) {
@@ -13,13 +12,13 @@ async function getRawBody(req) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const stripe    = Stripe(process.env.STRIPE_SECRET_KEY);
-  const supabase  = createClient(
+  const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const supabase = createClient(
     'https://lfhbkvdfxlawwwxtvwmj.supabase.co',
-    process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_KEY
   );
 
   const rawBody = await getRawBody(req);
@@ -33,36 +32,24 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
-  const session      = event.data.object;
-  const userId       = session.metadata?.userId;
-  const teamId       = session.metadata?.teamId;
-  const customerId   = session.customer;
-  const subscriptionId = session.subscription;
+  const obj            = event.data.object;
+  const customerId     = obj.customer;
+  const subscriptionId = obj.subscription;
+  const teamId         = obj.metadata?.teamId;
 
   try {
     if (event.type === 'checkout.session.completed') {
-      // Mark team as pro
       if (teamId) {
-        await supabase.from('teams')
-          .update({
-            subscription_status: 'pro',
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-          })
-          .eq('id', teamId);
+        await supabase.from('teams').update({
+          subscription_status: 'pro',
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+        }).eq('id', teamId);
       }
-      console.log(`✓ Team ${teamId} upgraded to Pro`);
-
     } else if (event.type === 'customer.subscription.deleted') {
-      // Subscription cancelled — downgrade
       await supabase.from('teams')
         .update({ subscription_status: 'free' })
         .eq('stripe_customer_id', customerId);
-      console.log(`✓ Customer ${customerId} downgraded to Free`);
-
-    } else if (event.type === 'invoice.payment_failed') {
-      // Payment failed — could notify coach here in future
-      console.log(`Payment failed for customer ${customerId}`);
     }
   } catch (err) {
     console.error('Supabase update error:', err);
@@ -70,4 +57,4 @@ module.exports = async (req, res) => {
   }
 
   return res.status(200).json({ received: true });
-};
+}
