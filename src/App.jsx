@@ -3980,7 +3980,14 @@ export default function CoachIQStats(){
       }
       setTeamsState(myTeams);
       const tid = myTeams[0]?.id;
-      setIsPro(myTeams[0]?.subscription_status==="pro");
+      // Check pro status directly from Supabase to ensure accuracy
+      try{
+        const {data:subData} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
+        const firstTeamSub = (subData||[]).find(t=>t.id===tid);
+        setIsPro(firstTeamSub?.subscription_status==="pro");
+      }catch(e){
+        setIsPro(myTeams[0]?.subscription_status==="pro");
+      }
       setActiveTeamId(tid);
 
       if(tid){
@@ -4197,6 +4204,11 @@ export default function CoachIQStats(){
 
   async function switchTeam(id){
     setIsPro(false);
+    // Re-check subscription for switched team
+    try{
+      const {data:sd} = await supabase.from("teams").select("subscription_status").eq("id",id).single();
+      setIsPro(sd?.subscription_status==="pro");
+    }catch(e){ setIsPro(false); }
     setActiveTeamId(id);
     setView("home");
     setDataLoading(true);
