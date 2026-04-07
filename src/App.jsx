@@ -3933,9 +3933,22 @@ export default function CoachIQStats(){
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
   const [saveStatus,  setSaveStatus]    = useState(null); // null | "saving" | "saved" | "error"
+  const [isPro,       setIsPro]         = useState(false);
+  const [showUpgrade, setShowUpgrade]   = useState(false);
+  const [upgrading,   setUpgrading]     = useState(false);
   const saveTimerRef = useRef(null);
   const [onboarded,   setOnboarded]     = useLocalStorage("coachiq_onboarded", false);
   const [saveQueue,   setSaveQueue]     = useState({});
+
+  // Post-checkout redirect check — must be before any returns
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    if(params.get("upgraded")==="true"){
+      setIsPro(true);
+      window.history.replaceState({},"",window.location.pathname);
+    }
+  },[]);
+
 
   PLAYERS = roster;
 
@@ -4159,6 +4172,24 @@ export default function CoachIQStats(){
     setView("home");
   }
 
+  async function handleUpgrade(){
+    setUpgrading(true);
+    try{
+      const {data:{user}} = await supabase.auth.getUser();
+      const res = await fetch("/api/create-checkout",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({userId:user.id,email:user.email,teamId:safeTeamId}),
+      });
+      const {url,error} = await res.json();
+      if(error) throw new Error(error);
+      window.location.href = url;
+    }catch(e){
+      alert("Could not start checkout: "+e.message);
+      setUpgrading(false);
+    }
+  }
+
   async function switchTeam(id){
     setActiveTeamId(id);
     setView("home");
@@ -4201,7 +4232,6 @@ export default function CoachIQStats(){
     </div>
   );
 
-  // Hash-based player profile routing — works without auth
   if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
@@ -4233,6 +4263,58 @@ export default function CoachIQStats(){
         .card-hover:hover{border-color:#ff6b0055 !important;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
+      {/* ── UPGRADE MODAL ── */}
+      {showUpgrade&&(
+        <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:24,
+            width:"100%",maxWidth:440,overflow:"hidden"}}>
+            <div style={{background:"linear-gradient(135deg,#0d0400,#2a0800)",padding:"28px 28px 24px",
+              textAlign:"center",position:"relative"}}>
+              <button onClick={()=>setShowUpgrade(false)}
+                style={{position:"absolute",top:16,right:16,background:"none",border:"none",
+                  color:"#ffffff66",cursor:"pointer",fontSize:20}}>&#x2715;</button>
+              <div style={{color:C.accent,fontSize:13,fontWeight:800,letterSpacing:2,marginBottom:8}}>COACHIQ PRO</div>
+              <div style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:42,fontWeight:900,lineHeight:1}}>
+                $9.99<span style={{fontSize:18,fontWeight:400,color:"#ffffff88"}}>/mo</span>
+              </div>
+              <div style={{color:"#ffffff66",fontSize:13,marginTop:8}}>Cancel anytime · Secured by Stripe</div>
+            </div>
+            <div style={{padding:"20px 28px"}}>
+              {[
+                "Live stat tracking and player ratings",
+                "Full game plans with shareable links",
+                "Opponent intelligence database",
+                "Match reports and print PDFs",
+                "AI match analysis",
+                "Unlimited teams and players",
+                "Practice attendance tracking",
+                "Season analytics and reports",
+              ].map(function(f){return(
+                <div key={f} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                  <div style={{width:18,height:18,borderRadius:5,background:C.accent+"22",
+                    border:"1.5px solid "+C.accent+"44",display:"flex",alignItems:"center",
+                    justifyContent:"center",color:C.accent,fontSize:11,fontWeight:800,flexShrink:0}}>
+                    &#x2713;
+                  </div>
+                  <span style={{color:C.text,fontSize:13}}>{f}</span>
+                </div>
+              );})}
+              <button onClick={handleUpgrade} disabled={upgrading}
+                style={{width:"100%",marginTop:16,padding:"14px",
+                  background:upgrading?C.surface:C.accent,border:"none",borderRadius:12,
+                  color:upgrading?C.muted:"#000",fontWeight:900,fontSize:16,
+                  cursor:upgrading?"default":"pointer",
+                  fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+                {upgrading?"Redirecting to checkout...":"Start Pro"}
+              </button>
+              <div style={{textAlign:"center",marginTop:12,color:C.muted,fontSize:11}}>
+                No hidden fees · Cancel anytime in your account
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",transition:"background .3s"}}>
 
@@ -4471,6 +4553,20 @@ export default function CoachIQStats(){
                   transition:"all .2s"}}>
                 {theme==="dark" ? "☀ Light" : "☾ Dark"}
               </button>
+              {isPro
+                ? <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",
+                    background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,
+                    color:C.accent,fontSize:11,fontWeight:800,letterSpacing:.5}}>
+                    ★ PRO
+                  </div>
+                : <button onClick={()=>setShowUpgrade(true)}
+                    style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",
+                      background:C.accent,border:"none",borderRadius:20,
+                      color:"#000",fontSize:11,fontWeight:800,cursor:"pointer",
+                      fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+                    ↑ UPGRADE
+                  </button>
+              }
               <button onClick={handleSignOut}
                 title="Sign out"
                 style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
@@ -8566,13 +8662,13 @@ function SharePitch({lineup, roster}){
 function GamePlanSharePage(){
   var hash    = window.location.hash;
   var shareId = hash.replace("#/plan/","");
-  var _s0=useState(null);  var plan=_s0[0];    var setPlan=_s0[1];
-  var _s1=useState([]);    var roster=_s1[0];  var setRoster=_s1[1];
-  var _s2=useState(null);  var opp=_s2[0];     var setOpp=_s2[1];
-  var _s3=useState(true);  var loading=_s3[0]; var setLoading=_s3[1];
-  var _s4=useState(null);  var error=_s4[0];   var setError=_s4[1];
+  const [plan,    setPlan]    = useState(null);
+  const [roster,  setRoster]  = useState([]);
+  const [opp,     setOpp]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
 
-  useEffect(function(){
+  useEffect(()=>{
     async function load(){
       try{
         var gpRes=await supabase.from("game_plans").select("*");
@@ -8762,14 +8858,14 @@ function GamePlanSharePage(){
 function MatchReportPage(){
   var hash   = window.location.hash;
   var gameId = hash.replace("#/report/","");
-  var _s0=useState(null);  var game=_s0[0];    var setGame=_s0[1];
-  var _s1=useState([]);    var roster=_s1[0];  var setRoster=_s1[1];
-  var _s2=useState(null);  var opp=_s2[0];     var setOpp=_s2[1];
-  var _s3=useState(null);  var gplan=_s3[0];   var setGplan=_s3[1];
-  var _s4=useState(true);  var loading=_s4[0]; var setLoading=_s4[1];
-  var _s5=useState(null);  var error=_s5[0];   var setError=_s5[1];
+  const [game,    setGame]    = useState(null);
+  const [roster,  setRoster]  = useState([]);
+  const [opp,     setOpp]     = useState(null);
+  const [gplan,   setGplan]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
 
-  useEffect(function(){
+  useEffect(()=>{
     async function load(){
       try{
         // Load all games
