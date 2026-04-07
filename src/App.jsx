@@ -9269,7 +9269,9 @@ function DiagramPreview({data, size=160}){
 // ─── DRILL CANVAS ─────────────────────────────────────────────────────────────
 function DrillCanvas({diagram, onSave, onClose}){
   const canvasRef = useRef(null);
-  const [tool, setTool]     = useState("red");    // red|blue|gk|ball|player|cone|erase
+  const toolRef   = useRef("red");
+  const [tool, setToolState] = useState("red");
+  function setTool(t){ setToolState(t); toolRef.current=t; }
   const [drawing, setDrawing] = useState(false);
   const [startPt, setStartPt] = useState(null);
   const [elements, setElements] = useState(diagram ? JSON.parse(diagram) : []);
@@ -9368,10 +9370,11 @@ function DrillCanvas({diagram, onSave, onClose}){
   function handleDown(e){
     e.preventDefault();
     const pos = getPos(e);
-    if(tool==="ball"||tool==="player"){
+    const t = toolRef.current;
+    if(t==="ball"||t==="player"){
       setDrawing(true);
       setStartPt(pos);
-    } else if(tool==="erase"){
+    } else if(t==="erase"){
       // Remove closest element
       setHistory(h=>[...h,JSON.stringify(elements)]);
       setElements(prev=>{
@@ -9388,8 +9391,8 @@ function DrillCanvas({diagram, onSave, onClose}){
     } else {
       // Place dot or cone
       setHistory(h=>[...h,JSON.stringify(elements)]);
-      const color = tool==="red"?"#e53935":tool==="blue"?"#1565c0":tool==="gk"?"#f9a825":"#ff8800";
-      if(tool==="cone"){
+      const color = t==="red"?"#e53935":t==="blue"?"#1565c0":t==="gk"?"#f9a825":"#ff8800";
+      if(t==="cone"){
         setElements(prev=>[...prev,{type:"cone",x:pos.x,y:pos.y}]);
       } else {
         setElements(prev=>[...prev,{type:"dot",x:pos.x,y:pos.y,color,label:""}]);
@@ -9398,7 +9401,8 @@ function DrillCanvas({diagram, onSave, onClose}){
   }
 
   function handleUp(e){
-    if((tool==="ball"||tool==="player")&&drawing&&startPt){
+    const t = toolRef.current;
+    if((t==="ball"||t==="player")&&drawing&&startPt){
       const pos = getPos(e);
       if(Math.hypot(pos.x-startPt.x,pos.y-startPt.y)>10){
         setHistory(h=>[...h,JSON.stringify(elements)]);
@@ -9406,8 +9410,8 @@ function DrillCanvas({diagram, onSave, onClose}){
           type:"line",
           x1:startPt.x,y1:startPt.y,
           x2:pos.x,y2:pos.y,
-          color:tool==="ball"?"#ffffff":"#ffeb3b",
-          dashed:tool==="player",
+          color:t==="ball"?"#ffffff":"#ffeb3b",
+          dashed:t==="player",
         }]);
       }
     }
