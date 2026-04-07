@@ -5552,6 +5552,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [showTemplates,setShowTemplates] = useState(false);
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
+  const [diagramCard, setDiagramCard] = useState(null);
 
   const FOCUS_TAGS   = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
   const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
