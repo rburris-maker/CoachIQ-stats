@@ -2908,6 +2908,9 @@ const SIDEBAR_GROUPS = [
   { label:"INSIGHTS", items:[
     {id:"analytics",label:"Analytics", icon:BarChart2},
   ]},
+  { label:"ACCOUNT", items:[
+    {id:"settings", label:"Settings",  icon:Settings},
+  ]},
 ];
 const NAV = SIDEBAR_GROUPS.flatMap(g=>g.items);
 const NAV_PRIMARY = NAV;
@@ -3936,8 +3939,12 @@ export default function CoachIQStats(){
   const [dataLoading, setDataLoading]   = useState(false);
   const [saveStatus,  setSaveStatus]    = useState(null); // null | "saving" | "saved" | "error"
   const [isPro,       setIsPro]         = useState(false);
+  const [isElite,     setIsElite]       = useState(false);
   const [showUpgrade, setShowUpgrade]   = useState(false);
   const [upgrading,   setUpgrading]     = useState(false);
+  const [upgradingElite, setUpgradingElite] = useState(false);
+  const [brandName,   setBrandName]     = useState("");
+  const [brandLogo,   setBrandLogo]     = useState(null);
   const saveTimerRef = useRef(null);
   const [onboarded,   setOnboarded]     = useLocalStorage("coachiq_onboarded", false);
   const [saveQueue,   setSaveQueue]     = useState({});
@@ -3980,13 +3987,20 @@ export default function CoachIQStats(){
       }
       setTeamsState(myTeams);
       const tid = myTeams[0]?.id;
-      // Pro follows the user - if any team is pro, user is pro
+      // Check subscription - pro or elite follows user account
       try{
-        const {data:subData} = await supabase.from("teams").select("subscription_status").eq("user_id",userId);
-        const isProUser = (subData||[]).some(t=>t.subscription_status==="pro");
+        const {data:subData} = await supabase.from("teams").select("subscription_status,brand_name,brand_logo").eq("user_id",userId);
+        const statuses = (subData||[]).map(t=>t.subscription_status);
+        const isEliteUser = statuses.some(s=>s==="elite");
+        const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
+        setIsElite(isEliteUser);
         setIsPro(isProUser);
+        const brandRow = (subData||[]).find(t=>t.brand_name);
+        if(brandRow){ setBrandName(brandRow.brand_name||""); setBrandLogo(brandRow.brand_logo||null); }
       }catch(e){
-        setIsPro(myTeams.some(t=>t.subscription_status==="pro"));
+        const statuses = myTeams.map(t=>t.subscription_status);
+        setIsElite(statuses.some(s=>s==="elite"));
+        setIsPro(statuses.some(s=>s==="pro"||s==="elite"));
       }
       setActiveTeamId(tid);
 
@@ -4172,6 +4186,14 @@ export default function CoachIQStats(){
 
   // ── Team management ───────────────────────────────────────────────────────
   async function addTeam(name, type='other'){
+    if(isPro && !isElite && teams.length>=4){
+      alert("Pro plan includes up to 4 teams. Upgrade to Elite for unlimited teams.");
+      return;
+    }
+    if(!isPro && teams.length>=1){
+      alert("Free plan includes 1 team. Upgrade to Pro to add more teams.");
+      return;
+    }
     const {data} = await supabase.from("teams").insert({name,type,user_id:userId});
     const newTeam = data?.[0];
     if(!newTeam) return;
@@ -4197,6 +4219,25 @@ export default function CoachIQStats(){
       window.location.href = url;
     }catch(e){
       alert("Could not open billing portal: "+e.message);
+    }
+  }
+
+  async function handleUpgradeElite(){
+    setUpgradingElite(true);
+    try{
+      const user = session?.user;
+      if(!user) throw new Error("Not logged in");
+      const res = await fetch("/api/create-checkout",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({userId:user.id,email:user.email,teamId:safeTeamId,tier:"elite"}),
+      });
+      const {url,error} = await res.json();
+      if(error) throw new Error(error);
+      window.location.href = url;
+    }catch(e){
+      alert("Could not start checkout: "+e.message);
+      setUpgradingElite(false);
     }
   }
 
@@ -4253,6 +4294,9 @@ export default function CoachIQStats(){
     await supabase.auth.signOut();
     setSession(null);
     setIsPro(false);
+    setIsElite(false);
+    setBrandName("");
+    setBrandLogo(null);
     setTeamsState([]); setGamesState([]); setRosterState([]);
   }
 
@@ -4311,36 +4355,48 @@ export default function CoachIQStats(){
               </div>
               <div style={{color:"#ffffff66",fontSize:13,marginTop:8}}>Cancel anytime · Secured by Stripe</div>
             </div>
-            <div style={{padding:"20px 28px"}}>
-              {[
-                "Live stat tracking and player ratings",
-                "Full game plans with shareable links",
-                "Opponent intelligence database",
-                "Match reports and print PDFs",
-                "AI match analysis",
-                "Unlimited teams and players",
-                "Practice attendance tracking",
-                "Season analytics and reports",
-              ].map(function(f){return(
-                <div key={f} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                  <div style={{width:18,height:18,borderRadius:5,background:C.accent+"22",
-                    border:"1.5px solid "+C.accent+"44",display:"flex",alignItems:"center",
-                    justifyContent:"center",color:C.accent,fontSize:11,fontWeight:800,flexShrink:0}}>
-                    &#x2713;
-                  </div>
-                  <span style={{color:C.text,fontSize:13}}>{f}</span>
+            <div style={{padding:"20px 24px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                {/* Pro Card */}
+                <div style={{border:`1.5px solid ${C.accent}44`,borderRadius:12,padding:"14px 16px",background:C.surface}}>
+                  <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,marginBottom:2}}>PRO</div>
+                  <div style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",marginBottom:12}}>$9.99<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mo</span></div>
+                  {["Live tracking & ratings","Game plans & share links","Opponent database","Match reports & PDFs","AI match analysis","Up to 4 teams","Practice & attendance","Season analytics"].map(function(f){return(
+                    <div key={f} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7}}>
+                      <span style={{color:C.accent,fontSize:11,fontWeight:800,flexShrink:0,marginTop:1}}>✓</span>
+                      <span style={{color:C.muted,fontSize:11,lineHeight:1.4}}>{f}</span>
+                    </div>
+                  );})}
+                  <button onClick={handleUpgrade} disabled={upgrading}
+                    style={{width:"100%",marginTop:12,padding:"10px",background:upgrading?C.surface:C.accent,
+                      border:"none",borderRadius:9,color:upgrading?C.muted:"#000",fontWeight:800,
+                      fontSize:13,cursor:upgrading?"default":"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                    {upgrading?"Redirecting...":"Get Pro"}
+                  </button>
                 </div>
-              );})}
-              <button onClick={handleUpgrade} disabled={upgrading}
-                style={{width:"100%",marginTop:16,padding:"14px",
-                  background:upgrading?C.surface:C.accent,border:"none",borderRadius:12,
-                  color:upgrading?C.muted:"#000",fontWeight:900,fontSize:16,
-                  cursor:upgrading?"default":"pointer",
-                  fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-                {upgrading?"Redirecting to checkout...":"Start Pro"}
-              </button>
-              <div style={{textAlign:"center",marginTop:12,color:C.muted,fontSize:11}}>
-                No hidden fees · Cancel anytime in your account
+                {/* Elite Card */}
+                <div style={{border:"1.5px solid #7c3aed",borderRadius:12,padding:"14px 16px",background:"#7c3aed11",position:"relative"}}>
+                  <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",
+                    background:"#7c3aed",borderRadius:20,padding:"2px 12px",
+                    fontSize:10,fontWeight:800,color:"#fff",whiteSpace:"nowrap"}}>BEST VALUE</div>
+                  <div style={{color:"#7c3aed",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,marginBottom:2}}>ELITE</div>
+                  <div style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",marginBottom:12}}>$19.99<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mo</span></div>
+                  {["Everything in Pro","Unlimited teams","Multi-team analytics","Full season export PDF","Custom school branding","Priority AI analysis"].map(function(f){return(
+                    <div key={f} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7}}>
+                      <span style={{color:"#7c3aed",fontSize:11,fontWeight:800,flexShrink:0,marginTop:1}}>✓</span>
+                      <span style={{color:C.muted,fontSize:11,lineHeight:1.4}}>{f}</span>
+                    </div>
+                  );})}
+                  <button onClick={handleUpgradeElite} disabled={upgradingElite}
+                    style={{width:"100%",marginTop:12,padding:"10px",background:upgradingElite?"transparent":"#7c3aed",
+                      border:"none",borderRadius:9,color:upgradingElite?C.muted:"#fff",fontWeight:800,
+                      fontSize:13,cursor:upgradingElite?"default":"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                    {upgradingElite?"Redirecting...":"Get Elite"}
+                  </button>
+                </div>
+              </div>
+              <div style={{textAlign:"center",color:C.muted,fontSize:11}}>
+                No hidden fees · Cancel anytime · Secured by Stripe
               </div>
             </div>
           </div>
@@ -4588,9 +4644,10 @@ export default function CoachIQStats(){
                 ? <button onClick={manageSubscription}
                     title="Manage or cancel your subscription"
                     style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",
-                      background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,
-                      color:C.accent,fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:.5}}>
-                    ★ PRO
+                      background:isElite?"#7c3aed22":C.accent+"22",
+                      border:`1px solid ${isElite?"#7c3aed44":C.accent+"44"}`,borderRadius:20,
+                      color:isElite?"#7c3aed":C.accent,fontSize:11,fontWeight:800,cursor:"pointer",letterSpacing:.5}}>
+                    {isElite?"⚡ ELITE":"★ PRO"}
                   </button>
                 : <button onClick={()=>setShowUpgrade(true)}
                     style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",
@@ -4621,6 +4678,7 @@ export default function CoachIQStats(){
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
+            {view==="settings"  &&<SettingsView isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
@@ -9623,6 +9681,171 @@ function DrillCanvas({diagram, onSave, onClose}){
               fontFamily:"'Oswald',sans-serif"}}>
             Save Diagram
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SETTINGS VIEW ────────────────────────────────────────────────────────────
+function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBrandLogo, onUpgrade, onManage, userId, safeTeamId}){
+  const [name,    setName]    = useState(brandName||"");
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [logoUrl, setLogoUrl] = useState(brandLogo||"");
+
+  async function saveBranding(){
+    if(!isElite){ onUpgrade(); return; }
+    setSaving(true);
+    try{
+      await supabase.from("teams").update({brand_name:name,brand_logo:logoUrl}).eq("user_id",userId);
+      setBrandName(name);
+      setBrandLogo(logoUrl||null);
+      setSaved(true);
+      setTimeout(()=>setSaved(false),2500);
+    }catch(e){ alert("Save failed: "+e.message); }
+    setSaving(false);
+  }
+
+  const PLAN_COL = isElite?"#7c3aed":isPro?C.accent:C.muted;
+  const PLAN_LBL = isElite?"Elite":isPro?"Pro":"Free";
+
+  return(
+    <div style={{padding:24,maxWidth:700,margin:"0 auto"}}>
+      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>ACCOUNT</div>
+      <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginBottom:24}}>Settings</h1>
+
+      {/* Subscription card */}
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:24,marginBottom:16}}>
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>SUBSCRIPTION</div>
+        <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <div style={{padding:"4px 14px",background:PLAN_COL+"22",border:`1px solid ${PLAN_COL}44`,
+                borderRadius:20,color:PLAN_COL,fontSize:13,fontWeight:800,fontFamily:"'Oswald',sans-serif"}}>
+                {PLAN_LBL}
+              </div>
+              {!isPro&&<span style={{color:C.muted,fontSize:12}}>Free plan</span>}
+              {isPro&&!isElite&&<span style={{color:C.muted,fontSize:12}}>Up to 4 teams · All Pro features</span>}
+              {isElite&&<span style={{color:C.muted,fontSize:12}}>Unlimited teams · All Elite features</span>}
+            </div>
+          </div>
+          {!isPro&&(
+            <button onClick={onUpgrade}
+              style={{padding:"9px 20px",background:C.accent,border:"none",borderRadius:9,
+                color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              Upgrade →
+            </button>
+          )}
+          {isPro&&!isElite&&(
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={onUpgrade}
+                style={{padding:"9px 16px",background:"#7c3aed22",border:"1px solid #7c3aed44",
+                  borderRadius:9,color:"#7c3aed",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                Upgrade to Elite
+              </button>
+              <button onClick={onManage}
+                style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+                Manage / Cancel
+              </button>
+            </div>
+          )}
+          {isElite&&(
+            <button onClick={onManage}
+              style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:9,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+              Manage / Cancel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Custom branding card */}
+      <div style={{background:C.card,border:`1px solid ${isElite?C.border:"#7c3aed33"}`,borderRadius:16,padding:24,marginBottom:16,position:"relative"}}>
+        {!isElite&&(
+          <div style={{position:"absolute",top:16,right:16,padding:"3px 10px",background:"#7c3aed22",
+            border:"1px solid #7c3aed44",borderRadius:20,fontSize:10,fontWeight:800,color:"#7c3aed"}}>
+            ELITE ONLY
+          </div>
+        )}
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>CUSTOM BRANDING</div>
+        <p style={{color:C.muted,fontSize:13,marginBottom:16,lineHeight:1.6}}>
+          Your school or club name and logo will appear on printed game plans and match reports instead of the CoachIQ logo.
+        </p>
+        <div style={{marginBottom:14}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SCHOOL / CLUB NAME</label>
+          <input value={name} onChange={e=>setName(e.target.value)}
+            placeholder={isElite?"e.g. Marion Warriors":"Upgrade to Elite to add custom branding"}
+            disabled={!isElite}
+            style={{width:"100%",padding:"10px 14px",background:isElite?C.bg:C.surface,
+              border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,
+              outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",
+              opacity:isElite?1:0.6}}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOGO URL <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(paste an image URL)</span></label>
+          <input value={logoUrl} onChange={e=>setLogoUrl(e.target.value)}
+            placeholder={isElite?"https://your-school.com/logo.png":"Upgrade to Elite to add custom branding"}
+            disabled={!isElite}
+            style={{width:"100%",padding:"10px 14px",background:isElite?C.bg:C.surface,
+              border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,
+              outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",
+              opacity:isElite?1:0.6}}/>
+          {logoUrl&&isElite&&(
+            <div style={{marginTop:8,padding:8,background:C.surface,borderRadius:8,display:"inline-block"}}>
+              <img src={logoUrl} alt="Logo preview" style={{height:48,objectFit:"contain"}}
+                onError={e=>{e.target.style.display="none";}}/>
+            </div>
+          )}
+        </div>
+        <button onClick={saveBranding} disabled={saving}
+          style={{padding:"10px 24px",background:isElite?C.accent:"#7c3aed",border:"none",
+            borderRadius:9,color:isElite?"#000":"#fff",fontWeight:800,fontSize:13,
+            cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+          {saving?"Saving...":(saved?"✓ Saved!":(isElite?"Save Branding":"Upgrade to Elite →"))}
+        </button>
+      </div>
+
+      {/* What's included */}
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:24}}>
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>PLAN FEATURES</div>
+        {[
+          {feature:"Games & Score Tracking",         free:true, pro:true,  elite:true},
+          {feature:"Roster Management",              free:true, pro:true,  elite:true},
+          {feature:"Calendar",                       free:true, pro:true,  elite:true},
+          {feature:"Live Stat Tracking & Ratings",   free:false,pro:true,  elite:true},
+          {feature:"Game Plans & Share Links",       free:false,pro:true,  elite:true},
+          {feature:"Opponent Intelligence",          free:false,pro:true,  elite:true},
+          {feature:"Match Reports & PDF",            free:false,pro:true,  elite:true},
+          {feature:"AI Match Analysis",              free:false,pro:true,  elite:true},
+          {feature:"Practice & Drill Canvas",        free:false,pro:true,  elite:true},
+          {feature:"Season Analytics",               free:false,pro:true,  elite:true},
+          {feature:"Number of Teams",                free:"1",  pro:"4",   elite:"∞"},
+          {feature:"Multi-Team Analytics",           free:false,pro:false, elite:true},
+          {feature:"Full Season Export PDF",         free:false,pro:false, elite:true},
+          {feature:"Custom School Branding",         free:false,pro:false, elite:true},
+        ].map(function(row){
+          function cell(val){
+            if(val===true)  return <span style={{color:C.accent,fontWeight:700}}>✓</span>;
+            if(val===false) return <span style={{color:C.border}}>—</span>;
+            return <span style={{color:C.text,fontWeight:700}}>{val}</span>;
+          }
+          return(
+            <div key={row.feature} style={{display:"grid",gridTemplateColumns:"1fr 80px 80px 80px",
+              gap:8,padding:"8px 0",borderBottom:`1px solid ${C.border}`,alignItems:"center"}}>
+              <div style={{color:C.text,fontSize:13}}>{row.feature}</div>
+              <div style={{textAlign:"center",fontSize:13}}>{cell(row.free)}</div>
+              <div style={{textAlign:"center",fontSize:13}}>{cell(row.pro)}</div>
+              <div style={{textAlign:"center",fontSize:13}}>{cell(row.elite)}</div>
+            </div>
+          );
+        })}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 80px 80px 80px",gap:8,paddingTop:8}}>
+          <div style={{color:C.muted,fontSize:11}}>Monthly price</div>
+          <div style={{textAlign:"center",color:C.muted,fontSize:11}}>Free</div>
+          <div style={{textAlign:"center",color:C.accent,fontSize:11,fontWeight:700}}>$9.99</div>
+          <div style={{textAlign:"center",color:"#7c3aed",fontSize:11,fontWeight:700}}>$19.99</div>
         </div>
       </div>
     </div>

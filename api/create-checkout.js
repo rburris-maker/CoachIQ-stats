@@ -9,21 +9,25 @@ export default async function handler(req, res) {
 
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const { userId, email, teamId } = req.body;
+    const { userId, email, teamId, tier } = req.body;
 
     if (!userId || !email) {
       return res.status(400).json({ error: 'Missing userId or email' });
     }
 
+    const priceId = tier === 'elite'
+      ? process.env.STRIPE_ELITE_PRICE_ID
+      : process.env.STRIPE_PRICE_ID;
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: email,
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      metadata: { userId, teamId: teamId || '' },
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { userId, teamId: teamId || '', tier: tier || 'pro' },
       allow_promotion_codes: true,
-      success_url: `${req.headers.origin || 'https://coachiq.vercel.app'}/?upgraded=true`,
-      cancel_url:  `${req.headers.origin || 'https://coachiq.vercel.app'}/?upgraded=false`,
+      success_url: `${req.headers.origin || 'https://coachiqsoccer.vercel.app'}/?upgraded=true`,
+      cancel_url:  `${req.headers.origin || 'https://coachiqsoccer.vercel.app'}/?upgraded=false`,
     });
 
     return res.status(200).json({ url: session.url });
