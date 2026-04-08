@@ -28,25 +28,26 @@ export default async function handler(req, res) {
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error('Webhook signature error:', err.message);
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
   const obj            = event.data.object;
   const customerId     = obj.customer;
   const subscriptionId = obj.subscription;
-  const teamId         = obj.metadata?.teamId;
+  const userId         = obj.metadata?.userId;
 
   try {
     if (event.type === 'checkout.session.completed') {
-      if (teamId) {
+      if (userId) {
+        // Mark ALL of this user's teams as pro
         await supabase.from('teams').update({
           subscription_status: 'pro',
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
-        }).eq('id', teamId);
+        }).eq('user_id', userId);
       }
     } else if (event.type === 'customer.subscription.deleted') {
+      // Downgrade all teams for this customer
       await supabase.from('teams')
         .update({ subscription_status: 'free' })
         .eq('stripe_customer_id', customerId);
