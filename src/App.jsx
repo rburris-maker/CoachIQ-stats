@@ -3677,45 +3677,70 @@ function LandingPage({onAuth}){
               <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,5vw,68px)",lineHeight:1,color:"#f5f0e8",margin:"0 0 16px"}}>Less Than One Referee Fee</h2>
               <p style={{fontSize:17,color:"#c8bfb0",maxWidth:440,margin:"0 auto",lineHeight:1.7}}>Start free. Upgrade when you're ready. No contracts.</p>
             </div>
-            <div className="lp-reveal lp-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
-              <div style={{background:"#111309",border:"1px solid #1e2419",borderRadius:14,padding:34}}>
+            <div className="lp-reveal" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+              {/* Free */}
+              <div style={{background:"#111309",border:"1px solid #1e2419",borderRadius:14,padding:28}}>
                 <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#6b6458",marginBottom:8}}>Free</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
-                  <span style={{fontSize:24,color:"#c8bfb0",verticalAlign:"super"}}>$</span>0
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
+                  <span style={{fontSize:20,color:"#c8bfb0",verticalAlign:"super"}}>$</span>0
                 </div>
-                <div style={{fontSize:14,color:"#6b6458",marginBottom:24}}>forever</div>
-                {["1 team","Live game tracker","Player ratings","Up to 10 players"].map(f=>(
-                  <div key={f} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:14,color:"#c8bfb0"}}>
+                <div style={{fontSize:13,color:"#6b6458",marginBottom:20}}>forever</div>
+                {["1 team · 15 players","Game score logging","Roster management","Calendar"].map(f=>(
+                  <div key={f} style={{display:"flex",gap:10,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:13,color:"#c8bfb0"}}>
                     <span style={{color:"#ff5a1f",fontWeight:700}}>✓</span>{f}
                   </div>
                 ))}
                 <button onClick={openSignup}
-                  style={{display:"block",width:"100%",marginTop:24,padding:"12px",background:"transparent",
+                  style={{display:"block",width:"100%",marginTop:20,padding:"11px",background:"transparent",
                     border:"1.5px solid rgba(255,255,255,.2)",borderRadius:8,color:"#f5f0e8",fontWeight:700,
-                    fontSize:14,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",transition:"all .2s"}}
+                    fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor="#f5f0e8"}
                   onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,.2)"}>
                   Get Started Free
                 </button>
               </div>
-              <div style={{background:"#111309",border:"1px solid #ff5a1f",borderRadius:14,padding:34,
-                boxShadow:"0 0 50px rgba(255,90,31,.12)",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:14,right:-26,background:"#ff5a1f",color:"#000",
-                  fontSize:9,fontWeight:800,letterSpacing:1.5,padding:"4px 34px",transform:"rotate(45deg)"}}>POPULAR</div>
+              {/* Pro */}
+              <div style={{background:"#111309",border:"1px solid #ff5a1f",borderRadius:14,padding:28,
+                boxShadow:"0 0 40px rgba(255,90,31,.12)",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:12,right:-24,background:"#ff5a1f",color:"#000",
+                  fontSize:9,fontWeight:800,letterSpacing:1.5,padding:"4px 30px",transform:"rotate(45deg)"}}>POPULAR</div>
                 <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#ff5a1f",marginBottom:8}}>Pro</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
-                  <span style={{fontSize:24,color:"#c8bfb0",verticalAlign:"super"}}>$</span>9<span style={{fontSize:22}}>99</span>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
+                  <span style={{fontSize:20,color:"#c8bfb0",verticalAlign:"super"}}>$</span>9<span style={{fontSize:20}}>99</span>
                 </div>
-                <div style={{fontSize:14,color:"#6b6458",marginBottom:24}}>per month</div>
-                {["Unlimited teams","Manage multiple squads","Full tryout manager","Unlimited players",
-                  "Season report PDF","Email player reports","Opponent database","Shareable player profiles"].map(f=>(
-                  <div key={f} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:14,color:"#c8bfb0"}}>
+                <div style={{fontSize:13,color:"#6b6458",marginBottom:20}}>per month</div>
+                {["Up to 4 teams","Live stat tracking","Player ratings & reports","Game plans + share links",
+                  "Opponent intelligence","Match reports & PDFs","AI match analysis","Practice & drill canvas"].map(f=>(
+                  <div key={f} style={{display:"flex",gap:10,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:13,color:"#c8bfb0"}}>
                     <span style={{color:"#ff5a1f",fontWeight:700}}>✓</span>{f}
                   </div>
                 ))}
                 <button onClick={openSignup} className="lp-btn-pri"
-                  style={{display:"block",width:"100%",marginTop:24,padding:"12px",fontSize:14,textAlign:"center"}}>
-                  Start Free Trial →
+                  style={{display:"block",width:"100%",marginTop:20,padding:"11px",fontSize:13,textAlign:"center"}}>
+                  Start Pro →
+                </button>
+              </div>
+              {/* Elite */}
+              <div style={{background:"#0d0a1a",border:"1px solid #7c3aed",borderRadius:14,padding:28,
+                boxShadow:"0 0 40px rgba(124,58,237,.12)",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:12,right:-24,background:"#7c3aed",color:"#fff",
+                  fontSize:9,fontWeight:800,letterSpacing:1.5,padding:"4px 30px",transform:"rotate(45deg)"}}>BEST VALUE</div>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:"#7c3aed",marginBottom:8}}>Elite</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,lineHeight:1,color:"#f5f0e8",marginBottom:4}}>
+                  <span style={{fontSize:20,color:"#c8bfb0",verticalAlign:"super"}}>$</span>19<span style={{fontSize:20}}>99</span>
+                </div>
+                <div style={{fontSize:13,color:"#6b6458",marginBottom:20}}>per month</div>
+                {["Everything in Pro","Unlimited teams","Multi-team analytics","Full season export PDF",
+                  "Custom school branding","Priority AI analysis"].map(f=>(
+                  <div key={f} style={{display:"flex",gap:10,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.04)",fontSize:13,color:"#c8bfb0"}}>
+                    <span style={{color:"#7c3aed",fontWeight:700}}>✓</span>{f}
+                  </div>
+                ))}
+                <button onClick={openSignup}
+                  style={{display:"block",width:"100%",marginTop:20,padding:"11px",background:"#7c3aed",
+                    border:"none",borderRadius:8,color:"#fff",fontWeight:700,
+                    fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                  Start Elite →
                 </button>
               </div>
             </div>
@@ -3946,7 +3971,7 @@ export default function CoachIQStats(){
   const [brandName,   setBrandName]     = useState("");
   const [brandLogo,   setBrandLogo]     = useState(null);
   const saveTimerRef = useRef(null);
-  const [onboarded,   setOnboarded]     = useLocalStorage("coachiq_onboarded", false);
+  const [onboarded,   setOnboarded]     = useState(true); // driven by data, not localStorage
   const [saveQueue,   setSaveQueue]     = useState({});
 
   // Post-checkout redirect check — must be before any returns
@@ -4314,7 +4339,7 @@ export default function CoachIQStats(){
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
   // ── Show onboarding if first time ────────────────────────────────────────
-  const showOnboarding = !onboarded && !dataLoading && teams.length > 0 && roster.length === 0;
+  const showOnboarding = !dataLoading && teams.length > 0 && roster.length === 0 && games.length === 0 && gamePlans.length === 0;
 
   // ── Show loading spinner while data loads ─────────────────────────────────
   if(dataLoading) return(
@@ -4673,7 +4698,7 @@ export default function CoachIQStats(){
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
               if(player) setRoster(prev=>[...prev,player]);
-              setOnboarded(true);
+              // onboarding dismissed - data now exists so it won't show again
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
