@@ -4364,6 +4364,52 @@ export default function CoachIQStats(){
         .sidebar-item:hover{background:#ff6b0018 !important;}
         .card-hover:hover{border-color:#ff6b0055 !important;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+        /* ── MOBILE ONLY — desktop 100% unaffected ── */
+        @media(max-width:768px){
+          /* Show hamburger */
+          .mobile-nav{display:flex !important;}
+          /* Hide desktop sidebar */
+          .desktop-sidebar{display:none !important;}
+          /* Hide email in top bar */
+          .hide-mobile{display:none !important;}
+          /* Hide date, theme toggle, suggest on mobile */
+          .topbar-date{display:none !important;}
+          .topbar-theme{display:none !important;}
+          .topbar-suggest{display:none !important;}
+          /* Hide save status text on mobile */
+          .save-status-bar{display:none !important;}
+          /* Grids collapse to single column */
+          .resp-grid{grid-template-columns:1fr !important;}
+          .resp-grid-2{grid-template-columns:1fr !important;}
+          .resp-grid-sidebar{grid-template-columns:1fr !important;}
+          .resp-grid-actions{grid-template-columns:1fr 1fr !important;}
+          /* Live tracker stack */
+          .live-grid{grid-template-columns:1fr !important;}
+          .live-sub-grid{grid-template-columns:1fr 1fr !important;}
+          /* Practice stack */
+          .practice-grid{grid-template-columns:1fr !important;}
+          .practice-section-header{flex-wrap:wrap !important;}
+          /* Drill card notes full width */
+          .drill-card-row{flex-wrap:wrap !important;}
+          /* Modals full screen */
+          .modal-inner{
+            max-width:100% !important;
+            max-height:90vh !important;
+            border-radius:16px 16px 0 0 !important;
+            overflow-y:auto !important;
+          }
+          .modal-outer{align-items:flex-end !important;padding:0 !important;}
+          /* Drill canvas bottom sheet */
+          .drill-canvas-inner{
+            max-width:100% !important;
+            border-radius:16px 16px 0 0 !important;
+          }
+          /* Reduce main content padding */
+          .mobile-page-pad{padding:12px !important;}
+          /* Top bar compact */
+          .topbar-pro-badge{font-size:10px !important;padding:4px 8px !important;}
+        }
       `}</style>
       {/* ── FEEDBACK MODAL ── */}
       {showFeedback&&(
@@ -4375,9 +4421,9 @@ export default function CoachIQStats(){
 
       {/* ── UPGRADE MODAL ── */}
       {showUpgrade&&(
-        <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
+        <div className="modal-outer" style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:24,
+          <div className="modal-inner" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:24,
             width:"100%",maxWidth:440,overflow:"hidden"}}>
             <div style={{background:"linear-gradient(135deg,#0d0400,#2a0800)",padding:"28px 28px 24px",
               textAlign:"center",position:"relative"}}>
@@ -4480,12 +4526,33 @@ export default function CoachIQStats(){
                   </div>
                 ))}
               </nav>
+              {/* Mobile bottom actions */}
+              <div style={{borderTop:`1px solid ${C.sidebarBorder}`,padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
+                <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+                    background:"transparent",border:`1px solid rgba(255,255,255,.1)`,borderRadius:8,
+                    color:"#ffffffaa",cursor:"pointer",fontSize:13,fontWeight:600,width:"100%"}}>
+                  {theme==="dark"?"☀ Light Mode":"☾ Dark Mode"}
+                </button>
+                <button onClick={()=>{setShowFeedback(true);setMobileSidebarOpen(false);}}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+                    background:"transparent",border:`1px solid rgba(255,255,255,.1)`,borderRadius:8,
+                    color:"#ffffffaa",cursor:"pointer",fontSize:13,fontWeight:600,width:"100%"}}>
+                  💡 Suggest a Feature
+                </button>
+                <button onClick={handleSignOut}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+                    background:"transparent",border:`1px solid rgba(255,90,31,.3)`,borderRadius:8,
+                    color:"#ff6b00",cursor:"pointer",fontSize:13,fontWeight:700,width:"100%"}}>
+                  Sign Out
+                </button>
+              </div>
             </div>
           </>
         )}
 
         {/* ═══ SIDEBAR (desktop) ══════════════════════════════════════════ */}
-        <div className="sidebar-desktop" style={{
+        <div className="desktop-sidebar" style={{
           width: sidebarCollapsed ? 60 : 220,
           flexShrink:0,
           background:C.sidebar,
@@ -4645,7 +4712,7 @@ export default function CoachIQStats(){
             </div>
             {/* Save status indicator */}
             {saveStatus&&(
-              <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",
+              <div className="save-status-bar" style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",
                 borderRadius:20,fontSize:12,fontWeight:600,transition:"all .3s",
                 background:saveStatus==="saving"?C.surface:saveStatus==="saved"?C.accent+"22":C.danger+"22",
                 border:`1px solid ${saveStatus==="saving"?C.border:saveStatus==="saved"?C.accent:C.danger}`,
@@ -4663,9 +4730,9 @@ export default function CoachIQStats(){
             )}
 
             {/* Right side: date + theme + sign out */}
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <span style={{color:C.muted,fontSize:11}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
-              <button
+            <div className="topbar-right" style={{display:"flex",alignItems:"center",gap:10}}>
+              <span className="topbar-date" style={{color:C.muted,fontSize:11}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+              <button className="topbar-theme"
                 onClick={()=>setTheme(t=>t==="dark"?"light":"dark")}
                 title={theme==="dark"?"Switch to Light Mode":"Switch to Dark Mode"}
                 style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",
@@ -4676,6 +4743,7 @@ export default function CoachIQStats(){
                 {theme==="dark" ? "☀ Light" : "☾ Dark"}
               </button>
               <button onClick={()=>setShowFeedback(true)}
+                className="topbar-suggest"
                 title="Send a feature suggestion"
                 style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",
                   background:"transparent",border:`1px solid ${C.border}`,borderRadius:20,
@@ -4710,7 +4778,7 @@ export default function CoachIQStats(){
           </div>
 
           {/* Page content */}
-          <div style={{flex:1,overflowY:"auto",background:C.bg}}>
+          <div className="main-content-inner" style={{flex:1,overflowY:"auto",background:C.bg}}>
             {view==="home"      &&<HomeView      games={games} gamePlans={gamePlans} practices={practices} roster={roster} setView={setView} teamName={activeTeam?.name} schedule={schedule}/> }
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
@@ -6096,7 +6164,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     }
 
     return(
-      <div style={{padding:20,maxWidth:980,margin:"0 auto"}}>
+      <div className="mobile-page-pad" style={{padding:20,maxWidth:980,margin:"0 auto"}}>
 
         {/* Header */}
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
@@ -6181,7 +6249,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         })()}
 
         {/* Row 2: Session blocks + Drill library */}
-        <div className="resp-grid-sidebar" style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
+        <div className="resp-grid-sidebar practice-grid" style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
 
           {/* Session plan blocks */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -6191,7 +6259,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
               return(
                 <div key={sec.key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
                   {/* Section header */}
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                  <div className="practice-section-header" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                     <span style={{fontSize:16}}>{sec.icon}</span>
                     <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:15,letterSpacing:.5}}>{sec.label.toUpperCase()}</div>
                     {secMins>0&&<div style={{color:C.muted,fontSize:11,marginLeft:4}}>{secMins} min</div>}
@@ -6282,7 +6350,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                               style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,flexShrink:0}}><X size={13}/></button>
                           </div>
                           {/* Notes + intensity */}
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <div className="drill-card-row" style={{display:"flex",gap:8,alignItems:"center"}}>
                             <textarea value={card.notes||""} onChange={e=>updateCard(sec.key,card.id,"notes",e.target.value)}
                               placeholder="Notes, coaching points, setup..."
                               rows={2}
@@ -9638,9 +9706,9 @@ function DrillCanvas({diagram, onSave, onClose}){
   ];
 
   return(
-    <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:3000,
+    <div className="modal-outer" style={{position:"fixed",inset:0,background:"#000000ee",zIndex:3000,
       display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+      <div className="drill-canvas-inner" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
         width:"100%",maxWidth:560,overflow:"hidden",display:"flex",flexDirection:"column"}}>
 
         {/* Header */}
