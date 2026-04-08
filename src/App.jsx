@@ -152,6 +152,7 @@ const supabase = (() => {
 // ─── EMAILJS CONFIG ───────────────────────────────────────────────────────────
 const EJS_SERVICE       = "service_67o2kbq";
 const EJS_TEMPLATE      = "template_xlcc4wg";   // match report
+const EJS_TEMPLATE_FB   = "template_feedback";   // coach feedback
 const EJS_KEY           = "XdWTyjACtwXgLPPkV";
 
 async function sendPlayerEmail(templateParams){
@@ -3968,6 +3969,7 @@ export default function CoachIQStats(){
   const [showUpgrade, setShowUpgrade]   = useState(false);
   const [upgrading,   setUpgrading]     = useState(false);
   const [upgradingElite, setUpgradingElite] = useState(false);
+  const [showFeedback,  setShowFeedback]  = useState(false);
   const [brandName,   setBrandName]     = useState("");
   const [brandLogo,   setBrandLogo]     = useState(null);
   const saveTimerRef = useRef(null);
@@ -4363,6 +4365,14 @@ export default function CoachIQStats(){
         .card-hover:hover{border-color:#ff6b0055 !important;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
+      {/* ── FEEDBACK MODAL ── */}
+      {showFeedback&&(
+        <FeedbackModal
+          userEmail={session?.user?.email||""}
+          onClose={()=>setShowFeedback(false)}
+        />
+      )}
+
       {/* ── UPGRADE MODAL ── */}
       {showUpgrade&&(
         <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
@@ -4664,6 +4674,13 @@ export default function CoachIQStats(){
                   color:theme==="light"?"#ff9500":"#1a0d00",fontWeight:700,fontSize:11,
                   transition:"all .2s"}}>
                 {theme==="dark" ? "☀ Light" : "☾ Dark"}
+              </button>
+              <button onClick={()=>setShowFeedback(true)}
+                title="Send a feature suggestion"
+                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",
+                  background:"transparent",border:`1px solid ${C.border}`,borderRadius:20,
+                  color:C.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                💡 Suggest
               </button>
               {isPro
                 ? <button onClick={manageSubscription}
@@ -9872,6 +9889,128 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
           <div style={{textAlign:"center",color:C.accent,fontSize:11,fontWeight:700}}>$9.99</div>
           <div style={{textAlign:"center",color:"#7c3aed",fontSize:11,fontWeight:700}}>$19.99</div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FEEDBACK MODAL ───────────────────────────────────────────────────────────
+function FeedbackModal({userEmail, onClose}){
+  const [category, setCategory] = useState("feature");
+  const [message,  setMessage]  = useState("");
+  const [sending,  setSending]  = useState(false);
+  const [sent,     setSent]     = useState(false);
+
+  const CATEGORIES = [
+    {k:"feature",  label:"Feature Idea"},
+    {k:"bug",      label:"Bug Report"},
+    {k:"improve",  label:"Improvement"},
+    {k:"other",    label:"Other"},
+  ];
+
+  async function handleSend(){
+    if(!message.trim()) return;
+    setSending(true);
+    try{
+      await fetch("https://api.emailjs.com/api/v1.0/email/send",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          service_id:  EJS_SERVICE,
+          template_id: EJS_TEMPLATE_FB,
+          user_id:     EJS_KEY,
+          template_params:{
+            from_email: userEmail||"Anonymous",
+            category:   CATEGORIES.find(c=>c.k===category)?.label||category,
+            message:    message.trim(),
+          },
+        }),
+      });
+      setSent(true);
+    }catch(e){
+      alert("Failed to send. Please try again.");
+    }
+    setSending(false);
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+        width:"100%",maxWidth:460,overflow:"hidden"}}>
+
+        <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800,margin:0}}>
+              Share Your Idea
+            </h3>
+            <div style={{color:C.muted,fontSize:12,marginTop:3}}>Help shape CoachIQ — we read every suggestion</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>✕</button>
+        </div>
+
+        {sent?(
+          <div style={{padding:"40px 24px",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🙏</div>
+            <div style={{color:C.text,fontWeight:700,fontSize:16,marginBottom:8}}>Thank you!</div>
+            <div style={{color:C.muted,fontSize:13,marginBottom:20}}>Your feedback has been sent. We appreciate you taking the time.</div>
+            <button onClick={onClose}
+              style={{padding:"10px 28px",background:C.accent,border:"none",borderRadius:9,
+                color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              Done
+            </button>
+          </div>
+        ):(
+          <div style={{padding:"20px 24px"}}>
+            <div style={{marginBottom:16}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:8}}>TYPE</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {CATEGORIES.map(c=>(
+                  <button key={c.k} onClick={()=>setCategory(c.k)}
+                    style={{padding:"6px 14px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:600,
+                      border:`1.5px solid ${category===c.k?C.accent:C.border}`,
+                      background:category===c.k?C.accent+"22":"transparent",
+                      color:category===c.k?C.accent:C.muted}}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:8}}>YOUR IDEA</label>
+              <textarea
+                value={message}
+                onChange={e=>setMessage(e.target.value)}
+                placeholder="Describe your idea or issue in as much detail as you like..."
+                rows={5}
+                style={{width:"100%",padding:"10px 14px",background:C.bg,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",
+                  resize:"vertical",lineHeight:1.6}}/>
+            </div>
+
+            <div style={{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{color:C.muted,fontSize:11}}>{userEmail||"Sending anonymously"}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={onClose}
+                  style={{padding:"10px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+                  Cancel
+                </button>
+                <button onClick={handleSend} disabled={!message.trim()||sending}
+                  style={{padding:"10px 22px",background:message.trim()&&!sending?C.accent:C.surface,
+                    border:"none",borderRadius:9,
+                    color:message.trim()&&!sending?"#000":C.muted,
+                    fontWeight:800,fontSize:13,cursor:message.trim()&&!sending?"pointer":"default",
+                    fontFamily:"'Oswald',sans-serif"}}>
+                  {sending?"Sending...":"Send →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
