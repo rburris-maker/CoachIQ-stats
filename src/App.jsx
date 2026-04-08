@@ -4016,7 +4016,7 @@ export default function CoachIQStats(){
       const tid = myTeams[0]?.id;
       // Check subscription - pro or elite follows user account
       try{
-        const {data:subData} = await supabase.from("teams").select("subscription_status,brand_name,brand_logo").eq("user_id",userId);
+        const {data:subData} = await supabase.from("teams").select("subscription_status,brand_name,brand_logo",{filter:{user_id:userId}});
         const statuses = (subData||[]).map(t=>t.subscription_status);
         const isEliteUser = statuses.some(s=>s==="elite");
         const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
@@ -9808,7 +9808,11 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
     if(!isElite){ onUpgrade(); return; }
     setSaving(true);
     try{
-      await supabase.from("teams").update({brand_name:name,brand_logo:logoUrl}).eq("user_id",userId);
+      const {error:brandErr} = await supabase
+        .from("teams")
+        .update({brand_name:name, brand_logo:logoUrl||null})
+        .eq("user_id", userId);
+      if(brandErr) throw new Error(brandErr.message);
       setBrandName(name);
       setBrandLogo(logoUrl||null);
       setSaved(true);
