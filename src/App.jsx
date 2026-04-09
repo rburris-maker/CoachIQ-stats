@@ -3990,6 +3990,22 @@ export default function CoachIQStats(){
 
   const userId = session?.user?.id;
   const safeTeamId = activeTeamId;
+
+  // Re-check subscription when app resumes from background
+  useEffect(()=>{
+    async function checkSub(){
+      if(!userId) return;
+      try{
+        const {data:subData} = await supabase.from("teams").select("subscription_status").eq("user_id",userId);
+        const statuses = (subData||[]).map(t=>t.subscription_status);
+        setIsElite(statuses.some(s=>s==="elite"));
+        setIsPro(statuses.some(s=>s==="elite"||s==="pro"));
+      }catch(e){}
+    }
+    function onVisible(){ if(document.visibilityState==="visible") checkSub(); }
+    document.addEventListener("visibilitychange", onVisible);
+    return ()=>document.removeEventListener("visibilitychange", onVisible);
+  },[userId]);
   const activeTeam = teams.find(t=>t.id===activeTeamId) || teams[0];
 
   // ── Load all data when session exists ─────────────────────────────────────
