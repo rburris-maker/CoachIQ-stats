@@ -964,7 +964,7 @@ function parseGameSpreadsheet(file) {
 }
 
 // ─── GAMES VIEW ───────────────────────────────────────────────────────────────
-function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam}){
+function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam,opponents,onViewOpponent,setOpponents}){
   const [sel,setSel]=useState(null);
   const [aiTxt,setAiTxt]=useState("");
   const [loading,setLoading]=useState(false);
@@ -996,6 +996,22 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       createdAt:new Date().toISOString(),
     };
     setGames(prev=>[game,...prev]);
+    // Auto-create opponent record if it doesn't exist
+    if(setOpponents && quickForm.opponent.trim()){
+      setOpponents(prev=>{
+        const exists = prev.find(o=>o.name.toLowerCase()===quickForm.opponent.trim().toLowerCase());
+        if(exists) return prev;
+        return [...prev,{
+          id:`opp${Date.now()}`,name:quickForm.opponent.trim(),
+          formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",
+          oppPlayers:{},
+          tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},
+          setPieces:{cornersAtk:"",cornersDef:"",freeKicksAtk:"",freeKicksDef:"",throwInsAtk:"",throwInsDef:""},
+          counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},
+          createdAt:new Date().toISOString(),
+        }];
+      });
+    }
     setShowQuick(false);
     setQuickForm({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
   }
@@ -1399,11 +1415,27 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>QUICK SCORE</div>
             <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:20}}>Log a Result</h3>
 
-            <div style={{marginBottom:14}}>
+            <div style={{marginBottom:14,position:"relative"}}>
               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
               <input value={quickForm.opponent} onChange={e=>setQuickForm(f=>({...f,opponent:e.target.value}))}
                 placeholder="e.g. City FC" autoFocus
                 style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+              {quickForm.opponent.length>1&&(()=>{
+                const matches=(opponents||[]).filter(o=>o.name&&o.name.toLowerCase().includes(quickForm.opponent.toLowerCase()));
+                if(!matches.length) return null;
+                return(
+                  <div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:9,zIndex:10,overflow:"hidden",marginTop:2}}>
+                    {matches.slice(0,5).map(o=>(
+                      <div key={o.id} onMouseDown={()=>setQuickForm(f=>({...f,opponent:o.name}))}
+                        style={{padding:"10px 14px",cursor:"pointer",color:C.text,fontSize:13,borderBottom:`1px solid ${C.border}`}}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.surface}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        {o.name}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             <div style={{marginBottom:14}}>
@@ -1533,8 +1565,18 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
               onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
               <div onClick={()=>setSel(game.id)} style={{width:40,height:40,borderRadius:10,background:rc+"22",border:`2px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:20,flexShrink:0,cursor:"pointer"}}>{r}</div>
-              <div onClick={()=>setSel(game.id)} style={{flex:1,cursor:"pointer"}}>
-                <div style={{color:C.text,fontWeight:700,fontSize:15}}>vs {game.opponent}</div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div onClick={()=>setSel(game.id)} style={{color:C.text,fontWeight:700,fontSize:15,cursor:"pointer"}}>vs {game.opponent}</div>
+                  {(opponents||[]).find(o=>o.name===game.opponent)&&(
+                    <button onClick={e=>{e.stopPropagation();onViewOpponent&&onViewOpponent(game.opponent);}}
+                      title="View opponent profile"
+                      style={{background:"none",border:`1px solid ${C.border}`,borderRadius:5,
+                        padding:"2px 7px",color:C.muted,fontSize:10,cursor:"pointer",fontWeight:700}}>
+                      Scout →
+                    </button>
+                  )}
+                </div>
                 <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{game.date}</span>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={11}/>{game.location}</span>
@@ -4235,6 +4277,7 @@ export default function CoachIQStats(){
   const [upgrading,   setUpgrading]     = useState(false);
   const [upgradingElite, setUpgradingElite] = useState(false);
   const [showFeedback,  setShowFeedback]  = useState(false);
+  const [pendingOpp,    setPendingOpp]    = useState(null);
   const [brandName,   setBrandName]     = useState("");
   const [brandLogo,   setBrandLogo]     = useState(null);
   const saveTimerRef = useRef(null);
@@ -5082,7 +5125,7 @@ export default function CoachIQStats(){
               if(player) setRoster(prev=>[...prev,player]);
               // onboarding dismissed - data now exists so it won't show again
             }}/>}
-            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam}/>}
+            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
             {view==="settings"  &&<SettingsView isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId}/>}
@@ -5091,7 +5134,7 @@ export default function CoachIQStats(){
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
-            {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
+            {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
 
           </div>
@@ -8207,12 +8250,20 @@ function OppSquadGrid({positions, oppPlayers, update, updateOppPlayer, getOppPla
   );
 }
 
-function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgrade}){
+function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgrade, pendingOpp, onClearPendingOpp}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Opponent intelligence database">{null}</ProGate>;
   const [sel,    setSel]    = useState(null);
   const [adding, setAdding] = useState(false);
   const [newName,setNewName]= useState("");
-  const [oppTab, setOppTab] = useState("overview"); // overview | squad | setpieces | response
+  const [oppTab, setOppTab] = useState("overview");
+
+  // Auto-select opponent navigated from Games tab
+  useEffect(()=>{
+    if(!pendingOpp) return;
+    const opp = opponents.find(o=>o.name===pendingOpp);
+    if(opp){ setSel(opp.id); }
+    onClearPendingOpp&&onClearPendingOpp();
+  },[pendingOpp]); // overview | squad | setpieces | response
 
   // Auto-build opponent list from games
   const allOpponentNames = useMemo(()=>{
