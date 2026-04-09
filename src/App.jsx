@@ -4326,18 +4326,20 @@ export default function CoachIQStats(){
   async function loadAllData(){
     setDataLoading(true);
     try{
-      // Load teams
-      // Try filtered query first, fall back to unfiltered if RLS blocks it
-      let {data:teamsData, error:teamsError} = await supabase.from("teams").select("*").eq("user_id",userId);
-      if(teamsError||!teamsData){
-        console.warn("Teams filtered query failed, trying unfiltered:", teamsError?.message);
-        const {data:allTeams} = await supabase.from("teams").select("*");
-        teamsData = (allTeams||[]).filter(t=>t.user_id===userId);
-      }
-      const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
+      console.log("🔍 loadAllData start, userId:", userId);
+      const {data:allTeams, error:allTeamsErr} = await supabase.from("teams").select("*");
+      console.log("📋 allTeams result:", allTeams, "error:", allTeamsErr);
+      const myTeams = (allTeams||[])
+        .filter(t=>{
+          const match = String(t.user_id)===String(userId);
+          console.log("  team:", t.id, "user_id:", t.user_id, "matches:", match);
+          return match;
+        })
+        .map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
+      console.log("✅ myTeams:", myTeams.length, myTeams.map(t=>t.id));
 
-      if(myTeams.length===0 && teamsData !== null){
-        // Confirmed empty — first login, create default team
+      // Only create default team if we got a real empty result (not null/error)
+      if(Array.isArray(allTeams) && myTeams.length===0){
         const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId}).select();
         if(newTeam?.[0]){
           myTeams.push({id:newTeam[0].id,name:newTeam[0].name,type:newTeam[0].type||'varsity',supaId:newTeam[0].id});
