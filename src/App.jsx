@@ -4443,7 +4443,7 @@ export default function CoachIQStats(){
       if(newGame){
         await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
       } else {
-        await supabase.from("games").delete({team_id:safeTeamId});
+        await supabase.from("games").delete().eq("team_id",safeTeamId);
         if(resolved.length) await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
       }
       endSave(null);
@@ -4455,7 +4455,7 @@ export default function CoachIQStats(){
     setGamePlansState(resolved);
     startSave();
     try{
-      await supabase.from("game_plans").delete({team_id:safeTeamId});
+      await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
       if(resolved.length) await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
       endSave(null);
     }catch(e){ endSave(e); }
@@ -4466,7 +4466,7 @@ export default function CoachIQStats(){
     setPracticesState(resolved);
     startSave();
     try{
-      await supabase.from("practices").delete({team_id:safeTeamId});
+      await supabase.from("practices").delete().eq("team_id",safeTeamId);
       if(resolved.length) await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
       endSave(null);
     }catch(e){ endSave(e); }
@@ -4499,7 +4499,7 @@ export default function CoachIQStats(){
     setScheduleState(resolved);
     startSave();
     try{
-      await supabase.from("schedule").delete({team_id:safeTeamId});
+      await supabase.from("schedule").delete().eq("team_id",safeTeamId);
       if(resolved.length) await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
       endSave(null);
     }catch(e){ endSave(e); }
@@ -4510,7 +4510,7 @@ export default function CoachIQStats(){
     setTryoutsState(resolved);
     startSave();
     try{
-      await supabase.from("tryouts").delete({team_id:safeTeamId});
+      await supabase.from("tryouts").delete().eq("team_id",safeTeamId);
       if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
       endSave(null);
     }catch(e){ endSave(e); }
@@ -4521,7 +4521,7 @@ export default function CoachIQStats(){
     setOpponentsState(resolved);
     startSave();
     try{
-      await supabase.from("opponents").delete({team_id:safeTeamId});
+      await supabase.from("opponents").delete().eq("team_id",safeTeamId);
       if(resolved.length) await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
       endSave(null);
     }catch(e){ endSave(e); }
@@ -4624,7 +4624,7 @@ export default function CoachIQStats(){
   async function deleteTeam(id){
     const remaining = teams.filter(t=>t.id!==id);
     setTeamsState(remaining);
-    await supabase.from("teams").delete({id});
+    await supabase.from("teams").delete().eq("id",id);
     if(activeTeamId===id){
       const nextId = remaining[0]?.id;
       setActiveTeamId(nextId);
@@ -5610,7 +5610,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
@@ -5630,7 +5630,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 // Wait for Supabase to persist before opening
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
