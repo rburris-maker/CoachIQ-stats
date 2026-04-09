@@ -4402,9 +4402,15 @@ export default function CoachIQStats(){
   // ── Save status helpers ───────────────────────────────────────────────────
   function startSave(){ setSaveStatus("saving"); }
   function endSave(err){
-    setSaveStatus(err?"error":"saved");
+    if(err){
+      const msg = err?.message||String(err)||"unknown error";
+      console.error("Save error:",msg);
+      setSaveStatus({type:"error",message:msg});
+    } else {
+      setSaveStatus("saved");
+    }
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(()=>setSaveStatus(null), err?4000:2000);
+    saveTimerRef.current = setTimeout(()=>setSaveStatus(null), err?6000:2000);
   }
 
   // ── Data save helpers — write to Supabase ─────────────────────────────────
@@ -5093,9 +5099,9 @@ export default function CoachIQStats(){
                     borderTopColor:"transparent",animation:"spin .6s linear infinite"}}/>
                 )}
                 {saveStatus==="saved"&&<span>✓</span>}
-                {saveStatus==="error"&&<span>⚠</span>}
+                {(saveStatus==="error"||saveStatus?.type==="error")&&<span>⚠</span>}
                 <span>
-                  {saveStatus==="saving"?"Saving…":saveStatus==="saved"?"Saved":"Save failed — check connection"}
+                  {saveStatus==="saving"?"Saving…":saveStatus==="saved"?"Saved":`Save failed: ${saveStatus?.message||"check connection"}`}
                 </span>
               </div>
             )}
