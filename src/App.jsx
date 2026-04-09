@@ -970,10 +970,34 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [loading,setLoading]=useState(false);
   const [expanded,setExpanded]=useState(null);
   const [importing,setImporting]=useState(false);
-  const [importMsg,setImportMsg]=useState(null); // {type:"ok"|"err", text}
+  const [importMsg,setImportMsg]=useState(null);
   const [sending,setSending]=useState(false);
   const [sendMsg,setSendMsg]=useState(null);
+  const [showQuick,setShowQuick]=useState(false);
+  const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
+  const [addStatsFor,setAddStatsFor]=useState(null); // gameId to add stats to
   const fileRef=useRef(null);
+  const statsFileRef=useRef(null);
+
+  function saveQuickGame(){
+    if(!quickForm.opponent||quickForm.ourScore===""||quickForm.theirScore==="") return;
+    const game={
+      id:`g${Date.now()}`,
+      opponent:quickForm.opponent,
+      date:quickForm.date,
+      location:quickForm.location,
+      formation:"",
+      ourScore:parseInt(quickForm.ourScore)||0,
+      theirScore:parseInt(quickForm.theirScore)||0,
+      status:"completed",
+      entryType:"quick",
+      stats:[],
+      createdAt:new Date().toISOString(),
+    };
+    setGames(prev=>[game,...prev]);
+    setShowQuick(false);
+    setQuickForm({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
+  }
 
   async function sendReports(game, roster, teamName, allGames){
     const playersWithEmail = roster.filter(p=>p.email&&p.email.trim());
@@ -1066,6 +1090,28 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     e.target.value="";
   }
 
+  async function handleImportForGame(e, gameId){
+    const file = e.target.files?.[0]; if(!file) return;
+    setImporting(true); setImportMsg(null);
+    try{
+      const imported = await parseGameSpreadsheet(file);
+      // Merge the stats into the existing quick-score game
+      setGames(prev=>prev.map(g=>g.id===gameId
+        ? {...g,
+            stats: imported.stats,
+            formation: imported.formation || g.formation,
+            entryType: "full", // upgraded from quick
+          }
+        : g
+      ));
+      setImportMsg({type:"ok", text:`✓ Stats added — ${imported.stats.length} players loaded`});
+    }catch(err){
+      setImportMsg({type:"err", text:`✗ ${err.message}`});
+    }
+    setImporting(false);
+    e.target.value="";
+  }
+
   async function genAI(game){
     setLoading(true);setAiTxt("");
     try{
@@ -1113,6 +1159,24 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             {game.status==="completed"?"⎘ Share Report":"⎘ Share Preview"}
           </button>
         </div>
+
+        {/* Quick score banner — prompt to add stats */}
+        {game.entryType==="quick"&&(
+          <div style={{background:C.accent+"15",border:`1px solid ${C.accent}44`,borderRadius:12,
+            padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",
+            justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+            <div>
+              <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Quick Score Entry</div>
+              <div style={{color:C.muted,fontSize:12,marginTop:2}}>No player stats recorded. Upload a spreadsheet to add full stats.</div>
+            </div>
+            <button onClick={()=>{setAddStatsFor(game.id);fileRef.current?.click();}}
+              style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
+                background:C.accent,border:"none",borderRadius:9,color:"#000",
+                fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
+              <Upload size={13}/> Upload Stats
+            </button>
+          </div>
+        )}
 
         <div style={{background:`linear-gradient(135deg,#0d0400,#1a0800)`,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
@@ -1233,10 +1297,91 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
+
+      {/* ── QUICK SCORE MODAL ── */}
+      {showQuick&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,width:"100%",maxWidth:420,padding:28}}>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>QUICK SCORE</div>
+            <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:20}}>Log a Result</h3>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
+              <input value={quickForm.opponent} onChange={e=>setQuickForm(f=>({...f,opponent:e.target.value}))}
+                placeholder="e.g. City FC" autoFocus
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+              <input type="date" value={quickForm.date} onChange={e=>setQuickForm(f=>({...f,date:e.target.value}))}
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
+              <div style={{display:"flex",gap:8}}>
+                {["Home","Away"].map(l=>(
+                  <button key={l} onClick={()=>setQuickForm(f=>({...f,location:l}))}
+                    style={{flex:1,padding:"10px",background:quickForm.location===l?C.accent+"22":C.surface,
+                      border:`1px solid ${quickForm.location===l?C.accent:C.border}`,borderRadius:9,
+                      color:quickForm.location===l?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:24}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SCORE</label>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>US</div>
+                  <input type="number" min="0" max="30" value={quickForm.ourScore}
+                    onChange={e=>setQuickForm(f=>({...f,ourScore:e.target.value}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{color:C.muted,fontSize:24,fontWeight:900,fontFamily:"'Oswald',sans-serif",marginTop:16}}>—</div>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>THEM</div>
+                  <input type="number" min="0" max="30" value={quickForm.theirScore}
+                    onChange={e=>setQuickForm(f=>({...f,theirScore:e.target.value}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowQuick(false)}
+                style={{flex:1,padding:"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
+                Cancel
+              </button>
+              <button onClick={saveQuickGame}
+                disabled={!quickForm.opponent||quickForm.ourScore===""|quickForm.theirScore===""}
+                style={{flex:2,padding:"12px",background:quickForm.opponent&&quickForm.ourScore!==""&&quickForm.theirScore!==""?C.accent:C.surface,
+                  border:"none",borderRadius:10,color:quickForm.opponent&&quickForm.ourScore!==""&&quickForm.theirScore!==""?"#000":C.muted,
+                  fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                Save Result →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header row with title + import toolbar */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:20}}>
         <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:700,margin:0}}>Season Games</h2>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <button onClick={()=>setShowQuick(true)}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
+              background:C.accent,border:"none",borderRadius:9,color:"#000",
+              fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+            + Quick Score
+          </button>
           {/* Download Template — embedded xlsx, no server needed */}
           <button onClick={downloadTemplate}
             style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",background:C.card,
@@ -1252,7 +1397,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             {importing?<><RefreshCw size={14} style={{animation:"spin 1s linear infinite"}}/>Importing…</>
                       :<><Upload size={14}/>Import Spreadsheet</>}
           </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{display:"none"}}/>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls"
+            onChange={e=>{
+              if(addStatsFor){
+                handleImportForGame(e, addStatsFor);
+                setAddStatsFor(null);
+              } else {
+                handleImport(e);
+              }
+            }} style={{display:"none"}}/>
         </div>
       </div>
 
@@ -1294,6 +1447,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   <span>{game.formation}</span>
                 </div>
               </div>
+              {game.entryType==="quick"&&(
+                <button onClick={e=>{e.stopPropagation();setAddStatsFor(game.id);fileRef.current?.click();}}
+                  title="Upload stats spreadsheet for this game"
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
+                    background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,
+                    color:C.accent,fontWeight:700,fontSize:11,cursor:"pointer",flexShrink:0}}>
+                  <Upload size={11}/> Add Stats
+                </button>
+              )}
               <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
               <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
               <button
