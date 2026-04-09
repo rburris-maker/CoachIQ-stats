@@ -4348,8 +4348,10 @@ export default function CoachIQStats(){
         const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
         setIsElite(isEliteUser);
         setIsPro(isProUser);
-        const brandRow = (subData||[]).find(t=>t.brand_name);
-        if(brandRow){ setBrandName(brandRow.brand_name||""); setBrandLogo(brandRow.brand_logo||null); }
+        // Load brand for the active team specifically
+        const activeBrand = (subData||[]).find(t=>t.id===tid);
+        setBrandName(activeBrand?.brand_name||"");
+        setBrandLogo(activeBrand?.brand_logo||null);
       }catch(e){
         const statuses = myTeams.map(t=>t.subscription_status);
         setIsElite(statuses.some(s=>s==="elite"));
@@ -4390,6 +4392,12 @@ export default function CoachIQStats(){
     setScheduleState((sc.data||[]).map(x=>x.data));
     setTryoutsState((tr.data||[]).map(x=>x.data));
     setOpponentsState((op.data||[]).map(x=>x.data));
+    // Load brand for this specific team
+    try{
+      const {data:brandData} = await supabase.from("teams").select("brand_name,brand_logo").eq("id",tid).single();
+      setBrandName(brandData?.brand_name||"");
+      setBrandLogo(brandData?.brand_logo||null);
+    }catch(e){}
     }catch(e){ console.error("loadTeamData error:",e); }
   }
 
@@ -10152,6 +10160,10 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
   const [saved,   setSaved]   = useState(false);
   const [logoUrl, setLogoUrl] = useState(brandLogo||"");
 
+  // Sync local fields when active team changes
+  useEffect(()=>{ setName(brandName||""); },[brandName]);
+  useEffect(()=>{ setLogoUrl(brandLogo||""); },[brandLogo]);
+
   async function saveBranding(){
     if(!isElite){ onUpgrade(); return; }
     setSaving(true);
@@ -10159,7 +10171,7 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
       const {error:brandErr} = await supabase
         .from("teams")
         .update({brand_name:name, brand_logo:logoUrl||null})
-        .eq("user_id", userId);
+        .eq("id", safeTeamId);
       if(brandErr) throw new Error(brandErr.message);
       setBrandName(name);
       setBrandLogo(logoUrl||null);
@@ -10231,7 +10243,8 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
             ELITE ONLY
           </div>
         )}
-        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>CUSTOM BRANDING</div>
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>CUSTOM BRANDING</div>
+        <div style={{color:C.muted,fontSize:12,marginBottom:12}}>Branding is saved per team. Switch teams to set different branding for each.</div>
         <p style={{color:C.muted,fontSize:13,marginBottom:16,lineHeight:1.6}}>
           Your school or club name and logo will appear on printed game plans and match reports instead of the CoachIQ logo.
         </p>
