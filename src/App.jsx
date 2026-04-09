@@ -2710,8 +2710,56 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     availNote:    player.availNote    || "",
     returnDate:   player.returnDate   || "",
     profilePin:   player.profilePin   || "",
+    gradYear:     player.gradYear     || "",
+    height:       player.height       || "",
+    weight:       player.weight       || "",
+    gpa:          player.gpa          || "",
+    highlightsUrl: player.highlightsUrl || "",
+    recruitingStatus: player.recruitingStatus || "open",
+    recruitingSchools: player.recruitingSchools || [],
+    coachScoutNotes: player.coachScoutNotes || "",
   });
-  const [err,setErr] = useState("");
+  const [err,setErr]           = useState("");
+  const [activeTab,setActiveTab] = useState("info"); // info | recruiting
+  const [inviteSent,setInviteSent] = useState(false);
+  const [inviting,setInviting]    = useState(false);
+  const [newSchool,setNewSchool]  = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
+  const [addingSchool,setAddingSchool] = useState(false);
+
+  async function sendInvite(){
+    if(!form.email) return alert("Add player email first");
+    setInviting(true);
+    const link = `${window.location.origin}${window.location.pathname}#/player/${form.id}`;
+    try{
+      await fetch("https://api.emailjs.com/api/v1.0/email/send",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          service_id: EJS_SERVICE,
+          template_id: "template_invite",
+          user_id: EJS_KEY,
+          template_params:{
+            to_email: form.email,
+            player_name: form.name,
+            profile_link: link,
+            pin: form.profilePin||"(no PIN set)",
+          }
+        })
+      });
+      setInviteSent(true);
+    }catch(e){ alert("Failed to send invite"); }
+    setInviting(false);
+  }
+
+  function addSchool(){
+    if(!newSchool.school.trim()) return;
+    setForm(f=>({...f, recruitingSchools:[...f.recruitingSchools,{...newSchool,id:`s${Date.now()}`}]}));
+    setNewSchool({school:"",division:"D1",contact:"",status:"identified",notes:""});
+    setAddingSchool(false);
+  }
+
+  function removeSchool(id){
+    setForm(f=>({...f, recruitingSchools:f.recruitingSchools.filter(s=>s.id!==id)}));
+  }
 
   function save(){
     if(!form.name.trim())        return setErr("Name is required");
@@ -2720,23 +2768,42 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     setErr("");
     onSave({...form, number:parseInt(form.number), position:form.positions,
       availability:form.availability, availNote:form.availNote,
-      returnDate:form.returnDate, profilePin:form.profilePin});
+      returnDate:form.returnDate, profilePin:form.profilePin,
+      gradYear:form.gradYear, height:form.height, weight:form.weight,
+      gpa:form.gpa, highlightsUrl:form.highlightsUrl,
+      recruitingStatus:form.recruitingStatus,
+      recruitingSchools:form.recruitingSchools,
+      coachScoutNotes:form.coachScoutNotes,
+    });
   }
 
   const primaryColor = POS_META[form.positions?.[0]]?.color || C.accent;
 
   return(
     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:28,width:"100%",maxWidth:420,boxShadow:"0 24px 60px #00000099"}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:28,width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px #00000099"}}>
 
         {/* Modal header */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>
             {isNew ? "Add Player" : "Edit Player"}
           </h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}><X size={18}/></button>
         </div>
+        {/* Tabs */}
+        {!isNew&&(
+          <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:`1px solid ${C.border}`}}>
+            {[{t:"info",l:"Player Info"},{t:"recruiting",l:"Recruiting"}].map(item=>(
+              <button key={item.t} onClick={()=>setActiveTab(item.t)}
+                style={{padding:"8px 16px",background:"none",border:"none",borderBottom:`2px solid ${activeTab===item.t?C.accent:"transparent"}`,
+                  color:activeTab===item.t?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13,marginBottom:-1}}>
+                {item.l}
+              </button>
+            ))}
+          </div>
+        )}
 
+        {(isNew||activeTab==="info")&&(<>
         {/* Jersey preview */}
         <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
           <div style={{width:72,height:72,borderRadius:14,background:primaryColor+"22",border:`3px solid ${primaryColor}55`,
@@ -2866,7 +2933,23 @@ function PlayerModal({player, onSave, onDelete, onClose}){
 
         {/* Error */}
         {err && <div style={{color:C.danger,fontSize:12,marginTop:10,fontWeight:600}}>{err}</div>}
+        </>)}
 
+        {!isNew&&activeTab==="recruiting"&&(
+          <RecruitingTab
+            form={form}
+            setForm={setForm}
+            sendInvite={sendInvite}
+            inviting={inviting}
+            inviteSent={inviteSent}
+            addingSchool={addingSchool}
+            setAddingSchool={setAddingSchool}
+            newSchool={newSchool}
+            setNewSchool={setNewSchool}
+            addSchool={addSchool}
+            removeSchool={removeSchool}
+          />
+        )}
         {/* Actions */}
         <div style={{display:"flex",gap:10,marginTop:22}}>
           <button onClick={save}
@@ -4744,7 +4827,7 @@ export default function CoachIQStats(){
     </div>
   );
 
-  if(window.location.hash.startsWith("#/player/")) return <PlayerProfilePage/>;
+  if(window.location.hash.startsWith("#/player/")) return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
 
@@ -10538,6 +10621,498 @@ function FeedbackModal({userEmail, onClose}){
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── PLAYER PORTAL PAGE ───────────────────────────────────────────────────────
+function PlayerPortalPage(){
+  const playerId = window.location.hash.replace("#/player/","").split("?")[0];
+  const [pin, setPin]         = useState("");
+  const [unlocked,setUnlocked]= useState(false);
+  const [player, setPlayer]   = useState(null);
+  const [games,  setGamesP]   = useState([]);
+  const [roster, setRosterP]  = useState([]);
+  const [error,  setError]    = useState(null);
+  const [loading,setLoading]  = useState(true);
+  const [tab,    setTab]      = useState("stats");
+
+  useEffect(()=>{
+    async function load(){
+      setLoading(true);
+      try{
+        // Find the roster that contains this player
+        const {data:rosters} = await supabase.from("rosters").select("*");
+        let foundPlayer=null, teamId=null;
+        for(const r of (rosters||[])){
+          const p=(r.players||[]).find(p=>p.id===playerId);
+          if(p){ foundPlayer=p; teamId=r.team_id; break; }
+        }
+        if(!foundPlayer){ setError("Player not found"); setLoading(false); return; }
+        setPlayer({...foundPlayer, teamId});
+
+        // Load games for this team
+        const {data:gData} = await supabase.from("games").select("*").eq("team_id",teamId);
+        setGamesP((gData||[]).map(x=>x.data));
+
+        // Load full roster for context
+        const {data:rData} = await supabase.from("rosters").select("*").eq("team_id",teamId);
+        setRosterP(rData?.[0]?.players||[]);
+
+        // Auto-unlock if no PIN set
+        if(!foundPlayer.profilePin) setUnlocked(true);
+      }catch(e){ setError("Failed to load profile"); }
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <AppLogo size={56} glow={true}/>
+      <div style={{color:"#ff6b00",fontSize:14,fontFamily:"'Outfit',sans-serif"}}>Loading profile...</div>
+    </div>
+  );
+
+  if(error) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{color:"#ff6b00",fontSize:16,fontFamily:"'Outfit',sans-serif"}}>{error}</div>
+    </div>
+  );
+
+  // PIN gate
+  if(!unlocked) return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#111",border:"1px solid #2a1000",borderRadius:20,padding:36,width:"100%",maxWidth:360,textAlign:"center"}}>
+        <AppLogo size={52} glow={true}/>
+        <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginTop:16,marginBottom:8}}>
+          Player Profile
+        </div>
+        <div style={{color:"#ffffff66",fontSize:14,marginBottom:24}}>Enter your profile PIN to continue</div>
+        <input value={pin} onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&(pin===player?.profilePin?setUnlocked(true):alert("Incorrect PIN"))}
+          placeholder="Enter PIN" type="password" maxLength={8}
+          style={{width:"100%",padding:"14px",background:"#1a0800",border:"1px solid #2a1000",borderRadius:10,
+            color:"white",fontSize:20,textAlign:"center",outline:"none",fontFamily:"'Outfit',sans-serif",
+            boxSizing:"border-box",marginBottom:12}}/>
+        <button onClick={()=>pin===player?.profilePin?setUnlocked(true):alert("Incorrect PIN")}
+          style={{width:"100%",padding:"13px",background:"#ff6b00",border:"none",borderRadius:10,
+            color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+          View Profile →
+        </button>
+      </div>
+    </div>
+  );
+
+  // Compute stats
+  const playerGames = games.filter(g=>g.stats?.some(s=>s.playerId===playerId));
+  const allStats    = playerGames.flatMap(g=>g.stats||[]).filter(s=>s.playerId===playerId);
+  const goals       = allStats.reduce((a,s)=>a+(s.goals||0),0);
+  const assists     = allStats.reduce((a,s)=>a+(s.assists||0),0);
+  const shots       = allStats.reduce((a,s)=>a+(s.shots||0),0);
+  const tackles     = allStats.reduce((a,s)=>a+(s.tackles||0),0);
+  const avgRat      = playerGames.length>0
+    ? (playerGames.map(g=>{
+        const s=g.stats.find(x=>x.playerId===playerId);
+        if(!s) return null;
+        const cs=g.theirScore===0;
+        const {rating}=calcRating(s,primaryPos(player),cs);
+        return rating;
+      }).filter(r=>r!==null).reduce((a,b,_,arr)=>a+b/arr.length,0)).toFixed(1)
+    : "—";
+
+  const recruitStatusLabel = {
+    open:"Open to Offers",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
+    committed:"Committed",not_recruiting:"Not Recruiting"
+  }[player.recruitingStatus]||"";
+
+  const statusColor = {
+    open:"#ff6b00",d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",
+    committed:"#66bb6a",not_recruiting:"#666"
+  }[player.recruitingStatus]||"#ff6b00";
+
+  const TABS=[["stats","Season Stats"],["recruiting","Recruiting"],["about","About"]];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#080808",fontFamily:"'Outfit',sans-serif"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",padding:"28px 24px 24px",borderBottom:"1px solid #2a1000"}}>
+        <div style={{maxWidth:600,margin:"0 auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:20}}>
+            <AppLogo size={24} glow={false}/>
+            <span style={{color:"#ff6b0088",fontSize:12,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
+          </div>
+          <div style={{display:"flex",alignItems:"flex-start",gap:20,flexWrap:"wrap"}}>
+            {/* Jersey */}
+            <div style={{width:72,height:72,borderRadius:14,flexShrink:0,
+              background:(POS_META[primaryPos(player)]?.color||"#ff6b00")+"22",
+              border:`3px solid ${(POS_META[primaryPos(player)]?.color||"#ff6b00")}55`,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontFamily:"'Oswald',sans-serif",fontWeight:900,
+              color:POS_META[primaryPos(player)]?.color||"#ff6b00",fontSize:30}}>
+              #{player.number}
+            </div>
+            <div style={{flex:1}}>
+              <h1 style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900,margin:"0 0 4px"}}>
+                {player.name}
+              </h1>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{color:"#ffffff88",fontSize:13}}>{allPos(player).join(" · ")}</span>
+                {player.gradYear&&<span style={{color:"#ff6b0088",fontSize:12,fontWeight:700}}>Class of {player.gradYear}</span>}
+                {player.height&&<span style={{color:"#ffffff44",fontSize:12}}>{player.height}</span>}
+                {player.weight&&<span style={{color:"#ffffff44",fontSize:12}}>{player.weight} lbs</span>}
+              </div>
+              {player.recruitingStatus&&player.recruitingStatus!=="open"&&(
+                <div style={{marginTop:8,display:"inline-block",padding:"4px 12px",
+                  background:statusColor+"22",border:`1px solid ${statusColor}44`,
+                  borderRadius:20,color:statusColor,fontSize:12,fontWeight:700}}>
+                  {recruitStatusLabel}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Quick stats strip */}
+          <div style={{display:"flex",gap:20,marginTop:20,flexWrap:"wrap"}}>
+            {[["Games",playerGames.length],["Goals",goals],["Assists",assists],["Avg Rating",avgRat]].map(([l,v])=>(
+              <div key={l}>
+                <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22,lineHeight:1}}>{v}</div>
+                <div style={{color:"#ffffff66",fontSize:11,marginTop:2}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{borderBottom:"1px solid #2a1000",background:"#0d0400"}}>
+        <div style={{maxWidth:600,margin:"0 auto",display:"flex"}}>
+          {TABS.map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t)}
+              style={{padding:"12px 20px",background:"none",border:"none",
+                borderBottom:`2px solid ${tab===t?"#ff6b00":"transparent"}`,
+                color:tab===t?"#ff6b00":"#ffffff66",cursor:"pointer",fontWeight:700,fontSize:13,
+                fontFamily:"'Outfit',sans-serif"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 20px"}}>
+
+        {/* STATS TAB */}
+        {tab==="stats"&&(
+          <div>
+            {playerGames.length===0?(
+              <div style={{color:"#ffffff44",fontSize:14,textAlign:"center",padding:"40px 0"}}>No game stats recorded yet</div>
+            ):(
+              <>
+                {/* Per-game breakdown */}
+                <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>GAME BY GAME</div>
+                {[...playerGames].sort((a,b)=>b.date?.localeCompare(a.date||"")||0).map(g=>{
+                  const s=g.stats.find(x=>x.playerId===playerId);
+                  if(!s) return null;
+                  const cs=g.theirScore===0;
+                  const {rating,label}=calcRating(s,primaryPos(player),cs);
+                  const rc=g.ourScore>g.theirScore?"#ff6b00":g.ourScore<g.theirScore?"#ef5350":"#ffa502";
+                  return(
+                    <div key={g.id} style={{background:"#111",border:"1px solid #2a1000",borderRadius:12,
+                      padding:"14px 16px",marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div>
+                          <div style={{color:"#fff",fontWeight:700,fontSize:14}}>vs {g.opponent}</div>
+                          <div style={{color:"#ffffff55",fontSize:11,marginTop:2}}>{g.date} · {g.location}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>{g.ourScore}–{g.theirScore}</div>
+                          <div style={{color:rColor(rating),fontWeight:700,fontSize:13}}>{rating.toFixed(1)} · {label}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                        {[["G",s.goals||0],["A",s.assists||0],["Shots",s.shots||0],["Tackles",s.tackles||0],["Mins",s.minutesPlayed||0]].map(([l,v])=>(
+                          <div key={l} style={{textAlign:"center"}}>
+                            <div style={{color:"#ff6b00",fontWeight:700,fontSize:16,lineHeight:1}}>{v}</div>
+                            <div style={{color:"#ffffff44",fontSize:10,marginTop:2}}>{l}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* RECRUITING TAB */}
+        {tab==="recruiting"&&(
+          <div>
+            {player.coachScoutNotes&&(
+              <div style={{background:"#111",border:"1px solid #2a1000",borderLeft:"3px solid #ff6b00",
+                borderRadius:"0 12px 12px 0",padding:"14px 18px",marginBottom:20}}>
+                <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:6}}>COACH PROFILE</div>
+                <div style={{color:"#ffffffcc",fontSize:14,lineHeight:1.7}}>{player.coachScoutNotes}</div>
+              </div>
+            )}
+            {player.highlightsUrl&&(
+              <div style={{marginBottom:20}}>
+                <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:8}}>HIGHLIGHTS</div>
+                <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
+                  style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px",
+                    background:"#111",border:"1px solid #2a1000",borderRadius:10,
+                    color:"#ff6b00",fontSize:13,fontWeight:700,textDecoration:"none"}}>
+                  ▶ Watch Highlights
+                </a>
+              </div>
+            )}
+            {(player.recruitingSchools||[]).length>0&&(
+              <div>
+                <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>INTERESTED SCHOOLS</div>
+                {player.recruitingSchools.map(s=>{
+                  const sc={identified:"#ffffff66",contacted:"#ffa502",visit:"#ff6b00",committed:"#66bb6a"}[s.status]||"#ffffff66";
+                  return(
+                    <div key={s.id} style={{background:"#111",border:"1px solid #2a1000",borderRadius:10,
+                      padding:"12px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{flex:1}}>
+                        <div style={{color:"#fff",fontWeight:700,fontSize:14}}>{s.school}</div>
+                        <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
+                          <span style={{color:"#ffffff44",fontSize:11,padding:"2px 7px",border:"1px solid #2a1000",borderRadius:4}}>{s.division}</span>
+                          <span style={{color:sc,fontSize:11,fontWeight:700}}>{s.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {!player.coachScoutNotes&&!player.highlightsUrl&&!(player.recruitingSchools||[]).length&&(
+              <div style={{color:"#ffffff44",fontSize:14,textAlign:"center",padding:"40px 0"}}>
+                Recruiting profile not yet set up
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABOUT TAB */}
+        {tab==="about"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {[
+              ["Position",allPos(player).join(", ")],
+              ["Jersey","#"+player.number],
+              ["Graduation Year",player.gradYear],
+              ["Height",player.height],
+              ["Weight",player.weight&&player.weight+" lbs"],
+              ["GPA",player.gpa],
+            ].filter(([,v])=>v).map(([l,v])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",
+                padding:"12px 0",borderBottom:"1px solid #2a1000"}}>
+                <div style={{color:"#ffffff66",fontSize:13}}>{l}</div>
+                <div style={{color:"#fff",fontSize:13,fontWeight:600}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{textAlign:"center",marginTop:40,paddingTop:20,borderTop:"1px solid #2a1000"}}>
+          <div style={{color:"#ffffff22",fontSize:11}}>Powered by <span style={{color:"#ff6b0066"}}>CoachIQ</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RECRUITING TAB COMPONENT ─────────────────────────────────────────────────
+function RecruitingTab({form,setForm,sendInvite,inviting,inviteSent,
+  addingSchool,setAddingSchool,newSchool,setNewSchool,addSchool,removeSchool}){
+
+  const STATUS_COLORS = {
+    identified:C.muted, contacted:C.warning, visit:C.accent, committed:"#66bb6a"
+  };
+  const DIVISIONS = ["D1","D2","D3","NAIA","JUCO"];
+  const STATUSES  = [
+    {k:"identified",l:"Identified"},{k:"contacted",l:"Contacted"},
+    {k:"visit",l:"Official Visit"},{k:"committed",l:"Committed"}
+  ];
+  const REC_STATUSES = [
+    {k:"open",l:"Open"},{k:"d1",l:"D1 Target"},{k:"d2",l:"D2 Target"},
+    {k:"d3",l:"D3 Target"},{k:"committed",l:"Committed"},{k:"not_recruiting",l:"Not Recruiting"}
+  ];
+  const FIELDS = [
+    {label:"Grad Year",key:"gradYear",ph:"e.g. 2026"},
+    {label:"Height",key:"height",ph:'e.g. 6\'2"'},
+    {label:"Weight",key:"weight",ph:"lbs"},
+    {label:"GPA",key:"gpa",ph:"e.g. 3.8"},
+  ];
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+      {/* Invite */}
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
+        <div style={{color:C.text,fontWeight:700,fontSize:13,marginBottom:4}}>Player Portal Invite</div>
+        <div style={{color:C.muted,fontSize:12,marginBottom:10,lineHeight:1.5}}>
+          Send {form.name} an email with a link to their personal profile page.
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{color:C.muted,fontSize:12,flex:1}}>{form.email||"No email set"}</div>
+          <button onClick={sendInvite} disabled={!form.email||inviting}
+            style={{padding:"7px 14px",background:inviteSent?C.accent+"22":C.accent,
+              border:`1px solid ${inviteSent?C.accent:"transparent"}`,borderRadius:8,
+              color:inviteSent?C.accent:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            {inviting?"Sending...":(inviteSent?"✓ Sent":"Send Invite")}
+          </button>
+          <button onClick={()=>{
+            const link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+            navigator.clipboard?.writeText(link).then(()=>alert("Link copied!")).catch(()=>alert(link));
+          }} style={{padding:"7px 10px",background:C.card,border:`1px solid ${C.border}`,
+            borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
+            ⎘ Copy Link
+          </button>
+        </div>
+      </div>
+
+      {/* Recruiting status */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>RECRUITING STATUS</label>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {REC_STATUSES.map(function(opt){return(
+            <button key={opt.k} onClick={()=>setForm(function(f){return {...f,recruitingStatus:opt.k};})}
+              style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:11,fontWeight:700,
+                background:form.recruitingStatus===opt.k?C.accent+"22":"transparent",
+                border:"1px solid "+(form.recruitingStatus===opt.k?C.accent:C.border),
+                color:form.recruitingStatus===opt.k?C.accent:C.muted}}>
+              {opt.l}
+            </button>
+          );})}
+        </div>
+      </div>
+
+      {/* Physical stats */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+        {FIELDS.map(function(f){return(
+          <div key={f.key}>
+            <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,display:"block",marginBottom:4}}>{f.label}</label>
+            <input value={form[f.key]||""} onChange={function(e){setForm(function(prev){return {...prev,[f.key]:e.target.value};});}}
+              placeholder={f.ph}
+              style={{width:"100%",padding:"7px 10px",background:C.bg,border:"1px solid "+C.border,
+                borderRadius:7,color:C.text,fontSize:12,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+          </div>
+        );})}
+      </div>
+
+      {/* Highlights URL */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>HIGHLIGHTS VIDEO URL</label>
+        <input value={form.highlightsUrl||""} onChange={function(e){setForm(function(f){return {...f,highlightsUrl:e.target.value};});}}
+          placeholder="YouTube or Hudl link..."
+          style={{width:"100%",padding:"9px 12px",background:C.bg,border:"1px solid "+C.border,
+            borderRadius:7,color:C.text,fontSize:13,outline:"none",
+            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+      </div>
+
+      {/* Coach scouting notes */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>
+          COACH SCOUTING NOTES
+        </label>
+        <textarea value={form.coachScoutNotes||""}
+          onChange={function(e){setForm(function(f){return {...f,coachScoutNotes:e.target.value};});}}
+          placeholder="Describe the player for college coaches..."
+          rows={3}
+          style={{width:"100%",padding:"9px 12px",background:C.bg,border:"1px solid "+C.border,
+            borderRadius:7,color:C.text,fontSize:13,outline:"none",
+            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",
+            resize:"vertical",lineHeight:1.5}}/>
+      </div>
+
+      {/* Schools */}
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>INTERESTED SCHOOLS</label>
+          <button onClick={()=>setAddingSchool(true)}
+            style={{padding:"5px 10px",background:C.accent+"22",border:"1px solid "+C.accent+"44",
+              borderRadius:7,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+            + Add School
+          </button>
+        </div>
+
+        {addingSchool&&(
+          <div style={{background:C.bg,border:"1px solid "+C.accent+"44",borderRadius:10,padding:14,marginBottom:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <input value={newSchool.school}
+                onChange={function(e){setNewSchool(function(s){return {...s,school:e.target.value};});}}
+                placeholder="School name"
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <select value={newSchool.division}
+                onChange={function(e){setNewSchool(function(s){return {...s,division:e.target.value};});}}
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+                {DIVISIONS.map(function(d){return <option key={d}>{d}</option>;})}
+              </select>
+              <input value={newSchool.contact}
+                onChange={function(e){setNewSchool(function(s){return {...s,contact:e.target.value};});}}
+                placeholder="Contact name"
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <select value={newSchool.status}
+                onChange={function(e){setNewSchool(function(s){return {...s,status:e.target.value};});}}
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+                {STATUSES.map(function(s){return <option key={s.k} value={s.k}>{s.l}</option>;})}
+              </select>
+            </div>
+            <input value={newSchool.notes}
+              onChange={function(e){setNewSchool(function(s){return {...s,notes:e.target.value};});}}
+              placeholder="Notes..."
+              style={{width:"100%",padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                borderRadius:7,color:C.text,fontSize:12,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={addSchool}
+                style={{flex:1,padding:"8px",background:C.accent,border:"none",borderRadius:8,
+                  color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                Save School
+              </button>
+              <button onClick={()=>setAddingSchool(false)}
+                style={{padding:"8px 12px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(form.recruitingSchools||[]).length===0&&!addingSchool&&(
+          <div style={{color:C.muted,fontSize:12,fontStyle:"italic",textAlign:"center",padding:"12px 0"}}>
+            No schools added yet
+          </div>
+        )}
+
+        {(form.recruitingSchools||[]).map(function(s){
+          return(
+            <div key={s.id} style={{background:C.surface,border:"1px solid "+C.border,borderRadius:9,
+              padding:"10px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{color:C.text,fontWeight:700,fontSize:13}}>{s.school}</span>
+                  <span style={{color:C.muted,fontSize:11,padding:"2px 7px",border:"1px solid "+C.border,borderRadius:4}}>{s.division}</span>
+                  <span style={{color:STATUS_COLORS[s.status]||C.muted,fontSize:11,fontWeight:700}}>{s.status}</span>
+                </div>
+                {s.contact&&<div style={{color:C.muted,fontSize:11,marginTop:2}}>Contact: {s.contact}</div>}
+                {s.notes&&<div style={{color:C.muted,fontSize:11,marginTop:2,fontStyle:"italic"}}>{s.notes}</div>}
+              </div>
+              <button onClick={()=>removeSchool(s.id)}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}>
+                <X size={14}/>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
