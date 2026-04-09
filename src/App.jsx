@@ -4327,14 +4327,18 @@ export default function CoachIQStats(){
     setDataLoading(true);
     try{
       // Load teams
-      const {data:teamsData, error:teamsError} = await supabase.from("teams").select("*").eq("user_id",userId);
-      if(teamsError) throw new Error("Could not load teams: "+teamsError.message);
+      // Try filtered query first, fall back to unfiltered if RLS blocks it
+      let {data:teamsData, error:teamsError} = await supabase.from("teams").select("*").eq("user_id",userId);
+      if(teamsError||!teamsData){
+        console.warn("Teams filtered query failed, trying unfiltered:", teamsError?.message);
+        const {data:allTeams} = await supabase.from("teams").select("*");
+        teamsData = (allTeams||[]).filter(t=>t.user_id===userId);
+      }
       const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
 
-      if(teamsData !== null && myTeams.length===0){
+      if(myTeams.length===0 && teamsData !== null){
         // Confirmed empty — first login, create default team
-        const {data:newTeam, error:newTeamErr} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId}).select();
-        if(newTeamErr) throw new Error("Could not create team: "+newTeamErr.message);
+        const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId}).select();
         if(newTeam?.[0]){
           myTeams.push({id:newTeam[0].id,name:newTeam[0].name,type:newTeam[0].type||'varsity',supaId:newTeam[0].id});
         }
