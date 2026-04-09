@@ -4447,13 +4447,18 @@ export default function CoachIQStats(){
     try{
       const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
       if(newGame){
-        await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
+        const {error:e1} = await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
+        if(e1) throw new Error(e1.message);
       } else {
-        await supabase.from("games").delete().eq("team_id",safeTeamId);
-        if(resolved.length) await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+        const {error:e2} = await supabase.from("games").delete().eq("team_id",safeTeamId);
+        if(e2) throw new Error(e2.message);
+        if(resolved.length){
+          const {error:e3} = await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
+          if(e3) throw new Error(e3.message);
+        }
       }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setGames error:",e); }
   }
 
   async function setGamePlans(val){
@@ -4461,10 +4466,14 @@ export default function CoachIQStats(){
     setGamePlansState(resolved);
     startSave();
     try{
-      await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
-      if(resolved.length) await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+      const {error:e1} = await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+      if(e1) throw new Error(e1.message);
+      if(resolved.length){
+        const {error:e2} = await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+        if(e2) throw new Error(e2.message);
+      }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setGamePlans error:",e); }
   }
 
   async function setPractices(val){
@@ -4472,10 +4481,14 @@ export default function CoachIQStats(){
     setPracticesState(resolved);
     startSave();
     try{
-      await supabase.from("practices").delete().eq("team_id",safeTeamId);
-      if(resolved.length) await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+      const {error:e1} = await supabase.from("practices").delete().eq("team_id",safeTeamId);
+      if(e1) throw new Error(e1.message);
+      if(resolved.length){
+        const {error:e2} = await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
+        if(e2) throw new Error(e2.message);
+      }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setPractices error:",e); }
   }
 
   async function setDrills(val){
@@ -4505,10 +4518,14 @@ export default function CoachIQStats(){
     setScheduleState(resolved);
     startSave();
     try{
-      await supabase.from("schedule").delete().eq("team_id",safeTeamId);
-      if(resolved.length) await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
+      const {error:e1} = await supabase.from("schedule").delete().eq("team_id",safeTeamId);
+      if(e1) throw new Error(e1.message);
+      if(resolved.length){
+        const {error:e2} = await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
+        if(e2) throw new Error(e2.message);
+      }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setSchedule error:",e); }
   }
 
   async function setTryouts(val){
@@ -4516,10 +4533,14 @@ export default function CoachIQStats(){
     setTryoutsState(resolved);
     startSave();
     try{
-      await supabase.from("tryouts").delete().eq("team_id",safeTeamId);
-      if(resolved.length) await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
+      const {error:e1} = await supabase.from("tryouts").delete().eq("team_id",safeTeamId);
+      if(e1) throw new Error(e1.message);
+      if(resolved.length){
+        const {error:e2} = await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
+        if(e2) throw new Error(e2.message);
+      }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setTryouts error:",e); }
   }
 
   async function setOpponents(val){
@@ -4527,10 +4548,14 @@ export default function CoachIQStats(){
     setOpponentsState(resolved);
     startSave();
     try{
-      await supabase.from("opponents").delete().eq("team_id",safeTeamId);
-      if(resolved.length) await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
+      const {error:e1} = await supabase.from("opponents").delete().eq("team_id",safeTeamId);
+      if(e1) throw new Error(e1.message);
+      if(resolved.length){
+        const {error:e2} = await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
+        if(e2) throw new Error(e2.message);
+      }
       endSave(null);
-    }catch(e){ endSave(e); }
+    }catch(e){ endSave(e); console.error("setOpponents error:",e); }
   }
 
   // ── Team management ───────────────────────────────────────────────────────
