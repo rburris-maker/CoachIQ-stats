@@ -11008,6 +11008,216 @@ function PlayerPortalPage(){
   );
 }
 
+// ─── RECRUITING TAB COMPONENT ─────────────────────────────────────────────────
+function RecruitingTab({form,setForm,
+  addingSchool,setAddingSchool,newSchool,setNewSchool,addSchool,removeSchool}){
+
+  var STATUS_COLORS = {identified:C.muted,contacted:C.warning,visit:C.accent,committed:"#66bb6a"};
+  var DIVISIONS = ["D1","D2","D3","NAIA","JUCO"];
+  var STATUSES  = [
+    {k:"identified",l:"Identified"},{k:"contacted",l:"Contacted"},
+    {k:"visit",l:"Official Visit"},{k:"committed",l:"Committed"}
+  ];
+  var REC_STATUSES = [
+    {k:"open",l:"Open"},{k:"d1",l:"D1 Target"},{k:"d2",l:"D2 Target"},
+    {k:"d3",l:"D3 Target"},{k:"committed",l:"Committed"},{k:"not_recruiting",l:"Not Recruiting"}
+  ];
+  var FIELDS = [
+    {label:"Grad Year",key:"gradYear",ph:"e.g. 2026"},
+    {label:"Height",key:"height",ph:"e.g. 6'2""},
+    {label:"Weight",key:"weight",ph:"lbs"},
+    {label:"GPA",key:"gpa",ph:"e.g. 3.8"},
+  ];
+
+  function sendProfileEmail(){
+    if(!form.email){ alert("No email set. Add it in the Player Info tab."); return; }
+    var link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+    fetch("https://api.emailjs.com/api/v1.0/email/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        service_id:EJS_SERVICE,
+        template_id:"template_invite",
+        user_id:EJS_KEY,
+        template_params:{to_email:form.email,player_name:form.name,profile_link:link,pin:"No PIN required"}
+      })
+    }).then(function(res){
+      if(res.ok){ alert("Profile link sent to "+form.email+"!"); }
+      else { res.text().then(function(t){ alert("Email failed ("+res.status+"): "+t); }); }
+    }).catch(function(e){ alert("Email error: "+e.message); });
+  }
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+      {/* Share profile */}
+      <div style={{background:C.surface,border:"1px solid "+C.accent+"33",borderRadius:10,padding:"16px 18px"}}>
+        <div style={{color:C.text,fontWeight:700,fontSize:13,marginBottom:4}}>Share Player Profile</div>
+        <div style={{color:C.muted,fontSize:12,marginBottom:10,lineHeight:1.5}}>
+          Share this link with {form.name} or a college coach.
+        </div>
+        <div style={{background:C.bg,border:"1px solid "+C.border,borderRadius:8,
+          padding:"9px 12px",marginBottom:10,color:C.muted,fontSize:11,wordBreak:"break-all",lineHeight:1.6}}>
+          {window.location.origin+window.location.pathname+"#/player/"+form.id}
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={function(){
+            var link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+            navigator.clipboard.writeText(link).then(function(){alert("Link copied!");}).catch(function(){alert(link);});
+          }} style={{flex:1,padding:"9px",background:C.surface,border:"1px solid "+C.border,
+            borderRadius:8,color:C.text,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            ⎘ Copy Link
+          </button>
+          <button onClick={sendProfileEmail}
+            style={{flex:1,padding:"9px",background:C.accent,border:"none",
+              borderRadius:8,color:"#000",fontWeight:800,fontSize:12,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif"}}>
+            ✉ Send to Player
+          </button>
+        </div>
+      </div>
+
+      {/* Recruiting status */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>RECRUITING STATUS</label>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {REC_STATUSES.map(function(opt){return(
+            <button key={opt.k} onClick={function(){setForm(function(f){return Object.assign({},f,{recruitingStatus:opt.k});});}}
+              style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:11,fontWeight:700,
+                background:form.recruitingStatus===opt.k?C.accent+"22":"transparent",
+                border:"1px solid "+(form.recruitingStatus===opt.k?C.accent:C.border),
+                color:form.recruitingStatus===opt.k?C.accent:C.muted}}>
+              {opt.l}
+            </button>
+          );})}
+        </div>
+      </div>
+
+      {/* Physical stats */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+        {FIELDS.map(function(f){return(
+          <div key={f.key}>
+            <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,display:"block",marginBottom:4}}>{f.label}</label>
+            <input value={form[f.key]||""} onChange={function(e){setForm(function(prev){return Object.assign({},prev,{[f.key]:e.target.value});});}}
+              placeholder={f.ph}
+              style={{width:"100%",padding:"7px 8px",background:C.bg,border:"1px solid "+C.border,
+                borderRadius:7,color:C.text,fontSize:12,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+          </div>
+        );})}
+      </div>
+
+      {/* Highlights URL */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>HIGHLIGHTS VIDEO URL</label>
+        <input value={form.highlightsUrl||""} onChange={function(e){setForm(function(f){return Object.assign({},f,{highlightsUrl:e.target.value});});}}
+          placeholder="YouTube or Hudl link..."
+          style={{width:"100%",padding:"9px 12px",background:C.bg,border:"1px solid "+C.border,
+            borderRadius:7,color:C.text,fontSize:13,outline:"none",
+            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+      </div>
+
+      {/* Coach scouting notes */}
+      <div>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>COACH SCOUTING NOTES</label>
+        <textarea value={form.coachScoutNotes||""}
+          onChange={function(e){setForm(function(f){return Object.assign({},f,{coachScoutNotes:e.target.value});});}}
+          placeholder="Describe the player for college coaches..."
+          rows={3}
+          style={{width:"100%",padding:"9px 12px",background:C.bg,border:"1px solid "+C.border,
+            borderRadius:7,color:C.text,fontSize:13,outline:"none",
+            fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
+      </div>
+
+      {/* Schools */}
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>INTERESTED SCHOOLS</label>
+          <button onClick={function(){setAddingSchool(true);}}
+            style={{padding:"5px 10px",background:C.accent+"22",border:"1px solid "+C.accent+"44",
+              borderRadius:7,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+            + Add School
+          </button>
+        </div>
+
+        {addingSchool&&(
+          <div style={{background:C.bg,border:"1px solid "+C.accent+"44",borderRadius:10,padding:14,marginBottom:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <input value={newSchool.school}
+                onChange={function(e){setNewSchool(function(s){return Object.assign({},s,{school:e.target.value});});}}
+                placeholder="School name"
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <select value={newSchool.division}
+                onChange={function(e){setNewSchool(function(s){return Object.assign({},s,{division:e.target.value});});}}
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+                {DIVISIONS.map(function(d){return <option key={d}>{d}</option>;})}
+              </select>
+              <input value={newSchool.contact}
+                onChange={function(e){setNewSchool(function(s){return Object.assign({},s,{contact:e.target.value});});}}
+                placeholder="Contact name"
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <select value={newSchool.status}
+                onChange={function(e){setNewSchool(function(s){return Object.assign({},s,{status:e.target.value});});}}
+                style={{padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+                {STATUSES.map(function(s){return <option key={s.k} value={s.k}>{s.l}</option>;})}
+              </select>
+            </div>
+            <input value={newSchool.notes}
+              onChange={function(e){setNewSchool(function(s){return Object.assign({},s,{notes:e.target.value});});}}
+              placeholder="Notes..."
+              style={{width:"100%",padding:"7px 10px",background:C.surface,border:"1px solid "+C.border,
+                borderRadius:7,color:C.text,fontSize:12,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={addSchool}
+                style={{flex:1,padding:"8px",background:C.accent,border:"none",borderRadius:8,
+                  color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                Save School
+              </button>
+              <button onClick={function(){setAddingSchool(false);}}
+                style={{padding:"8px 12px",background:C.surface,border:"1px solid "+C.border,
+                  borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(form.recruitingSchools||[]).length===0&&!addingSchool&&(
+          <div style={{color:C.muted,fontSize:12,fontStyle:"italic",textAlign:"center",padding:"12px 0"}}>
+            No schools added yet
+          </div>
+        )}
+
+        {(form.recruitingSchools||[]).map(function(s){
+          return(
+            <div key={s.id} style={{background:C.surface,border:"1px solid "+C.border,borderRadius:9,
+              padding:"10px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{color:C.text,fontWeight:700,fontSize:13}}>{s.school}</span>
+                  <span style={{color:C.muted,fontSize:11,padding:"2px 7px",border:"1px solid "+C.border,borderRadius:4}}>{s.division}</span>
+                  <span style={{color:STATUS_COLORS[s.status]||C.muted,fontSize:11,fontWeight:700}}>{s.status}</span>
+                </div>
+                {s.contact&&<div style={{color:C.muted,fontSize:11,marginTop:2}}>Contact: {s.contact}</div>}
+                {s.notes&&<div style={{color:C.muted,fontSize:11,marginTop:2,fontStyle:"italic"}}>{s.notes}</div>}
+              </div>
+              <button onClick={function(){removeSchool(s.id);}}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4,fontSize:16}}>
+                ✕
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── EDIT STATS MODAL ─────────────────────────────────────────────────────────
 function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
   if(!editStats) return null;
