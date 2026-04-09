@@ -48,7 +48,7 @@ const supabase = (() => {
       _upsert:false,_upsertOpts:{},_single:false,_limit:null,
 
       // Filter chainers
-      eq(col,val){  this._filters.push([col,"eq",val]);  return this; },
+      eq(col,val){  if(val===null||val===undefined){ console.warn(`⚠️ .eq("${col}") called with ${val} — filter skipped`); return this; } this._filters.push([col,"eq",val]);  return this; },
       neq(col,val){ this._filters.push([col,"neq",val]); return this; },
       is(col,val){  this._filters.push([col,"is",val]);  return this; },
       not(col,op,val){ this._filters.push([col,`not.${op}`,val]); return this; },
@@ -78,10 +78,14 @@ const supabase = (() => {
         if(this._limit) p.set("limit",this._limit);
         const qs=p.toString()?`?${p}`:"";
 
-        // Safety: no filter deletes are blocked
+        // Safety: no filter deletes/updates are blocked
         if(this._method==="DELETE"&&!this._filters.length){
           console.warn("🛑 Delete without filter blocked — use .eq() to filter");
-          return {data:null,error:{message:"Delete requires a filter"}};
+          return {data:null,error:{message:"DELETE requires a WHERE clause"}};
+        }
+        if(this._method==="PATCH"&&!this._filters.length){
+          console.warn("🛑 Update without filter blocked — use .eq() to filter");
+          return {data:null,error:{message:"UPDATE requires a WHERE clause"}};
         }
 
         let hdrs=h();
@@ -971,7 +975,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [sendMsg,setSendMsg]=useState(null);
   const [showQuick,setShowQuick]=useState(false);
   const [editGame,setEditGame]=useState(null); // game object being edited
-  const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
+  const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
   const [addStatsFor,setAddStatsFor]=useState(null); // gameId to add stats to
   const fileRef=useRef(null);
   const statsFileRef=useRef(null);
@@ -988,6 +992,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       theirScore:parseInt(quickForm.theirScore)||0,
       status:"completed",
       entryType:"quick",
+      coachNotes:quickForm.coachNotes||"",
       stats:[],
       createdAt:new Date().toISOString(),
     };
@@ -1009,7 +1014,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       });
     }
     setShowQuick(false);
-    setQuickForm({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
+    setQuickForm({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
   }
 
   async function sendReports(game, roster, teamName, allGames){
@@ -1213,6 +1218,12 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <div style={{color:C.muted,fontSize:12,marginTop:4}}>Squad avg: <span style={{color:rColor(squadAvg),fontWeight:700}}>{squadAvg}</span></div>
             </div>
           </div>
+          {game.coachNotes&&(
+              <div style={{marginTop:16,padding:"10px 14px",background:"rgba(0,0,0,.3)",borderRadius:9,borderLeft:`3px solid ${C.accent}`}}>
+                <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:4}}>COACH NOTES</div>
+                <div style={{color:"#ffffffcc",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{game.coachNotes}</div>
+              </div>
+            )}
           <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
             {[["Shots",tSh],["On Target",tSoT],["Pass Acc.",`${pacc}%`],["Passes",tPC]].map(([l,v])=>(
               <div key={l} style={{background:"#ffffff08",borderRadius:8,padding:"8px 14px"}}>
@@ -1391,6 +1402,16 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               </div>
             </div>
 
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
+              <textarea value={editGame.coachNotes||""} onChange={e=>setEditGame(g=>({...g,coachNotes:e.target.value}))}
+                placeholder="Key observations, tactical notes, standout moments..."
+                rows={3}
+                style={{width:"100%",padding:"10px 14px",background:C.bg,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
+            </div>
+
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setEditGame(null)}
                 style={{flex:1,padding:"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
@@ -1480,6 +1501,16 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                       fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
                 </div>
               </div>
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
+              <textarea value={quickForm.coachNotes} onChange={e=>setQuickForm(f=>({...f,coachNotes:e.target.value}))}
+                placeholder="Key observations, tactical notes, standout moments..."
+                rows={3}
+                style={{width:"100%",padding:"10px 14px",background:C.bg,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
             </div>
 
             <div style={{display:"flex",gap:10}}>
@@ -1583,6 +1614,13 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   <span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={11}/>{game.location}</span>
                   <span>{game.formation}</span>
                 </div>
+              {game.coachNotes&&(
+                <div style={{color:C.muted,fontSize:11,marginTop:3,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"340px",
+                  fontStyle:"italic"}}>
+                  📝 {game.coachNotes}
+                </div>
+              )}
               </div>
               {game.entryType==="quick"&&(
                 <button onClick={e=>{e.stopPropagation();setAddStatsFor(game.id);fileRef.current?.click();}}
@@ -4670,7 +4708,7 @@ export default function CoachIQStats(){
 
   async function renameTeam(id,name,type){
     setTeamsState(prev=>prev.map(t=>t.id===id?{...t,name,type:type||t.type}:t));
-    await supabase.from("teams").update({name,...(type?{type}:{})},{id});
+    await supabase.from("teams").update({name,...(type?{type}:{})}).eq("id",id);
   }
 
   async function deleteTeam(id){
@@ -10217,9 +10255,17 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
 
   async function saveBranding(){
     if(!isElite){ onUpgrade(); return; }
+    if(!userId){ alert("Not logged in."); return; }
     setSaving(true);
     try{
-      const {error:brandErr} = await supabase.from("teams").update({brand_name:name,brand_logo:logoUrl||null},{id:safeTeamId});
+      // If we have a specific team id use it, otherwise update all user's teams
+      let q = supabase.from("teams").update({brand_name:name, brand_logo:logoUrl||null});
+      if(safeTeamId){
+        q = q.eq("id", safeTeamId);
+      } else {
+        q = q.eq("user_id", userId);
+      }
+      const {error:brandErr} = await q;
       if(brandErr) throw new Error(brandErr.message);
       setBrandName(name);
       setBrandLogo(logoUrl||null);
