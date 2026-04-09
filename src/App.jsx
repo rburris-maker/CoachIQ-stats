@@ -4058,27 +4058,16 @@ export default function CoachIQStats(){
 
   async function loadTeamData(tid){
     if(!tid||!userId) return;
-    const fetches = [
-      supabase.from("rosters").select("*").filter,
-      supabase.from("games").select("*").filter,
-      supabase.from("game_plans").select("*").filter,
-      supabase.from("practices").select("*").filter,
-      supabase.from("drills").select("*").filter,
-      supabase.from("session_templates").select("*").filter,
-      supabase.from("schedule").select("*").filter,
-      supabase.from("tryouts").select("*").filter,
-    ];
-
     const [r,g,gp,pr,dr,tp,sc,tr,op] = await Promise.all([
-      supabase.from("rosters").select("*",{filter:{team_id:tid}}),
-      supabase.from("games").select("*",{filter:{team_id:tid}}),
-      supabase.from("game_plans").select("*",{filter:{team_id:tid}}),
-      supabase.from("practices").select("*",{filter:{team_id:tid}}),
-      supabase.from("drills").select("*",{filter:{team_id:tid}}),
-      supabase.from("session_templates").select("*",{filter:{team_id:tid}}),
-      supabase.from("schedule").select("*",{filter:{team_id:tid}}),
-      supabase.from("tryouts").select("*",{filter:{team_id:tid}}),
-      supabase.from("opponents").select("*",{filter:{team_id:tid}}),
+      supabase.from("rosters").select("*").eq("team_id",tid),
+      supabase.from("games").select("*").eq("team_id",tid),
+      supabase.from("game_plans").select("*").eq("team_id",tid),
+      supabase.from("practices").select("*").eq("team_id",tid),
+      supabase.from("drills").select("*").eq("team_id",tid),
+      supabase.from("session_templates").select("*").eq("team_id",tid),
+      supabase.from("schedule").select("*").eq("team_id",tid),
+      supabase.from("tryouts").select("*").eq("team_id",tid),
+      supabase.from("opponents").select("*").eq("team_id",tid),
     ]);
 
     setRosterState((r.data?.[0]?.players) || []);
@@ -4514,10 +4503,30 @@ export default function CoachIQStats(){
                 <button onClick={()=>setMobileSidebarOpen(false)}
                   style={{background:"none",border:"none",color:"#ffffff88",cursor:"pointer",fontSize:20}}>✕</button>
               </div>
-              {/* Team label */}
+              {/* Team switcher */}
               <div style={{padding:"8px 16px 12px",borderBottom:`1px solid ${C.sidebarBorder}`}}>
-                <div style={{color:"#ffffff88",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>TEAM</div>
-                <div style={{color:"#ffffff",fontWeight:700,fontSize:14}}>{activeTeam?.name||"My Team"}</div>
+                <div style={{color:"#ffffff88",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>TEAM</div>
+                {teams.length>1?(
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {teams.map(t=>(
+                      <button key={t.id}
+                        onClick={()=>{switchTeam(t.id);setMobileSidebarOpen(false);}}
+                        style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",
+                          borderRadius:8,border:`1.5px solid ${t.id===safeTeamId?C.accent:"rgba(255,255,255,.1)"}`,
+                          background:t.id===safeTeamId?C.accent+"22":"transparent",
+                          color:t.id===safeTeamId?C.accent:"#ffffffaa",
+                          cursor:"pointer",fontSize:13,fontWeight:t.id===safeTeamId?700:500,
+                          width:"100%",textAlign:"left"}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",
+                          background:t.id===safeTeamId?C.accent:"rgba(255,255,255,.3)",flexShrink:0}}/>
+                        {t.name}
+                        {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10,opacity:.7}}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                ):(
+                  <div style={{color:"#ffffff",fontWeight:700,fontSize:14}}>{activeTeam?.name||"My Team"}</div>
+                )}
               </div>
               {/* Nav */}
               <nav style={{flex:1,padding:"8px 0"}}>
