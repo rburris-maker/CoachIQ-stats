@@ -4442,19 +4442,36 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(games) : val;
     setGamesState(resolved);
     startSave();
-    console.log("setGames saving, teamId:", safeTeamId, "userId:", userId);
     try{
-      const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
-      if(newGame){
-        const {error:e1} = await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
-        if(e1) throw new Error(e1.message);
-      } else {
-        const {error:e2} = await supabase.from("games").delete({team_id:safeTeamId});
-        if(e2) throw new Error(e2.message);
-        if(resolved.length){
-          const {error:e3} = await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
-          if(e3) throw new Error(e3.message);
+      const tid = safeTeamId || activeTeamId;
+      const uid = userId;
+
+      // Find added games (in resolved but not in current games)
+      const added = resolved.filter(g=>!games.find(x=>x.id===g.id));
+      // Find removed games (in current games but not in resolved)
+      const removed = games.filter(g=>!resolved.find(x=>x.id===g.id));
+      // Find updated games (same id, different content)
+      const updated = resolved.filter(g=>{
+        const old = games.find(x=>x.id===g.id);
+        return old && JSON.stringify(old)!==JSON.stringify(g);
+      });
+
+      for(const g of added){
+        const {error:e} = await supabase.from("games").insert({team_id:tid,user_id:uid,data:g});
+        if(e) throw new Error("Insert failed: "+e.message);
+      }
+      for(const g of removed){
+        const {error:e} = await supabase.from("games").delete().eq("team_id",tid).eq("data->>id",g.id);
+        if(e){
+          // Fallback: delete by team and rebuild
+          await supabase.from("games").delete().eq("team_id",tid);
+          if(resolved.length) await supabase.from("games").insert(resolved.map(x=>({team_id:tid,user_id:uid,data:x})));
+          break;
         }
+      }
+      for(const g of updated){
+        const {error:e} = await supabase.from("games").delete().eq("team_id",tid).eq("data->>id",g.id);
+        if(!e) await supabase.from("games").insert({team_id:tid,user_id:uid,data:g});
       }
       endSave(null);
     }catch(e){ endSave(e); console.error("setGames error:",e); }
@@ -4465,7 +4482,7 @@ export default function CoachIQStats(){
     setGamePlansState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("game_plans").delete({team_id:safeTeamId});
+      const {error:e1} = await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
@@ -4480,7 +4497,7 @@ export default function CoachIQStats(){
     setPracticesState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("practices").delete({team_id:safeTeamId});
+      const {error:e1} = await supabase.from("practices").delete().eq("team_id",safeTeamId);
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
@@ -4517,7 +4534,7 @@ export default function CoachIQStats(){
     setScheduleState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("schedule").delete({team_id:safeTeamId});
+      const {error:e1} = await supabase.from("schedule").delete().eq("team_id",safeTeamId);
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
@@ -4532,7 +4549,7 @@ export default function CoachIQStats(){
     setTryoutsState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("tryouts").delete({team_id:safeTeamId});
+      const {error:e1} = await supabase.from("tryouts").delete().eq("team_id",safeTeamId);
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
@@ -4547,7 +4564,7 @@ export default function CoachIQStats(){
     setOpponentsState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("opponents").delete({team_id:safeTeamId});
+      const {error:e1} = await supabase.from("opponents").delete().eq("team_id",safeTeamId);
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
@@ -4654,7 +4671,7 @@ export default function CoachIQStats(){
   async function deleteTeam(id){
     const remaining = teams.filter(t=>t.id!==id);
     setTeamsState(remaining);
-    await supabase.from("teams").delete({id:id});
+    await supabase.from("teams").delete().eq("id",id);
     if(activeTeamId===id){
       const nextId = remaining[0]?.id;
       setActiveTeamId(nextId);
@@ -5647,7 +5664,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
@@ -5667,7 +5684,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 // Wait for Supabase to persist before opening
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete({team_id:safeTeamId});
+                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
