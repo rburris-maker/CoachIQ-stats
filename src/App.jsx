@@ -1837,7 +1837,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade}){
         finalMins[p.id] = pm.totalMins || 0;
       }
     });
-    const sa=PLAYERS.map(p=>({...stats[p.id], minutesPlayed: finalMins[p.id]||0}));
+    const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}), minutesPlayed: finalMins[p.id]||0}));
     setGames(prev=>[{...live,status:"completed",stats:sa},...prev]);
     setLive(null);setEndConfirm(false);setAutoMin(false);
   }
@@ -10875,6 +10875,29 @@ function PlayerPortalPage(){
 function RecruitingTab({form,setForm,
   addingSchool,setAddingSchool,newSchool,setNewSchool,addSchool,removeSchool}){
 
+  function sendProfileEmail(){
+    if(!form.email){ alert("No email set. Add it in the Player Info tab."); return; }
+    var link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+    fetch("https://api.emailjs.com/api/v1.0/email/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        service_id:EJS_SERVICE,
+        template_id:"template_invite",
+        user_id:EJS_KEY,
+        template_params:{
+          to_email:form.email,
+          player_name:form.name,
+          profile_link:link,
+          pin:"No PIN required"
+        }
+      })
+    }).then(function(res){
+      if(res.ok){ alert("Profile link sent to "+form.email+"!"); }
+      else { res.text().then(function(t){ alert("Email failed ("+res.status+"): "+t); }); }
+    }).catch(function(e){ alert("Email error: "+e.message); });
+  }
+
   const STATUS_COLORS = {
     identified:C.muted, contacted:C.warning, visit:C.accent, committed:"#66bb6a"
   };
@@ -10918,27 +10941,10 @@ function RecruitingTab({form,setForm,
             borderRadius:9,color:C.text,fontWeight:700,fontSize:13,cursor:"pointer"}}>
             ⎘ Copy Link
           </button>
-          <button onClick={()=>{
-            if(!form.email){ alert("No email set for this player. Add one in the Player Info tab."); return; }
-            const link=window.location.origin+window.location.pathname+"#/player/"+form.id;
-            fetch("https://api.emailjs.com/api/v1.0/email/send",{
-              method:"POST",headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({
-                service_id:EJS_SERVICE,
-                template_id:"template_invite",
-                user_id:EJS_KEY,
-                template_params:{
-                  to_email:form.email,
-                  player_name:form.name,
-                  profile_link:link,
-                  pin:"No PIN required",
-                }
-              })
-            }).then(()=>alert("Profile link sent to "+form.email+"!"))
-              .catch(()=>alert("Failed to send email. Check EmailJS setup."));
-          }} style={{flex:1,padding:"10px",background:C.accent,border:"none",borderRadius:9,
-            color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-            fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+          <button onClick={sendProfileEmail}
+            style={{flex:1,padding:"10px",background:C.accent,border:"none",borderRadius:9,
+              color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
             ✉ Send to Player
           </button>
         </div>
