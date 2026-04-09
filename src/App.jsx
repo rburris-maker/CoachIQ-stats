@@ -4342,7 +4342,7 @@ export default function CoachIQStats(){
       const tid = myTeams[0]?.id;
       // Check subscription - pro or elite follows user account
       try{
-        const {data:subData} = await supabase.from("teams").select("subscription_status,brand_name,brand_logo").eq("user_id",userId);
+        const {data:subData} = await supabase.from("teams").select("id,subscription_status,brand_name,brand_logo").eq("user_id",userId);
         const statuses = (subData||[]).map(t=>t.subscription_status);
         const isEliteUser = statuses.some(s=>s==="elite");
         const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
@@ -4371,33 +4371,31 @@ export default function CoachIQStats(){
   async function loadTeamData(tid){
     if(!tid||!userId) return;
     try{
-    const [r,g,gp,pr,dr,tp,sc,tr,op] = await Promise.all([
-      supabase.from("rosters").select("*").eq("team_id",tid),
-      supabase.from("games").select("*").eq("team_id",tid),
-      supabase.from("game_plans").select("*").eq("team_id",tid),
-      supabase.from("practices").select("*").eq("team_id",tid),
-      supabase.from("drills").select("*").eq("team_id",tid),
-      supabase.from("session_templates").select("*").eq("team_id",tid),
-      supabase.from("schedule").select("*").eq("team_id",tid),
-      supabase.from("tryouts").select("*").eq("team_id",tid),
-      supabase.from("opponents").select("*").eq("team_id",tid),
-    ]);
-
-    setRosterState((r.data?.[0]?.players) || []);
-    setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
-    setGamePlansState((gp.data||[]).map(x=>x.data));
-    setPracticesState((pr.data||[]).map(x=>x.data));
-    setDrillsState((dr.data?.[0]?.data) || []);
-    setTemplatesState((tp.data?.[0]?.data) || []);
-    setScheduleState((sc.data||[]).map(x=>x.data));
-    setTryoutsState((tr.data||[]).map(x=>x.data));
-    setOpponentsState((op.data||[]).map(x=>x.data));
-    // Load brand for this specific team
-    try{
-      const {data:brandData} = await supabase.from("teams").select("brand_name,brand_logo").eq("id",tid).single();
-      setBrandName(brandData?.brand_name||"");
-      setBrandLogo(brandData?.brand_logo||null);
-    }catch(e){}
+      const [r,g,gp,pr,dr,tp,sc,tr,op,team] = await Promise.all([
+        supabase.from("rosters").select("*").eq("team_id",tid),
+        supabase.from("games").select("*").eq("team_id",tid),
+        supabase.from("game_plans").select("*").eq("team_id",tid),
+        supabase.from("practices").select("*").eq("team_id",tid),
+        supabase.from("drills").select("*").eq("team_id",tid),
+        supabase.from("session_templates").select("*").eq("team_id",tid),
+        supabase.from("schedule").select("*").eq("team_id",tid),
+        supabase.from("tryouts").select("*").eq("team_id",tid),
+        supabase.from("opponents").select("*").eq("team_id",tid),
+        supabase.from("teams").select("brand_name,brand_logo").eq("id",tid),
+      ]);
+      setRosterState((r.data?.[0]?.players) || []);
+      setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
+      setGamePlansState((gp.data||[]).map(x=>x.data));
+      setPracticesState((pr.data||[]).map(x=>x.data));
+      setDrillsState((dr.data?.[0]?.data) || []);
+      setTemplatesState((tp.data?.[0]?.data) || []);
+      setScheduleState((sc.data||[]).map(x=>x.data));
+      setTryoutsState((tr.data||[]).map(x=>x.data));
+      setOpponentsState((op.data||[]).map(x=>x.data));
+      if(team.data?.[0]){
+        setBrandName(team.data[0].brand_name||"");
+        setBrandLogo(team.data[0].brand_logo||null);
+      }
     }catch(e){ console.error("loadTeamData error:",e); }
   }
 
