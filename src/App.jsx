@@ -10600,8 +10600,6 @@ function FeedbackModal({userEmail, onClose}){
 // ─── PLAYER PORTAL PAGE ───────────────────────────────────────────────────────
 function PlayerPortalPage(){
   const playerId = window.location.hash.replace("#/player/","").split("?")[0];
-  const [pin, setPin]         = useState("");
-  const [unlocked,setUnlocked]= useState(false);
   const [player, setPlayer]   = useState(null);
   const [games,  setGamesP]   = useState([]);
   const [roster, setRosterP]  = useState([]);
@@ -10652,29 +10650,7 @@ function PlayerPortalPage(){
     </div>
   );
 
-  // PIN gate
-  if(!unlocked) return(
-    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#111",border:"1px solid #2a1000",borderRadius:20,padding:36,width:"100%",maxWidth:360,textAlign:"center"}}>
-        <AppLogo size={52} glow={true}/>
-        <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginTop:16,marginBottom:8}}>
-          Player Profile
-        </div>
-        <div style={{color:"#ffffff66",fontSize:14,marginBottom:24}}>Enter your profile PIN to continue</div>
-        <input value={pin} onChange={e=>setPin(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&(pin===player?.profilePin?setUnlocked(true):alert("Incorrect PIN"))}
-          placeholder="Enter PIN" type="password" maxLength={8}
-          style={{width:"100%",padding:"14px",background:"#1a0800",border:"1px solid #2a1000",borderRadius:10,
-            color:"white",fontSize:20,textAlign:"center",outline:"none",fontFamily:"'Outfit',sans-serif",
-            boxSizing:"border-box",marginBottom:12}}/>
-        <button onClick={()=>pin===player?.profilePin?setUnlocked(true):alert("Incorrect PIN")}
-          style={{width:"100%",padding:"13px",background:"#ff6b00",border:"none",borderRadius:10,
-            color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-          View Profile →
-        </button>
-      </div>
-    </div>
-  );
+  // No PIN required — profile is accessible via link
 
   // Compute stats
   const playerGames = games.filter(g=>g.stats?.some(s=>s.playerId===playerId));
@@ -10938,10 +10914,32 @@ function RecruitingTab({form,setForm,
             navigator.clipboard?.writeText(link)
               .then(()=>alert("Profile link copied to clipboard!"))
               .catch(()=>alert(link));
+          }} style={{flex:1,padding:"10px",background:C.surface,border:`1px solid ${C.border}`,
+            borderRadius:9,color:C.text,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            ⎘ Copy Link
+          </button>
+          <button onClick={()=>{
+            if(!form.email){ alert("No email set for this player. Add one in the Player Info tab."); return; }
+            const link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+            fetch("https://api.emailjs.com/api/v1.0/email/send",{
+              method:"POST",headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({
+                service_id:EJS_SERVICE,
+                template_id:"template_invite",
+                user_id:EJS_KEY,
+                template_params:{
+                  to_email:form.email,
+                  player_name:form.name,
+                  profile_link:link,
+                  pin:"No PIN required",
+                }
+              })
+            }).then(()=>alert("Profile link sent to "+form.email+"!"))
+              .catch(()=>alert("Failed to send email. Check EmailJS setup."));
           }} style={{flex:1,padding:"10px",background:C.accent,border:"none",borderRadius:9,
             color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
             fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
-            ⎘ Copy Profile Link
+            ✉ Send to Player
           </button>
         </div>
         {form.profilePin&&(
