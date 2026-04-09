@@ -4410,7 +4410,7 @@ export default function CoachIQStats(){
       setSaveStatus("saved");
     }
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(()=>setSaveStatus(null), err?6000:2000);
+    if(!err) saveTimerRef.current = setTimeout(()=>setSaveStatus(null), 2000); // errors stay until dismissed
   }
 
   // ── Data save helpers — write to Supabase ─────────────────────────────────
@@ -5089,8 +5089,10 @@ export default function CoachIQStats(){
             </div>
             {/* Save status indicator */}
             {saveStatus&&(
-              <div className="save-status-bar" style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",
-                borderRadius:20,fontSize:12,fontWeight:600,transition:"all .3s",
+              <div className="save-status-bar" style={{display:"flex",alignItems:"center",gap:6,
+                padding:saveStatus?.type==="error"?"8px 14px":"4px 12px",
+                borderRadius:saveStatus?.type==="error"?10:20,
+                fontSize:12,fontWeight:600,transition:"all .3s",maxWidth:saveStatus?.type==="error"?"400px":"none",
                 background:saveStatus==="saving"?C.surface:saveStatus==="saved"?C.accent+"22":C.danger+"22",
                 border:`1px solid ${saveStatus==="saving"?C.border:saveStatus==="saved"?C.accent:C.danger}`,
                 color:saveStatus==="saving"?C.muted:saveStatus==="saved"?C.accent:C.danger}}>
@@ -5099,10 +5101,15 @@ export default function CoachIQStats(){
                     borderTopColor:"transparent",animation:"spin .6s linear infinite"}}/>
                 )}
                 {saveStatus==="saved"&&<span>✓</span>}
-                {(saveStatus==="error"||saveStatus?.type==="error")&&<span>⚠</span>}
-                <span>
-                  {saveStatus==="saving"?"Saving…":saveStatus==="saved"?"Saved":`Save failed: ${saveStatus?.message||"check connection"}`}
+                {(saveStatus?.type==="error")&&<span>⚠</span>}
+                <span style={{flex:1,wordBreak:"break-word"}}>
+                  {saveStatus==="saving"?"Saving…":saveStatus==="saved"?"Saved":`Error: ${saveStatus?.message||"unknown"}`}
                 </span>
+                {saveStatus?.type==="error"&&(
+                  <button onClick={()=>setSaveStatus(null)}
+                    style={{background:"none",border:"none",color:C.danger,cursor:"pointer",
+                      fontSize:16,padding:"0 0 0 8px",lineHeight:1,flexShrink:0}}>✕</button>
+                )}
               </div>
             )}
 
