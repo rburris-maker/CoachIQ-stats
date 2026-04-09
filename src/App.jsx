@@ -976,7 +976,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [showQuick,setShowQuick]=useState(false);
   const [editGame,setEditGame]=useState(null); // game object being edited
   const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
-  const [addStatsFor,setAddStatsFor]=useState(null); // gameId to add stats to
+  const [addStatsFor,setAddStatsFor]=useState(null);
+  const [editStats,setEditStats]=useState(null); // {game, stat} being edited
   const fileRef=useRef(null);
   const statsFileRef=useRef(null);
 
@@ -1181,6 +1182,13 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
           </button>
+          {(game.stats||[]).length>0&&(
+            <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(game.stats))})}
+              style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+              <Pencil size={13}/> Edit Stats
+            </button>
+          )}
           <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -1430,6 +1438,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         </div>
       )}
 
+      {/* ── EDIT STATS MODAL ── */}
+      {editStats&&<EditStatsModal
+        editStats={editStats}
+        setEditStats={setEditStats}
+        games={games}
+        setGames={setGames}
+        roster={activeRoster||[]}
+      />}
+
       {/* ── QUICK SCORE MODAL ── */}
       {showQuick&&(
         <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -1633,6 +1650,17 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               )}
               <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
               <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
+              {(game.stats||[]).length>0&&(
+                <button
+                  onClick={e=>{e.stopPropagation();setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(game.stats))});}}
+                  style={{padding:"6px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                    color:C.muted,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,transition:"all .15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#42a5f5";e.currentTarget.style.color="#42a5f5";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}
+                  title="Edit player stats">
+                  <Pencil size={11}/> Stats
+                </button>
+              )}
               <button
                 onClick={e=>{e.stopPropagation();setEditGame(game);}}
                 style={{padding:"6px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
@@ -11110,6 +11138,156 @@ function RecruitingTab({form,setForm,
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─── EDIT STATS MODAL ─────────────────────────────────────────────────────────
+function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
+  if(!editStats) return null;
+
+  const game = games.find(function(g){ return g.id===editStats.gameId; });
+  if(!game) return null;
+
+  var stats = editStats.stats;
+
+  var STAT_FIELDS = [
+    {k:"goals",        label:"Goals"},
+    {k:"assists",      label:"Assists"},
+    {k:"shots",        label:"Shots"},
+    {k:"shotsOnTarget",label:"Shots on Target"},
+    {k:"keyPasses",    label:"Key Passes"},
+    {k:"passesCompleted",label:"Passes Completed"},
+    {k:"passesAttempted",label:"Passes Attempted"},
+    {k:"tackles",      label:"Tackles"},
+    {k:"interceptions",label:"Interceptions"},
+    {k:"aerialDuelsWon",label:"Aerial Duels Won"},
+    {k:"fouls",        label:"Fouls"},
+    {k:"dangerousTurnovers",label:"Turnovers"},
+    {k:"saves",        label:"Saves (GK)"},
+    {k:"goalsConceded",label:"Conceded (GK)"},
+    {k:"minutesPlayed",label:"Minutes Played"},
+  ];
+
+  function updateStat(playerId, key, val){
+    setEditStats(function(prev){
+      var newStats = prev.stats.map(function(s){
+        if(s.playerId===playerId) return Object.assign({},s,{[key]:parseInt(val)||0});
+        return s;
+      });
+      return Object.assign({},prev,{stats:newStats});
+    });
+  }
+
+  function save(){
+    setGames(function(prev){
+      return prev.map(function(g){
+        if(g.id!==editStats.gameId) return g;
+        return Object.assign({},g,{stats:editStats.stats});
+      });
+    });
+    setEditStats(null);
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:2000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:20,
+        width:"100%",maxWidth:700,maxHeight:"90vh",overflowY:"auto"}}>
+
+        <div style={{padding:"20px 24px 16px",borderBottom:"1px solid "+C.border,
+          display:"flex",justifyContent:"space-between",alignItems:"center",
+          position:"sticky",top:0,background:C.card,zIndex:1}}>
+          <div>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>EDIT STATS</div>
+            <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,margin:"2px 0 0"}}>
+              vs {game.opponent} · {game.date}
+            </h3>
+          </div>
+          <button onClick={function(){setEditStats(null);}}
+            style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>✕</button>
+        </div>
+
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{borderBottom:"2px solid "+C.border}}>
+                <th style={{padding:"10px 16px",textAlign:"left",color:C.muted,fontWeight:600,
+                  fontSize:11,letterSpacing:1,position:"sticky",left:0,background:C.card,minWidth:140}}>
+                  PLAYER
+                </th>
+                {STAT_FIELDS.map(function(f){
+                  return(
+                    <th key={f.k} style={{padding:"10px 8px",textAlign:"center",color:C.muted,
+                      fontWeight:600,fontSize:10,letterSpacing:.5,whiteSpace:"nowrap",minWidth:70}}>
+                      {f.label}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map(function(s){
+                var player = (roster||[]).find(function(p){ return p.id===s.playerId; });
+                var pos = player ? primaryPos(player) : "CM";
+                var pc = POS_META[pos]||{};
+                return(
+                  <tr key={s.playerId} style={{borderBottom:"1px solid "+C.border}}>
+                    <td style={{padding:"8px 16px",position:"sticky",left:0,background:C.card}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:28,height:28,borderRadius:7,flexShrink:0,
+                          background:(pc.color||C.accent)+"22",
+                          border:"1.5px solid "+(pc.color||C.accent)+"44",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                          color:pc.color||C.accent,fontSize:13}}>
+                          {player?player.number:"?"}
+                        </div>
+                        <div>
+                          <div style={{color:C.text,fontWeight:600,fontSize:13,whiteSpace:"nowrap"}}>
+                            {player?player.name:"Unknown"}
+                          </div>
+                          <div style={{color:C.muted,fontSize:10}}>{pos}</div>
+                        </div>
+                      </div>
+                    </td>
+                    {STAT_FIELDS.map(function(f){
+                      return(
+                        <td key={f.k} style={{padding:"6px 4px",textAlign:"center"}}>
+                          <input
+                            type="number" min="0" max="999"
+                            value={s[f.k]||0}
+                            onChange={function(e){ updateStat(s.playerId,f.k,e.target.value); }}
+                            style={{width:54,padding:"5px 4px",textAlign:"center",
+                              background:C.bg,border:"1px solid "+C.border,borderRadius:6,
+                              color:C.text,fontSize:13,fontWeight:600,outline:"none",
+                              fontFamily:"'Outfit',sans-serif"}}/>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{padding:"16px 24px",borderTop:"1px solid "+C.border,
+          display:"flex",gap:10,justifyContent:"flex-end",
+          position:"sticky",bottom:0,background:C.card}}>
+          <button onClick={function(){setEditStats(null);}}
+            style={{padding:"10px 20px",background:C.surface,border:"1px solid "+C.border,
+              borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+            Cancel
+          </button>
+          <button onClick={save}
+            style={{padding:"10px 28px",background:C.accent,border:"none",
+              borderRadius:9,color:"#000",fontWeight:800,fontSize:14,
+              cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+            Save Stats →
+          </button>
+        </div>
       </div>
     </div>
   );
