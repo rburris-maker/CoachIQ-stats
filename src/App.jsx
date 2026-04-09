@@ -17,133 +17,129 @@ const SUPABASE_URL = "https://lfhbkvdfxlawwwxtvwmj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L";
 
 const supabase = (() => {
-  const baseHeaders = {
-    "Content-Type": "application/json",
-    "apikey": SUPABASE_KEY,
-  };
+  const baseHeaders = {"Content-Type":"application/json","apikey":SUPABASE_KEY};
 
-  function getToken() {
-    try {
-      const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
-      return s?.access_token || null;
-    } catch { return null; }
+  function getToken(){
+    try{ const s=JSON.parse(localStorage.getItem("coachiq_session")||"null"); return s?.access_token||null; }
+    catch{ return null; }
   }
 
-  function h(extra = {}) {
-    const token = getToken();
-    return {
-      ...baseHeaders,
-      "Authorization": `Bearer ${token || SUPABASE_KEY}`,
-      ...extra,
-    };
+  function h(extra={}){
+    const token=getToken();
+    return {...baseHeaders,"Authorization":`Bearer ${token||SUPABASE_KEY}`,...extra};
   }
 
-  function buildParams(filter = {}) {
-    const p = new URLSearchParams();
-    Object.entries(filter).forEach(([k, v]) => p.set(k, `eq.${v}`));
-    return p.toString() ? `?${p}` : "";
-  }
-
-  async function req(url, opts) {
-    const res = await fetch(url, opts);
-    // No content responses
-    if (res.status === 204 || res.status === 205) return { data: null, error: null };
-    let data;
-    try { data = await res.json(); } catch { data = null; }
-    if (!res.ok) {
-      const msg = data?.message || data?.error || `HTTP ${res.status}`;
-      console.error(`Supabase error [${res.status}] ${url}:`, data);
-      return { data: null, error: { message: msg, status: res.status, details: data } };
+  async function req(url,opts){
+    const res=await fetch(url,opts);
+    if(res.status===204||res.status===205) return {data:null,error:null};
+    let data; try{ data=await res.json(); }catch{ data=null; }
+    if(!res.ok){
+      const msg=data?.message||data?.error||data?.details||`HTTP ${res.status}`;
+      console.error(`Supabase error [${res.status}]`,url,data);
+      return {data:null,error:{message:msg,status:res.status,code:data?.code}};
     }
-    return { data, error: null };
+    return {data,error:null};
+  }
+
+  // Chainable query builder
+  function makeBuilder(table){
+    const b={
+      _filters:[],_cols:"*",_method:"GET",_body:null,
+      _upsert:false,_upsertOpts:{},_single:false,_limit:null,
+
+      // Filter chainers
+      eq(col,val){  this._filters.push([col,"eq",val]);  return this; },
+      neq(col,val){ this._filters.push([col,"neq",val]); return this; },
+      is(col,val){  this._filters.push([col,"is",val]);  return this; },
+      not(col,op,val){ this._filters.push([col,`not.${op}`,val]); return this; },
+      single(){ this._single=true; return this; },
+      limit(n){ this._limit=n; return this; },
+
+      // Operation setters
+      select(cols="*",opts={}){
+        this._method="GET"; this._cols=cols;
+        // Legacy filter support: select("*",{filter:{team_id:"abc"}})
+        if(opts.filter) Object.entries(opts.filter).forEach(([k,v])=>this._filters.push([k,"eq",v]));
+        return this;
+      },
+      insert(rows){ this._method="POST"; this._body=Array.isArray(rows)?rows:[rows]; return this; },
+      update(vals){ this._method="PATCH"; this._body=vals; return this; },
+      delete(){ this._method="DELETE"; return this; },
+      upsert(rows,opts={}){ this._method="POST"; this._upsert=true; this._upsertOpts=opts; this._body=Array.isArray(rows)?rows:[rows]; return this; },
+
+      // Execute — makes builder awaitable (thenable)
+      then(resolve,reject){ return this._run().then(resolve,reject); },
+      catch(reject){ return this._run().catch(reject); },
+
+      async _run(){
+        const p=new URLSearchParams();
+        if(this._method==="GET") p.set("select",this._cols);
+        this._filters.forEach(([col,op,val])=>p.set(col,`${op}.${val}`));
+        if(this._limit) p.set("limit",this._limit);
+        const qs=p.toString()?`?${p}`:"";
+
+        // Safety: no filter deletes are blocked
+        if(this._method==="DELETE"&&!this._filters.length){
+          console.warn("🛑 Delete without filter blocked — use .eq() to filter");
+          return {data:null,error:{message:"Delete requires a filter"}};
+        }
+
+        let hdrs=h();
+        let body=undefined;
+
+        if(this._method==="POST"){
+          if(this._upsert){
+            const up=new URLSearchParams();
+            if(this._upsertOpts.onConflict) up.set("on_conflict",this._upsertOpts.onConflict);
+            const uqs=up.toString()?`?${up}`:"";
+            hdrs=h({"Prefer":"return=representation,resolution=merge-duplicates"});
+            body=JSON.stringify(this._body);
+            const r=await req(`${SUPABASE_URL}/rest/v1/${table}${uqs}`,{method:"POST",headers:hdrs,body});
+            return r;
+          }
+          hdrs=h({"Prefer":"return=representation"});
+          body=JSON.stringify(this._body);
+        } else if(this._method==="PATCH"){
+          hdrs=h({"Prefer":"return=representation"});
+          body=JSON.stringify(this._body);
+        }
+
+        const r=await req(`${SUPABASE_URL}/rest/v1/${table}${qs}`,{method:this._method,headers:hdrs,body});
+        if(this._single&&Array.isArray(r.data)) r.data=r.data[0]||null;
+        return r;
+      }
+    };
+    return b;
   }
 
   return {
-    auth: {
-      async signUp({ email, password }) {
-        const r = await req(`${SUPABASE_URL}/auth/v1/signup`, {
-          method: "POST", headers: h(),
-          body: JSON.stringify({ email, password }),
-        });
-        if (r.data?.access_token) localStorage.setItem("coachiq_session", JSON.stringify(r.data));
+    auth:{
+      async signUp({email,password}){
+        const r=await req(`${SUPABASE_URL}/auth/v1/signup`,{method:"POST",headers:h(),body:JSON.stringify({email,password})});
+        if(r.data?.access_token) localStorage.setItem("coachiq_session",JSON.stringify(r.data));
         return r;
       },
-      async signInWithPassword({ email, password }) {
-        const r = await req(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-          method: "POST", headers: h(),
-          body: JSON.stringify({ email, password }),
-        });
-        if (r.data?.access_token) localStorage.setItem("coachiq_session", JSON.stringify(r.data));
-        if (r.data?.error_description) return { data: r.data, error: { message: r.data.error_description } };
+      async signInWithPassword({email,password}){
+        const r=await req(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:"POST",headers:h(),body:JSON.stringify({email,password})});
+        if(r.data?.access_token) localStorage.setItem("coachiq_session",JSON.stringify(r.data));
+        if(r.data?.error_description) return {data:r.data,error:{message:r.data.error_description}};
         return r;
       },
-      async signOut() {
-        await req(`${SUPABASE_URL}/auth/v1/logout`, { method: "POST", headers: h() });
+      async signOut(){
+        await req(`${SUPABASE_URL}/auth/v1/logout`,{method:"POST",headers:h()});
         localStorage.removeItem("coachiq_session");
       },
-      getSession() {
-        try {
-          const s = JSON.parse(localStorage.getItem("coachiq_session") || "null");
-          return { data: { session: s } };
-        } catch { return { data: { session: null } }; }
+      getSession(){
+        try{ const s=JSON.parse(localStorage.getItem("coachiq_session")||"null"); return {data:{session:s}}; }
+        catch{ return {data:{session:null}}; }
       },
-      async resetPasswordForEmail(email) {
-        return req(`${SUPABASE_URL}/auth/v1/recover`, {
-          method: "POST", headers: h(),
-          body: JSON.stringify({ email }),
-        });
+      async resetPasswordForEmail(email){
+        return req(`${SUPABASE_URL}/auth/v1/recover`,{method:"POST",headers:h(),body:JSON.stringify({email})});
       },
+      onAuthStateChange(cb){ return {data:{subscription:{unsubscribe:()=>{}}}}; },
     },
 
-    from(table) {
-      return {
-        // select with optional filter object e.g. {team_id: "abc"}
-        async select(cols = "*", opts = {}) {
-          const p = new URLSearchParams({ select: cols });
-          if (opts.filter) Object.entries(opts.filter).forEach(([k,v]) => p.set(k, `eq.${v}`));
-          return req(`${SUPABASE_URL}/rest/v1/${table}?${p}`, { headers: h() });
-        },
-
-        async insert(rows) {
-          const body = Array.isArray(rows) ? rows : [rows];
-          return req(`${SUPABASE_URL}/rest/v1/${table}`, {
-            method: "POST",
-            headers: h({ "Prefer": "return=representation" }),
-            body: JSON.stringify(body),
-          });
-        },
-
-        async update(values, filter = {}) {
-          return req(`${SUPABASE_URL}/rest/v1/${table}${buildParams(filter)}`, {
-            method: "PATCH",
-            headers: h({ "Prefer": "return=representation" }),
-            body: JSON.stringify(values),
-          });
-        },
-
-        async upsert(rows, opts = {}) {
-          const p = new URLSearchParams();
-          if (opts.onConflict) p.set("on_conflict", opts.onConflict);
-          const qs = p.toString() ? `?${p}` : "";
-          const body = Array.isArray(rows) ? rows : [rows];
-          return req(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
-            method: "POST",
-            headers: h({ "Prefer": "return=representation,resolution=merge-duplicates" }),
-            body: JSON.stringify(body),
-          });
-        },
-
-        // delete with filter object e.g. {team_id: "abc"} or {id: "xyz"}
-        async delete(filter = {}) {
-          const qs = buildParams(filter);
-          if (!qs) { console.warn("Supabase delete called without filter — skipping to prevent full table wipe"); return { error: null }; }
-          return req(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
-            method: "DELETE",
-            headers: h(),
-          });
-        },
-      };
-    },
+    from(table){ return makeBuilder(table); },
   };
 })();
 
@@ -4305,7 +4301,7 @@ export default function CoachIQStats(){
     async function checkSub(){
       if(!userId) return;
       try{
-        const {data:subData} = await supabase.from("teams").select("subscription_status").eq("user_id",userId);
+        const {data:subData} = await supabase.from("teams").select("subscription_status",{filter:{user_id:userId}});
         const statuses = (subData||[]).map(t=>t.subscription_status);
         setIsElite(statuses.some(s=>s==="elite"));
         setIsPro(statuses.some(s=>s==="elite"||s==="pro"));
@@ -4326,17 +4322,10 @@ export default function CoachIQStats(){
   async function loadAllData(){
     setDataLoading(true);
     try{
-      console.log("🔍 loadAllData start, userId:", userId);
-      const {data:allTeams, error:allTeamsErr} = await supabase.from("teams").select("*");
-      console.log("📋 allTeams result:", allTeams, "error:", allTeamsErr);
+      const {data:allTeams} = await supabase.from("teams").select("*");
       const myTeams = (allTeams||[])
-        .filter(t=>{
-          const match = String(t.user_id)===String(userId);
-          console.log("  team:", t.id, "user_id:", t.user_id, "matches:", match);
-          return match;
-        })
+        .filter(t=>String(t.user_id)===String(userId))
         .map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
-      console.log("✅ myTeams:", myTeams.length, myTeams.map(t=>t.id));
 
       // Only create default team if we got a real empty result (not null/error)
       if(Array.isArray(allTeams) && myTeams.length===0){
@@ -4350,16 +4339,13 @@ export default function CoachIQStats(){
       const tid = myTeams[0]?.id;
       // Check subscription - pro or elite follows user account
       try{
-        const {data:subData} = await supabase.from("teams").select("id,subscription_status,brand_name,brand_logo").eq("user_id",userId);
+        const {data:subData} = await supabase.from("teams").select("id,subscription_status",{filter:{user_id:userId}});
         const statuses = (subData||[]).map(t=>t.subscription_status);
         const isEliteUser = statuses.some(s=>s==="elite");
         const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
         setIsElite(isEliteUser);
         setIsPro(isProUser);
-        // Load brand for the active team specifically
-        const activeBrand = (subData||[]).find(t=>t.id===tid);
-        setBrandName(activeBrand?.brand_name||"");
-        setBrandLogo(activeBrand?.brand_logo||null);
+
       }catch(e){
         const statuses = myTeams.map(t=>t.subscription_status);
         setIsElite(statuses.some(s=>s==="elite"));
@@ -4379,17 +4365,16 @@ export default function CoachIQStats(){
   async function loadTeamData(tid){
     if(!tid||!userId) return;
     try{
-      const [r,g,gp,pr,dr,tp,sc,tr,op,team] = await Promise.all([
-        supabase.from("rosters").select("*").eq("team_id",tid),
-        supabase.from("games").select("*").eq("team_id",tid),
-        supabase.from("game_plans").select("*").eq("team_id",tid),
-        supabase.from("practices").select("*").eq("team_id",tid),
-        supabase.from("drills").select("*").eq("team_id",tid),
-        supabase.from("session_templates").select("*").eq("team_id",tid),
-        supabase.from("schedule").select("*").eq("team_id",tid),
-        supabase.from("tryouts").select("*").eq("team_id",tid),
-        supabase.from("opponents").select("*").eq("team_id",tid),
-        supabase.from("teams").select("brand_name,brand_logo").eq("id",tid),
+      const [r,g,gp,pr,dr,tp,sc,tr,op] = await Promise.all([
+        supabase.from("rosters").select("*",{filter:{team_id:tid}}),
+        supabase.from("games").select("*",{filter:{team_id:tid}}),
+        supabase.from("game_plans").select("*",{filter:{team_id:tid}}),
+        supabase.from("practices").select("*",{filter:{team_id:tid}}),
+        supabase.from("drills").select("*",{filter:{team_id:tid}}),
+        supabase.from("session_templates").select("*",{filter:{team_id:tid}}),
+        supabase.from("schedule").select("*",{filter:{team_id:tid}}),
+        supabase.from("tryouts").select("*",{filter:{team_id:tid}}),
+        supabase.from("opponents").select("*",{filter:{team_id:tid}}),
       ]);
       setRosterState((r.data?.[0]?.players) || []);
       setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
@@ -4400,12 +4385,9 @@ export default function CoachIQStats(){
       setScheduleState((sc.data||[]).map(x=>x.data));
       setTryoutsState((tr.data||[]).map(x=>x.data));
       setOpponentsState((op.data||[]).map(x=>x.data));
-      if(team.data?.[0]){
-        setBrandName(team.data[0].brand_name||"");
-        setBrandLogo(team.data[0].brand_logo||null);
-      }
     }catch(e){ console.error("loadTeamData error:",e); }
   }
+
 
   // ── Save status helpers ───────────────────────────────────────────────────
   function startSave(){ setSaveStatus("saving"); }
@@ -4467,7 +4449,7 @@ export default function CoachIQStats(){
         const {error:e1} = await supabase.from("games").insert({team_id:safeTeamId,user_id:userId,data:newGame});
         if(e1) throw new Error(e1.message);
       } else {
-        const {error:e2} = await supabase.from("games").delete().eq("team_id",safeTeamId);
+        const {error:e2} = await supabase.from("games").delete({team_id:safeTeamId});
         if(e2) throw new Error(e2.message);
         if(resolved.length){
           const {error:e3} = await supabase.from("games").insert(resolved.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
@@ -4483,7 +4465,7 @@ export default function CoachIQStats(){
     setGamePlansState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+      const {error:e1} = await supabase.from("game_plans").delete({team_id:safeTeamId});
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("game_plans").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
@@ -4498,7 +4480,7 @@ export default function CoachIQStats(){
     setPracticesState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("practices").delete().eq("team_id",safeTeamId);
+      const {error:e1} = await supabase.from("practices").delete({team_id:safeTeamId});
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("practices").insert(resolved.map(p=>({team_id:safeTeamId,user_id:userId,data:p})));
@@ -4535,7 +4517,7 @@ export default function CoachIQStats(){
     setScheduleState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("schedule").delete().eq("team_id",safeTeamId);
+      const {error:e1} = await supabase.from("schedule").delete({team_id:safeTeamId});
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("schedule").insert(resolved.map(e=>({team_id:safeTeamId,user_id:userId,data:e})));
@@ -4550,7 +4532,7 @@ export default function CoachIQStats(){
     setTryoutsState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("tryouts").delete().eq("team_id",safeTeamId);
+      const {error:e1} = await supabase.from("tryouts").delete({team_id:safeTeamId});
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("tryouts").insert(resolved.map(t=>({team_id:safeTeamId,user_id:userId,data:t})));
@@ -4565,7 +4547,7 @@ export default function CoachIQStats(){
     setOpponentsState(resolved);
     startSave();
     try{
-      const {error:e1} = await supabase.from("opponents").delete().eq("team_id",safeTeamId);
+      const {error:e1} = await supabase.from("opponents").delete({team_id:safeTeamId});
       if(e1) throw new Error(e1.message);
       if(resolved.length){
         const {error:e2} = await supabase.from("opponents").insert(resolved.map(o=>({team_id:safeTeamId,user_id:userId,data:o})));
@@ -4672,7 +4654,7 @@ export default function CoachIQStats(){
   async function deleteTeam(id){
     const remaining = teams.filter(t=>t.id!==id);
     setTeamsState(remaining);
-    await supabase.from("teams").delete().eq("id",id);
+    await supabase.from("teams").delete({id:id});
     if(activeTeamId===id){
       const nextId = remaining[0]?.id;
       setActiveTeamId(nextId);
@@ -5665,7 +5647,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+                  await supabase.from("game_plans").delete({team_id:safeTeamId});
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
@@ -5685,7 +5667,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 // Wait for Supabase to persist before opening
                 const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
                 try{
-                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+                  await supabase.from("game_plans").delete({team_id:safeTeamId});
                   if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
                 }catch(e){ console.error("shareId save failed",e); }
               }
@@ -10215,10 +10197,7 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
     if(!isElite){ onUpgrade(); return; }
     setSaving(true);
     try{
-      const {error:brandErr} = await supabase
-        .from("teams")
-        .update({brand_name:name, brand_logo:logoUrl||null})
-        .eq("id", safeTeamId);
+      const {error:brandErr} = await supabase.from("teams").update({brand_name:name,brand_logo:logoUrl||null},{id:safeTeamId});
       if(brandErr) throw new Error(brandErr.message);
       setBrandName(name);
       setBrandLogo(logoUrl||null);
