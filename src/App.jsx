@@ -2721,36 +2721,10 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   });
   const [err,setErr]           = useState("");
   const [activeTab,setActiveTab] = useState("info"); // info | recruiting
-  const [inviteSent,setInviteSent] = useState(false);
-  const [inviting,setInviting]    = useState(false);
   const [newSchool,setNewSchool]  = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
   const [addingSchool,setAddingSchool] = useState(false);
 
-  async function sendInvite(){
-    if(!form.email) return alert("Add player email first");
-    setInviting(true);
-    const link = `${window.location.origin}${window.location.pathname}#/player/${form.id}`;
-    try{
-      await fetch("https://api.emailjs.com/api/v1.0/email/send",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          service_id: EJS_SERVICE,
-          template_id: "template_invite",
-          user_id: EJS_KEY,
-          template_params:{
-            to_email: form.email,
-            player_name: form.name,
-            profile_link: link,
-            pin: form.profilePin||"(no PIN set)",
-          }
-        })
-      });
-      setInviteSent(true);
-    }catch(e){ alert("Failed to send invite"); }
-    setInviting(false);
-  }
-
-  function addSchool(){
+function addSchool(){
     if(!newSchool.school.trim()) return;
     setForm(f=>({...f, recruitingSchools:[...f.recruitingSchools,{...newSchool,id:`s${Date.now()}`}]}));
     setNewSchool({school:"",division:"D1",contact:"",status:"identified",notes:""});
@@ -2939,9 +2913,6 @@ function PlayerModal({player, onSave, onDelete, onClose}){
           <RecruitingTab
             form={form}
             setForm={setForm}
-            sendInvite={sendInvite}
-            inviting={inviting}
-            inviteSent={inviteSent}
             addingSchool={addingSchool}
             setAddingSchool={setAddingSchool}
             newSchool={newSchool}
@@ -10925,7 +10896,7 @@ function PlayerPortalPage(){
 }
 
 // ─── RECRUITING TAB COMPONENT ─────────────────────────────────────────────────
-function RecruitingTab({form,setForm,sendInvite,inviting,inviteSent,
+function RecruitingTab({form,setForm,
   addingSchool,setAddingSchool,newSchool,setNewSchool,addSchool,removeSchool}){
 
   const STATUS_COLORS = {
@@ -10950,28 +10921,41 @@ function RecruitingTab({form,setForm,sendInvite,inviting,inviteSent,
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
-      {/* Invite */}
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
-        <div style={{color:C.text,fontWeight:700,fontSize:13,marginBottom:4}}>Player Portal Invite</div>
-        <div style={{color:C.muted,fontSize:12,marginBottom:10,lineHeight:1.5}}>
-          Send {form.name} an email with a link to their personal profile page.
+      {/* Share profile */}
+      <div style={{background:C.surface,border:`1px solid ${C.accent}33`,borderRadius:10,padding:"16px 18px"}}>
+        <div style={{color:C.text,fontWeight:700,fontSize:13,marginBottom:4}}>Share Player Profile</div>
+        <div style={{color:C.muted,fontSize:12,marginBottom:14,lineHeight:1.5}}>
+          Share this link with {form.name} or a college coach. They enter a PIN to access the profile.
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{color:C.muted,fontSize:12,flex:1}}>{form.email||"No email set"}</div>
-          <button onClick={sendInvite} disabled={!form.email||inviting}
-            style={{padding:"7px 14px",background:inviteSent?C.accent+"22":C.accent,
-              border:`1px solid ${inviteSent?C.accent:"transparent"}`,borderRadius:8,
-              color:inviteSent?C.accent:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-            {inviting?"Sending...":(inviteSent?"✓ Sent":"Send Invite")}
-          </button>
+        <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,
+          padding:"10px 14px",marginBottom:10,
+          color:C.muted,fontSize:11,wordBreak:"break-all",lineHeight:1.6}}>
+          {window.location.origin+window.location.pathname+"#/player/"+form.id}
+        </div>
+        <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{
             const link=window.location.origin+window.location.pathname+"#/player/"+form.id;
-            navigator.clipboard?.writeText(link).then(()=>alert("Link copied!")).catch(()=>alert(link));
-          }} style={{padding:"7px 10px",background:C.card,border:`1px solid ${C.border}`,
-            borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
-            ⎘ Copy Link
+            navigator.clipboard?.writeText(link)
+              .then(()=>alert("Profile link copied to clipboard!"))
+              .catch(()=>alert(link));
+          }} style={{flex:1,padding:"10px",background:C.accent,border:"none",borderRadius:9,
+            color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+            ⎘ Copy Profile Link
           </button>
         </div>
+        {form.profilePin&&(
+          <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{color:C.muted,fontSize:12}}>PIN:</span>
+            <span style={{color:C.accent,fontWeight:700,fontSize:13,letterSpacing:2}}>{form.profilePin}</span>
+            <span style={{color:C.muted,fontSize:11}}>(player enters this to access their profile)</span>
+          </div>
+        )}
+        {!form.profilePin&&(
+          <div style={{marginTop:8,color:C.warning,fontSize:11}}>
+            ⚠ No PIN set — go to Player Info tab to add one
+          </div>
+        )}
       </div>
 
       {/* Recruiting status */}
