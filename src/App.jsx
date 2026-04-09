@@ -4327,12 +4327,14 @@ export default function CoachIQStats(){
     setDataLoading(true);
     try{
       // Load teams
-      const {data:teamsData} = await supabase.from("teams").select("*");
+      const {data:teamsData, error:teamsError} = await supabase.from("teams").select("*").eq("user_id",userId);
+      if(teamsError) throw new Error("Could not load teams: "+teamsError.message);
       const myTeams = (teamsData||[]).map(t=>({id:t.id,name:t.name,type:t.type||'other',supaId:t.id,subscription_status:t.subscription_status||'free'}));
 
-      if(myTeams.length===0){
-        // First login — create default team with empty roster
-        const {data:newTeam} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId});
+      if(teamsData !== null && myTeams.length===0){
+        // Confirmed empty — first login, create default team
+        const {data:newTeam, error:newTeamErr} = await supabase.from("teams").insert({name:"My Team",type:"varsity",user_id:userId}).select();
+        if(newTeamErr) throw new Error("Could not create team: "+newTeamErr.message);
         if(newTeam?.[0]){
           myTeams.push({id:newTeam[0].id,name:newTeam[0].name,type:newTeam[0].type||'varsity',supaId:newTeam[0].id});
         }
@@ -4418,10 +4420,12 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(roster) : val;
     setRosterState(resolved);
     startSave();
-    const {error} = await supabase.from("rosters").upsert(
+    console.log("setRoster saving, teamId:", safeTeamId, "userId:", userId, "players:", resolved.length);
+    const {data, error} = await supabase.from("rosters").upsert(
       {team_id:safeTeamId,user_id:userId,players:resolved,updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
+    console.log("setRoster result:", {data, error});
     endSave(error);
   }
 
@@ -4450,6 +4454,7 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(games) : val;
     setGamesState(resolved);
     startSave();
+    console.log("setGames saving, teamId:", safeTeamId, "userId:", userId);
     try{
       const newGame = Array.isArray(resolved)&&resolved[0]&&!games.find(g=>g.id===resolved[0].id) ? resolved[0] : null;
       if(newGame){
