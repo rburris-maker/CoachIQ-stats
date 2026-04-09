@@ -14,7 +14,7 @@ import * as XLSX from "xlsx";
 
 // ─── SUPABASE CLIENT ──────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://lfhbkvdfxlawwwxtvwmj.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmaGJrdmRmeGxhd3d3eHR2d21qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNzg1NjksImV4cCI6MjA4OTg1NDU2OX0.7mKYx3z4nkMCh03fCU9t2nQiUFhwQCJ0y8KPQrBmNtg";
 
 const supabase = (() => {
   const baseHeaders = {"Content-Type":"application/json","apikey":SUPABASE_KEY};
