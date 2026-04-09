@@ -1163,6 +1163,11 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 
     return(
       <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
+        {/* Hidden file input for stat upload in detail view */}
+        <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
+          ref={el=>{ if(el) el._detailRef=true; }}
+          id="detail-stats-upload"
+          onChange={e=>{ handleImportForGame(e, game.id); }}/>
         <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
           <button onClick={()=>{setSel(null);setAiTxt("");setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}/>
@@ -1187,7 +1192,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Quick Score Entry</div>
               <div style={{color:C.muted,fontSize:12,marginTop:2}}>No player stats recorded. Upload a spreadsheet to add full stats.</div>
             </div>
-            <button onClick={()=>{setAddStatsFor(game.id);fileRef.current?.click();}}
+            <button onClick={()=>{document.getElementById("detail-stats-upload")?.click();}}
               style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
                 background:C.accent,border:"none",borderRadius:9,color:"#000",
                 fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
