@@ -10612,27 +10612,34 @@ function PlayerPortalPage(){
     async function load(){
       setLoading(true);
       try{
-        // Find the roster that contains this player
-        const {data:rosters} = await supabase.from("rosters").select("*");
+        // Find the roster containing this player
+        const {data:rosters, error:rErr} = await supabase.from("rosters").select("*");
+        console.log("rosters result:", rosters?.length, "error:", rErr);
         let foundPlayer=null, teamId=null;
         for(const r of (rosters||[])){
-          const p=(r.players||[]).find(p=>p.id===playerId);
+          const players = r.players||[];
+          const p = players.find(function(p){ return p.id===playerId; });
           if(p){ foundPlayer=p; teamId=r.team_id; break; }
         }
-        if(!foundPlayer){ setError("Player not found"); setLoading(false); return; }
+        if(!foundPlayer){
+          console.log("Player not found. Looking for:", playerId, "in", (rosters||[]).length, "rosters");
+          setError("Player not found. The profile link may be incorrect.");
+          setLoading(false); return;
+        }
         setPlayer({...foundPlayer, teamId});
 
         // Load games for this team
         const {data:gData} = await supabase.from("games").select("*").eq("team_id",teamId);
-        setGamesP((gData||[]).map(x=>x.data));
+        console.log("games:", gData?.length);
+        setGamesP((gData||[]).map(function(x){ return x.data; }));
 
-        // Load full roster for context
+        // Load full roster
         const {data:rData} = await supabase.from("rosters").select("*").eq("team_id",teamId);
         setRosterP(rData?.[0]?.players||[]);
-
-        // Auto-unlock if no PIN set
-        if(!foundPlayer.profilePin) setUnlocked(true);
-      }catch(e){ setError("Failed to load profile"); }
+      }catch(e){
+        console.error("Portal load error:", e);
+        setError("Failed to load profile: "+e.message);
+      }
       setLoading(false);
     }
     load();
@@ -10878,7 +10885,8 @@ function RecruitingTab({form,setForm,
 
   function sendProfileEmail(){
     if(!form.email){ alert("No email set. Add it in the Player Info tab."); return; }
-    var link=window.location.origin+window.location.pathname+"#/player/"+form.id;
+    var origin=window.location.origin.includes("vercel.app")&&!window.location.origin.includes("coachiqsoccer")?"https://coachiqsoccer.vercel.app":window.location.origin;
+    var link=origin+window.location.pathname+"#/player/"+form.id;
     fetch("https://api.emailjs.com/api/v1.0/email/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
