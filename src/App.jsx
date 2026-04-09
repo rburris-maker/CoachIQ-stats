@@ -3973,7 +3973,8 @@ export default function CoachIQStats(){
   const [brandName,   setBrandName]     = useState("");
   const [brandLogo,   setBrandLogo]     = useState(null);
   const saveTimerRef = useRef(null);
-  const [onboarded,   setOnboarded]     = useState(true); // driven by data, not localStorage
+  const [onboarded,   setOnboarded]     = useState(true);
+  const hasLoadedOnce = useRef(false);
   const [saveQueue,   setSaveQueue]     = useState({});
 
   // Post-checkout redirect check — must be before any returns
@@ -4029,6 +4030,7 @@ export default function CoachIQStats(){
         }
       }
       setTeamsState(myTeams);
+      hasLoadedOnce.current = true;
       const tid = myTeams[0]?.id;
       // Check subscription - pro or elite follows user account
       try{
@@ -4058,6 +4060,7 @@ export default function CoachIQStats(){
 
   async function loadTeamData(tid){
     if(!tid||!userId) return;
+    try{
     const [r,g,gp,pr,dr,tp,sc,tr,op] = await Promise.all([
       supabase.from("rosters").select("*").eq("team_id",tid),
       supabase.from("games").select("*").eq("team_id",tid),
@@ -4079,7 +4082,7 @@ export default function CoachIQStats(){
     setScheduleState((sc.data||[]).map(x=>x.data));
     setTryoutsState((tr.data||[]).map(x=>x.data));
     setOpponentsState((op.data||[]).map(x=>x.data));
-
+    }catch(e){ console.error("loadTeamData error:",e); }
   }
 
   // ── Save status helpers ───────────────────────────────────────────────────
@@ -4293,12 +4296,16 @@ export default function CoachIQStats(){
   }
 
   async function switchTeam(id){
-    // Pro follows the user account not the team - don't reset on switch
     setActiveTeamId(id);
     setView("home");
     setDataLoading(true);
-    await loadTeamData(id);
-    setDataLoading(false);
+    try{
+      await loadTeamData(id);
+    }catch(e){
+      console.error("switchTeam error:",e);
+    }finally{
+      setDataLoading(false);
+    }
   }
 
   async function renameTeam(id,name,type){
@@ -4346,7 +4353,7 @@ export default function CoachIQStats(){
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
   // ── Show onboarding if first time ────────────────────────────────────────
-  const showOnboarding = !dataLoading && teams.length > 0 && roster.length === 0 && games.length === 0 && gamePlans.length === 0;
+  const showOnboarding = !dataLoading && hasLoadedOnce.current && teams.length===1 && roster.length===0 && games.length===0 && gamePlans.length===0;
 
   // ── Show loading spinner while data loads ─────────────────────────────────
   if(dataLoading) return(
