@@ -974,6 +974,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [sending,setSending]=useState(false);
   const [sendMsg,setSendMsg]=useState(null);
   const [showQuick,setShowQuick]=useState(false);
+  const [editGame,setEditGame]=useState(null); // game object being edited
   const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:""});
   const [addStatsFor,setAddStatsFor]=useState(null); // gameId to add stats to
   const fileRef=useRef(null);
@@ -1153,6 +1154,11 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
           <button onClick={()=>{setSel(null);setAiTxt("");setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}/>
+          <button onClick={()=>setEditGame(game)}
+            style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+              padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            <Pencil size={13}/> Edit
+          </button>
           <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -1297,6 +1303,94 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
+
+      {/* ── EDIT GAME MODAL ── */}
+      {editGame&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,width:"100%",maxWidth:420,padding:28}}>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>EDIT GAME</div>
+            <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:20}}>vs {editGame.opponent}</h3>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
+              <input value={editGame.opponent} onChange={e=>setEditGame(g=>({...g,opponent:e.target.value}))}
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+              <input type="date" value={editGame.date} onChange={e=>setEditGame(g=>({...g,date:e.target.value}))}
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
+              <div style={{display:"flex",gap:8}}>
+                {["Home","Away"].map(l=>(
+                  <button key={l} onClick={()=>setEditGame(g=>({...g,location:l}))}
+                    style={{flex:1,padding:"10px",background:editGame.location===l?C.accent+"22":C.surface,
+                      border:`1px solid ${editGame.location===l?C.accent:C.border}`,borderRadius:9,
+                      color:editGame.location===l?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FORMATION</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2"].map(f=>(
+                  <button key={f} onClick={()=>setEditGame(g=>({...g,formation:f}))}
+                    style={{padding:"7px 12px",background:editGame.formation===f?C.accent+"22":C.surface,
+                      border:`1px solid ${editGame.formation===f?C.accent:C.border}`,borderRadius:8,
+                      color:editGame.formation===f?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:24}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SCORE</label>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>US</div>
+                  <input type="number" min="0" max="30" value={editGame.ourScore}
+                    onChange={e=>setEditGame(g=>({...g,ourScore:parseInt(e.target.value)||0}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{color:C.muted,fontSize:24,fontWeight:900,fontFamily:"'Oswald',sans-serif",marginTop:16}}>—</div>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>THEM</div>
+                  <input type="number" min="0" max="30" value={editGame.theirScore}
+                    onChange={e=>setEditGame(g=>({...g,theirScore:parseInt(e.target.value)||0}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setEditGame(null)}
+                style={{flex:1,padding:"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
+                Cancel
+              </button>
+              <button onClick={()=>{
+                  setGames(prev=>prev.map(g=>g.id===editGame.id?{...g,...editGame}:g));
+                  setEditGame(null);
+                }}
+                style={{flex:2,padding:"12px",background:C.accent,border:"none",borderRadius:10,
+                  color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                Save Changes →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── QUICK SCORE MODAL ── */}
       {showQuick&&(
@@ -1458,6 +1552,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               )}
               <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
               <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
+              <button
+                onClick={e=>{e.stopPropagation();setEditGame(game);}}
+                style={{padding:"6px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                  color:C.muted,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",transition:"all .15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.color=C.accent;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}
+                title="Edit game">
+                <Pencil size={14}/>
+              </button>
               <button
                 onClick={e=>{e.stopPropagation();if(window.confirm(`Delete game vs ${game.opponent}?`)){setGames(prev=>prev.filter(g=>g.id!==game.id));}}}
                 style={{padding:"6px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
