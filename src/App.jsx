@@ -4792,15 +4792,16 @@ export default function CoachIQStats(){
   }
 
   // ── Show auth screen if not logged in ────────────────────────────────────
+  // Public routes — render before auth check
+  if(window.location.hash.startsWith("#/player/")) return <PlayerPortalPage/>;
+  if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
+  if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
+
   if(authLoading) return(
     <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{color:"#ff6b00",fontSize:14}}>Loading…</div>
     </div>
   );
-
-  if(window.location.hash.startsWith("#/player/")) return <PlayerPortalPage/>;
-  if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
-  if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
 
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
