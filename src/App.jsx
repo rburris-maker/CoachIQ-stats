@@ -10918,7 +10918,7 @@ function PlayerPortalPage(){
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <input value={newVideo.label}
                     onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{label:e.target.value});});}}
-                    placeholder='Label (e.g. "Junior Year Highlights")'
+                    placeholder="Label (e.g. Junior Year Highlights)"
                     style={{width:"100%",padding:"10px 14px",background:L.surface,
                       border:"1px solid "+L.border,borderRadius:8,color:L.text,
                       fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
@@ -11024,7 +11024,7 @@ function RecruitingTab({form,setForm,
   ];
   var FIELDS = [
     {label:"Grad Year",key:"gradYear",ph:"e.g. 2026"},
-    {label:"Height",key:"height",ph:"e.g. 6'2""},
+    {label:"Height",key:"height",ph:"e.g. 72 inches"},
     {label:"Weight",key:"weight",ph:"lbs"},
     {label:"GPA",key:"gpa",ph:"e.g. 3.8"},
   ];
