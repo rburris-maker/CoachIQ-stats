@@ -1023,51 +1023,45 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       return;
     }
     setSending(true); setSendMsg(null);
-    let sent=0, failed=0;
+    let sent=0, failed=0, skipped=0;
+    const failedNames=[];
     for(const player of playersWithEmail){
-      const st = game.stats.find(s=>s.playerId===player.id);
-      if(!st) continue;
+      const st = (game.stats||[]).find(s=>s.playerId===player.id);
+      if(!st){ skipped++; continue; }
       const cs  = isCS(game, player.id);
       const {rating, label, coachNote, breakdown} = calcRating(st, primaryPos(player), cs);
       const seasonAvg   = avgRating(player.id, allGames||[game]);
-      const gamesPlayed = (allGames||[game]).filter(g=>g.status==="completed"&&g.stats.find(s=>s.playerId===player.id)).length;
+      const gamesPlayed = (allGames||[game]).filter(g=>g.status==="completed"&&(g.stats||[]).find(s=>s.playerId===player.id)).length;
       const passAtt  = (st.passesCompleted||0)+(st.passesIncomplete||st.passesAttempted||0);
       const passAccStr = passAtt>0 ? `${Math.round((st.passesCompleted/passAtt)*100)}%` : "N/A";
       const isGK = allPos(player).includes("GK");
-
-      const fmt = n => n >= 0 ? `+${n}` : String(n);
-
+      const fmt = n => (typeof n==="number"&&n>=0) ? `+${n}` : String(n||0);
       try{
         await sendPlayerEmail({
-          // Routing
           to_email:      player.email.trim(),
           to_name:       player.name,
-          // Game info
           player_name:   player.name,
           team_name:     teamName||"Your Team",
-          game_opponent: game.opponent,
-          game_date:     game.date,
-          game_location: game.location,
-          // Rating
+          game_opponent: game.opponent||"",
+          game_date:     game.date||"",
+          game_location: game.location||"",
           rating:        rating.toFixed(1),
           rating_label:  label,
-          // Score breakdown
           attack:        fmt(breakdown.attack),
           possession:    fmt(breakdown.possession),
           defensive:     fmt(breakdown.defensive),
           bonus:         fmt(breakdown.bonus),
           errors:        fmt(breakdown.errors),
-          // Individual stats — each sent separately for clean HTML layout
-          stat_goals:       String(st.goals),
-          stat_assists:     String(st.assists),
-          stat_shots:       String(st.shots),
-          stat_shots_ot:    String(st.shotsOnTarget),
+          stat_goals:       String(st.goals||0),
+          stat_assists:     String(st.assists||0),
+          stat_shots:       String(st.shots||0),
+          stat_shots_ot:    String(st.shotsOnTarget||0),
           stat_key_passes:  String(st.keyPasses||0),
-          stat_pass_comp:   String(st.passesCompleted),
+          stat_pass_comp:   String(st.passesCompleted||0),
           stat_pass_att:    String(passAtt),
           stat_pass_acc:    passAccStr,
-          stat_tackles:     String(st.tackles),
-          stat_ints:        String(st.interceptions),
+          stat_tackles:     String(st.tackles||0),
+          stat_ints:        String(st.interceptions||0),
           stat_aerials:     String(st.aerialDuelsWon||0),
           stat_fouls:       String(st.fouls||0),
           stat_turns:       String(st.dangerousTurnovers||0),
@@ -1075,22 +1069,28 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           stat_conceded:    String(st.goalsConceded||0),
           stat_minutes:     String(st.minutesPlayed||90),
           stat_is_gk:       isGK ? "true" : "false",
-          // Coach note
-          coach_note:    coachNote,
-          // Season context
+          coach_note:    coachNote||"",
           season_avg:    seasonAvg.toFixed(1),
           games_played:  String(gamesPlayed),
         });
         sent++;
       }catch(e){
-        console.error("Email failed for", player.name, e);
+        console.error("Email failed for", player.name, e.message);
+        failedNames.push(player.name);
         failed++;
       }
       await new Promise(r=>setTimeout(r,400));
     }
     setSending(false);
-    if(failed===0) setSendMsg({type:"ok", text:`✓ Match reports sent to ${sent} player${sent!==1?"s":""}`});
-    else setSendMsg({type:"err", text:`Sent ${sent}, failed ${failed}. Check player emails in Roster.`});
+    if(failed===0 && sent>0){
+      setSendMsg({type:"ok", text:`✓ Reports sent to ${sent} player${sent!==1?"s":""}${skipped>0?` (${skipped} had no stats this game)`:""}`});
+    } else if(sent===0 && skipped===playersWithEmail.length){
+      setSendMsg({type:"err", text:"No stats found for any player — upload stats for this game first, then send reports."});
+    } else if(failed>0){
+      setSendMsg({type:"err", text:`Sent ${sent}, failed for: ${failedNames.join(", ")}. Check EmailJS template_xlcc4wg is set up correctly.`});
+    } else {
+      setSendMsg({type:"err", text:"Nothing sent — no players had stats in this game."});
+    }
   }
 
   async function handleImport(e){
