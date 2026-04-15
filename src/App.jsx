@@ -1076,7 +1076,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         sent++;
       }catch(e){
         console.error("Email failed for", player.name, e.message);
-        failedNames.push(player.name);
+        failedNames.push(player.name+" ("+e.message+")");
         failed++;
       }
       await new Promise(r=>setTimeout(r,400));
