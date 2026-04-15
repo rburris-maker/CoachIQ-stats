@@ -966,8 +966,6 @@ function parseGameSpreadsheet(file) {
 // ─── GAMES VIEW ───────────────────────────────────────────────────────────────
 function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam,opponents,onViewOpponent,setOpponents}){
   const [sel,setSel]=useState(null);
-  const [aiTxt,setAiTxt]=useState("");
-  const [loading,setLoading]=useState(false);
   const [expanded,setExpanded]=useState(null);
   const [importing,setImporting]=useState(false);
   const [importMsg,setImportMsg]=useState(null);
@@ -1131,80 +1129,6 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     e.target.value="";
   }
 
-  async function genAI(game){
-    // Guard: need actual stats to generate meaningful analysis
-    if(!game.stats||game.stats.length===0){
-      setAiTxt("No player stats recorded for this game. Upload a stats spreadsheet or use the live tracker first, then generate analysis.");
-      return;
-    }
-    setLoading(true); setAiTxt("");
-    try{
-      const roster = activeRoster||[];
-      // Build rich per-player summary with actual numbers
-      const playerLines = game.stats.map(s=>{
-        const p = roster.find(x=>x.id===s.playerId);
-        if(!p) return null;
-        const cs  = isCS(game, s.playerId);
-        const {rating, coachNote} = calcRating(s, primaryPos(p), cs);
-        const pos  = allPos(p).join("/");
-        const mins = s.minutesPlayed||90;
-        const passAtt = (s.passesCompleted||0)+(s.passesAttempted||s.passesIncomplete||0);
-        const passAcc = passAtt>0?Math.round((s.passesCompleted/passAtt)*100):null;
-        const lines = [
-          `${p.name} (${pos}, #${p.number}) — Rating: ${rating.toFixed(1)}/10`,
-          `  Goals: ${s.goals||0} | Assists: ${s.assists||0} | Shots: ${s.shots||0} (${s.shotsOnTarget||0} on target)`,
-          `  Passes: ${s.passesCompleted||0}/${passAtt}${passAcc!==null?" ("+passAcc+"%)":""}  | Key passes: ${s.keyPasses||0}`,
-          `  Tackles: ${s.tackles||0} | Interceptions: ${s.interceptions||0} | Fouls: ${s.fouls||0}`,
-          `  Turnovers: ${s.dangerousTurnovers||0} | Minutes: ${mins}`,
-        ];
-        if(pos.includes("GK")) lines.push(`  Saves: ${s.saves||0} | Conceded: ${s.goalsConceded||0}`);
-        lines.push(`  Coach note: ${coachNote}`);
-        return lines.join("\n");
-      }).filter(Boolean);
-
-      const teamName = activeTeamName||"Our Team";
-      const result   = game.ourScore>game.theirScore?"WIN":game.ourScore<game.theirScore?"LOSS":"DRAW";
-      const totalShots   = game.stats.reduce((a,s)=>a+(s.shots||0),0);
-      const totalSoT     = game.stats.reduce((a,s)=>a+(s.shotsOnTarget||0),0);
-      const totalPasses  = game.stats.reduce((a,s)=>a+(s.passesCompleted||0),0);
-      const totalTackles = game.stats.reduce((a,s)=>a+(s.tackles||0),0);
-      const totalFouls   = game.stats.reduce((a,s)=>a+(s.fouls||0),0);
-
-      const prompt = [
-        `You are an experienced high school soccer coach analyst. Analyse this match and give SPECIFIC, DATA-DRIVEN insights.`,
-        ``,
-        `MATCH: ${teamName} ${game.ourScore}–${game.theirScore} ${game.opponent} (${result})`,
-        `Date: ${game.date} | Location: ${game.location||"Unknown"} | Formation: ${game.formation||"Unknown"}`,
-        ``,
-        `TEAM TOTALS: Shots ${totalShots} (${totalSoT} on target) | Passes completed ${totalPasses} | Tackles ${totalTackles} | Fouls ${totalFouls}`,
-        ``,
-        `PLAYER STATS:`,
-        playerLines.join("\n\n"),
-        ``,
-        `Based ONLY on the numbers above, give exactly 5 coaching insights as bullet points:`,
-        `1. Overall team performance summary (reference the score and shot/pass numbers)`,
-        `2. Best performing player — name them, cite their specific stats`,
-        `3. Biggest attacking concern — reference specific numbers (shots, conversion, key passes)`,
-        `4. Biggest defensive concern — reference specific numbers (tackles, fouls, turnovers)`,
-        `5. One concrete lineup or tactical change for the next game, naming specific players`,
-        ``,
-        `Rules: Each bullet max 30 words. Name actual players. Cite actual numbers. No generic advice. Start each bullet with •`,
-      ].join("\n");
-
-      const res  = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:700,
-          messages:[{role:"user",content:prompt}]})
-      });
-      const data = await res.json();
-      if(data.error) throw new Error(data.error.message);
-      setAiTxt(data.content?.[0]?.text||"Analysis unavailable.");
-    }catch(e){
-      setAiTxt("Analysis failed: "+e.message+". Check your API connection and try again.");
-    }
-    setLoading(false);
-  }
-
   if(sel){
     const game=games.find(g=>g.id===sel); if(!game)return null;
     const res=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
@@ -1229,7 +1153,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           id="detail-stats-upload"
           onChange={e=>{ handleImportForGame(e, game.id); }}/>
         <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
-          <button onClick={()=>{setSel(null);setAiTxt("");setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <button onClick={()=>{setSel(null);setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}/>
           <button onClick={()=>setEditGame(game)}
             style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
@@ -1296,33 +1220,23 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         </div>
 
-        {/* AI panel */}
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"flex",alignItems:"center",gap:7}}><Cpu size={12}/>AI MATCH ANALYSIS</div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>sendReports(game,activeRoster||PLAYERS,activeTeamName,games)} disabled={sending}
-                style={{background:"#42a5f522",border:"1px solid #42a5f544",borderRadius:8,padding:"6px 12px",
-                  color:"#42a5f5",cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
-                {sending?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Sending…</>:<>✉ Send Reports</>}
-              </button>
-              <button onClick={()=>genAI(game)} disabled={loading} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,padding:"6px 12px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
-                {loading?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Analyzing…</>:<><Zap size={12}/>Generate</>}
-              </button>
-            </div>
-          </div>
-          {sendMsg&&(
+        {/* Send Reports */}
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+          <button onClick={()=>sendReports(game,activeRoster||PLAYERS,activeTeamName,games)} disabled={sending}
+            style={{background:"#42a5f522",border:"1px solid #42a5f544",borderRadius:8,padding:"8px 14px",
+              color:"#42a5f5",cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+            {sending?<><RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>Sending…</>:<>✉ Send Match Reports</>}
+          </button>
+        </div>
+        {sendMsg&&(
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
             background:sendMsg.type==="ok"?C.accent+"15":C.danger+"15",
             border:`1px solid ${sendMsg.type==="ok"?C.accent:C.danger}44`,
-            borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+            borderRadius:8,padding:"10px 14px",marginBottom:14}}>
             <span style={{color:sendMsg.type==="ok"?C.accent:C.danger,fontWeight:600,fontSize:13}}>{sendMsg.text}</span>
             <button onClick={()=>setSendMsg(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
           </div>
         )}
-        {aiTxt?<div style={{color:C.text,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{aiTxt}</div>
-               :<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>Click Generate to get AI coaching insights based on the rating breakdowns.</div>}
-        </div>
 
         {/* Ratings */}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
