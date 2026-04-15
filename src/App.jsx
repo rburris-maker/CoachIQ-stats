@@ -1132,22 +1132,76 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   }
 
   async function genAI(game){
-    setLoading(true);setAiTxt("");
+    // Guard: need actual stats to generate meaningful analysis
+    if(!game.stats||game.stats.length===0){
+      setAiTxt("No player stats recorded for this game. Upload a stats spreadsheet or use the live tracker first, then generate analysis.");
+      return;
+    }
+    setLoading(true); setAiTxt("");
     try{
-      const summary=game.stats.map(s=>{
-        const p=PLAYERS.find(x=>x.id===s.playerId);
-        const cs=isCS(game,s.playerId);
-        const {rating,coachNote}=calcRating(s,primaryPos(p),cs);
-        return `${p?.name}(${allPos(p).join("/")}) ${rating}/10 – ${coachNote}`;
-      }).join("\n");
-      const prompt=`You are a professional soccer coach analyst. Match: Marion FC ${game.ourScore}–${game.theirScore} ${game.opponent} (${game.formation})\n\nPlayer ratings:\n${summary}\n\nGive 4 sharp bullet-point coaching insights. Cover: tactical pattern, top performer, main weakness, one lineup change recommendation. Each bullet max 20 words. Be direct.`;
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const roster = activeRoster||[];
+      // Build rich per-player summary with actual numbers
+      const playerLines = game.stats.map(s=>{
+        const p = roster.find(x=>x.id===s.playerId);
+        if(!p) return null;
+        const cs  = isCS(game, s.playerId);
+        const {rating, coachNote} = calcRating(s, primaryPos(p), cs);
+        const pos  = allPos(p).join("/");
+        const mins = s.minutesPlayed||90;
+        const passAtt = (s.passesCompleted||0)+(s.passesAttempted||s.passesIncomplete||0);
+        const passAcc = passAtt>0?Math.round((s.passesCompleted/passAtt)*100):null;
+        const lines = [
+          `${p.name} (${pos}, #${p.number}) — Rating: ${rating.toFixed(1)}/10`,
+          `  Goals: ${s.goals||0} | Assists: ${s.assists||0} | Shots: ${s.shots||0} (${s.shotsOnTarget||0} on target)`,
+          `  Passes: ${s.passesCompleted||0}/${passAtt}${passAcc!==null?" ("+passAcc+"%)":""}  | Key passes: ${s.keyPasses||0}`,
+          `  Tackles: ${s.tackles||0} | Interceptions: ${s.interceptions||0} | Fouls: ${s.fouls||0}`,
+          `  Turnovers: ${s.dangerousTurnovers||0} | Minutes: ${mins}`,
+        ];
+        if(pos.includes("GK")) lines.push(`  Saves: ${s.saves||0} | Conceded: ${s.goalsConceded||0}`);
+        lines.push(`  Coach note: ${coachNote}`);
+        return lines.join("\n");
+      }).filter(Boolean);
+
+      const teamName = activeTeamName||"Our Team";
+      const result   = game.ourScore>game.theirScore?"WIN":game.ourScore<game.theirScore?"LOSS":"DRAW";
+      const totalShots   = game.stats.reduce((a,s)=>a+(s.shots||0),0);
+      const totalSoT     = game.stats.reduce((a,s)=>a+(s.shotsOnTarget||0),0);
+      const totalPasses  = game.stats.reduce((a,s)=>a+(s.passesCompleted||0),0);
+      const totalTackles = game.stats.reduce((a,s)=>a+(s.tackles||0),0);
+      const totalFouls   = game.stats.reduce((a,s)=>a+(s.fouls||0),0);
+
+      const prompt = [
+        `You are an experienced high school soccer coach analyst. Analyse this match and give SPECIFIC, DATA-DRIVEN insights.`,
+        ``,
+        `MATCH: ${teamName} ${game.ourScore}–${game.theirScore} ${game.opponent} (${result})`,
+        `Date: ${game.date} | Location: ${game.location||"Unknown"} | Formation: ${game.formation||"Unknown"}`,
+        ``,
+        `TEAM TOTALS: Shots ${totalShots} (${totalSoT} on target) | Passes completed ${totalPasses} | Tackles ${totalTackles} | Fouls ${totalFouls}`,
+        ``,
+        `PLAYER STATS:`,
+        playerLines.join("\n\n"),
+        ``,
+        `Based ONLY on the numbers above, give exactly 5 coaching insights as bullet points:`,
+        `1. Overall team performance summary (reference the score and shot/pass numbers)`,
+        `2. Best performing player — name them, cite their specific stats`,
+        `3. Biggest attacking concern — reference specific numbers (shots, conversion, key passes)`,
+        `4. Biggest defensive concern — reference specific numbers (tackles, fouls, turnovers)`,
+        `5. One concrete lineup or tactical change for the next game, naming specific players`,
+        ``,
+        `Rules: Each bullet max 30 words. Name actual players. Cite actual numbers. No generic advice. Start each bullet with •`,
+      ].join("\n");
+
+      const res  = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,messages:[{role:"user",content:prompt}]})
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:700,
+          messages:[{role:"user",content:prompt}]})
       });
-      const data=await res.json();
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
       setAiTxt(data.content?.[0]?.text||"Analysis unavailable.");
-    }catch{setAiTxt("• Defensive shape was compact and well-organised throughout\n• Midfield press created key turnovers in dangerous areas\n• Final third decision-making was inconsistent\n• Recommend higher striker press to reduce opponent build-up");}
+    }catch(e){
+      setAiTxt("Analysis failed: "+e.message+". Check your API connection and try again.");
+    }
     setLoading(false);
   }
 
