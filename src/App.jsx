@@ -4793,7 +4793,8 @@ export default function CoachIQStats(){
 
   // ── Show auth screen if not logged in ────────────────────────────────────
   // Public routes — render before auth check
-  if(window.location.hash.startsWith("#/player/")) return <PlayerPortalPage/>;
+  if(window.location.hash.startsWith("#/player/"))   return <PlayerPortalPage/>;
+  if(window.location.hash.startsWith("#/schedule/")) return <PublicSchedulePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
 
@@ -5267,7 +5268,7 @@ export default function CoachIQStats(){
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
-            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView}/>}
+            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
@@ -7040,7 +7041,62 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
 
 
 // ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
-function CalendarView({schedule, setSchedule, games, practices, setView}){
+// ─── CALENDAR HELPERS ────────────────────────────────────────────────────────
+function makeGoogleCalUrl(evt, teamName){
+  // Format: YYYYMMDDTHHMMSS
+  var d = evt.date.replace(/-/g,"");
+  var t = evt.time ? evt.time.replace(":","")+"00" : "090000";
+  var start = d+"T"+t;
+  // Default 2hr duration
+  var endH = evt.time ? String(parseInt(evt.time.split(":")[0])+2).padStart(2,"0")+evt.time.split(":")[1]+"00" : "110000";
+  var end = d+"T"+endH;
+  var title = encodeURIComponent((evt.type==="game"?"vs "+evt.opponent:evt.title)||evt.title||"Event");
+  var loc   = encodeURIComponent(evt.location||"");
+  var details = encodeURIComponent((teamName||"CoachIQ")+(evt.notes?" — "+evt.notes:""));
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+title+"&dates="+start+"/"+end+"&location="+loc+"&details="+details;
+}
+
+function makeICSContent(events, teamName){
+  var lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CoachIQ//Season Schedule//EN",
+    "X-WR-CALNAME:"+(teamName||"CoachIQ")+" Season",
+    "X-WR-TIMEZONE:America/New_York",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+  ];
+  events.forEach(function(evt){
+    var d = (evt.date||"").replace(/-/g,"");
+    if(!d) return;
+    var t = evt.time ? evt.time.replace(":","")+"00" : "090000";
+    var endH = evt.time ? String(parseInt((evt.time||"09:00").split(":")[0])+2).padStart(2,"0")+((evt.time||"09:00").split(":")[1])+"00" : "110000";
+    var title = (evt.type==="game"?"vs "+(evt.opponent||""):evt.title||"Event");
+    lines.push("BEGIN:VEVENT");
+    lines.push("DTSTART:"+d+"T"+t);
+    lines.push("DTEND:"+d+"T"+endH);
+    lines.push("SUMMARY:"+title);
+    if(evt.location) lines.push("LOCATION:"+evt.location);
+    if(evt.notes)    lines.push("DESCRIPTION:"+evt.notes);
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+function downloadICS(events, teamName){
+  var content = makeICSContent(events, teamName);
+  var blob = new Blob([content], {type:"text/calendar;charset=utf-8"});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href = url;
+  a.download = (teamName||"CoachIQ").replace(/\s+/g,"_")+"_Season.ics";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function CalendarView({schedule, setSchedule, games, practices, setView, teamName, activeTeamId}){
   const today = new Date();
   const [curMonth, setCurMonth] = useState(today.getMonth());
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -7135,12 +7191,31 @@ function CalendarView({schedule, setSchedule, games, practices, setView}){
           <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SEASON</div>
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Calendar</h1>
         </div>
-        <button onClick={()=>openAdd(today.toISOString().split("T")[0])}
-          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
-            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-            fontFamily:"'Oswald',sans-serif"}}>
-          <Plus size={15}/>Add Event
-        </button>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button onClick={()=>downloadICS(allEvents, teamName)}
+            title="Download season as Apple/Outlook calendar file"
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⬇ Export .ics
+          </button>
+          <button onClick={()=>{
+            const link=window.location.origin+window.location.pathname+"#/schedule/"+activeTeamId;
+            navigator.clipboard?.writeText(link).then(()=>alert("Schedule link copied!")).catch(()=>alert(link));
+          }}
+            title="Share a public link to your season schedule"
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⎘ Share Schedule
+          </button>
+          <button onClick={()=>openAdd(today.toISOString().split("T")[0])}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+              border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif"}}>
+            <Plus size={15}/>Add Event
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit form modal */}
@@ -11292,6 +11367,305 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
               cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
             Save Stats →
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PUBLIC SCHEDULE PAGE ─────────────────────────────────────────────────────
+function PublicSchedulePage(){
+  var teamId = window.location.hash.replace("#/schedule/","").split("?")[0];
+  var [teamName, setTeamName] = useState("");
+  var [events,   setEvents]   = useState([]);
+  var [games,    setGames]    = useState([]);
+  var [loading,  setLoading]  = useState(true);
+  var [error,    setError]    = useState(null);
+
+  useEffect(function(){
+    async function load(){
+      try{
+        // Load team name
+        var {data:teams}  = await supabase.from("teams").select("name").eq("id",teamId);
+        setTeamName(teams?.[0]?.name||"Season Schedule");
+
+        // Load schedule events
+        var {data:schData} = await supabase.from("schedule").select("*").eq("team_id",teamId);
+        var evts = (schData||[]).map(function(x){return x.data;});
+        setEvents(evts);
+
+        // Load completed games
+        var {data:gData} = await supabase.from("games").select("*").eq("team_id",teamId);
+        setGames((gData||[]).map(function(x){return x.data;}));
+      }catch(e){ setError("Failed to load schedule."); }
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  var today = new Date().toISOString().split("T")[0];
+
+  // Merge schedule events + games into one list
+  var allItems = [];
+  (events||[]).forEach(function(e){ allItems.push(e); });
+  (games||[]).filter(function(g){
+    return !events.find(function(e){return e.linkedGameId===g.id;});
+  }).forEach(function(g){
+    allItems.push({id:"g_"+g.id,type:"game",date:g.date,time:"",
+      opponent:g.opponent,location:g.location,
+      result:{our:g.ourScore,their:g.theirScore},auto:true});
+  });
+  allItems.sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
+
+  var upcoming = allItems.filter(function(e){return e.date>=today;});
+  var past     = allItems.filter(function(e){return e.date<today;}).reverse();
+
+  // Record
+  var gamesOnly = (games||[]).filter(function(g){return g.status==="completed"||g.ourScore!==undefined;});
+  var wins   = gamesOnly.filter(function(g){return g.ourScore>g.theirScore;}).length;
+  var draws  = gamesOnly.filter(function(g){return g.ourScore===g.theirScore;}).length;
+  var losses = gamesOnly.filter(function(g){return g.ourScore<g.theirScore;}).length;
+
+  // Next game countdown
+  var nextGame = upcoming.find(function(e){return e.type==="game"||(e.opponent);});
+  var daysUntil = nextGame ? Math.ceil((new Date(nextGame.date)-new Date(today))/(1000*60*60*24)) : null;
+
+  var A = "#ff6b00";
+
+  function formatDate(d, t){
+    if(!d) return "";
+    var parts = d.split("-");
+    var dt = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var days   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var str = days[dt.getDay()]+" "+months[dt.getMonth()]+" "+dt.getDate();
+    if(t) str += " · "+formatTime(t);
+    return str;
+  }
+
+  function formatTime(t){
+    if(!t) return "";
+    var parts = t.split(":");
+    var h = parseInt(parts[0]);
+    var m = parts[1];
+    var ampm = h>=12?"PM":"AM";
+    h = h%12||12;
+    return h+":"+m+" "+ampm;
+  }
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"'Outfit',sans-serif",flexDirection:"column",gap:14}}>
+      <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid "+A,
+        borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
+      <div style={{color:A,fontSize:13,fontWeight:600}}>Loading schedule...</div>
+    </div>
+  );
+
+  if(error) return(
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{color:"#c00",fontSize:14}}>{error}</div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f7f7f7",fontFamily:"'Outfit',sans-serif"}}>
+
+      {/* Header */}
+      <div style={{background:A,padding:"28px 20px 24px"}}>
+        <div style={{maxWidth:560,margin:"0 auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:"rgba(255,255,255,.5)"}}/>
+            <span style={{color:"rgba(255,255,255,.75)",fontSize:11,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
+          </div>
+          <h1 style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:28,
+            fontWeight:900,margin:"0 0 4px"}}>{teamName}</h1>
+          <div style={{color:"rgba(255,255,255,.75)",fontSize:13}}>Season Schedule</div>
+
+          {/* Record strip */}
+          {gamesOnly.length>0&&(
+            <div style={{display:"flex",gap:0,marginTop:20,
+              background:"rgba(0,0,0,.2)",borderRadius:10,overflow:"hidden",
+              width:"fit-content"}}>
+              {[[wins,"W","#fff"],[draws,"D","rgba(255,255,255,.7)"],[losses,"L","rgba(255,255,255,.5)"]].map(function(item){return(
+                <div key={item[1]} style={{padding:"10px 20px",textAlign:"center",
+                  borderRight:"1px solid rgba(255,255,255,.15)"}}>
+                  <div style={{color:item[2],fontFamily:"'Oswald',sans-serif",
+                    fontWeight:900,fontSize:22,lineHeight:1}}>{item[0]}</div>
+                  <div style={{color:"rgba(255,255,255,.55)",fontSize:9,
+                    fontWeight:700,letterSpacing:1,marginTop:2}}>{item[1]}</div>
+                </div>
+              );})}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{maxWidth:560,margin:"0 auto",padding:"20px 16px 40px"}}>
+
+        {/* Next game countdown */}
+        {nextGame&&daysUntil>=0&&(
+          <div style={{background:"#fff",border:"2px solid "+A,borderRadius:14,
+            padding:"16px 18px",marginBottom:20,display:"flex",
+            justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{color:A,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>NEXT GAME</div>
+              <div style={{color:"#111",fontWeight:800,fontSize:16}}>
+                vs {nextGame.opponent||nextGame.title}
+              </div>
+              <div style={{color:"#999",fontSize:12,marginTop:2}}>
+                {formatDate(nextGame.date, nextGame.time)}
+                {nextGame.location&&" · "+nextGame.location}
+              </div>
+            </div>
+            <div style={{textAlign:"center",flexShrink:0,marginLeft:16}}>
+              <div style={{color:A,fontFamily:"'Oswald',sans-serif",
+                fontWeight:900,fontSize:36,lineHeight:1}}>
+                {daysUntil===0?"TODAY":daysUntil}
+              </div>
+              {daysUntil>0&&<div style={{color:"#aaa",fontSize:10,fontWeight:700,
+                letterSpacing:1}}>DAYS</div>}
+            </div>
+          </div>
+        )}
+
+        {/* Add all to calendar */}
+        {upcoming.length>0&&(
+          <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+            <button onClick={function(){downloadICS(upcoming, teamName);}}
+              style={{flex:1,padding:"10px 14px",background:"#fff",
+                border:"1px solid #ddd",borderRadius:9,color:"#555",
+                fontWeight:700,fontSize:12,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+              ⬇ Apple / Outlook Calendar
+            </button>
+            {upcoming[0]&&(
+              <a href={makeGoogleCalUrl(upcoming[0], teamName)}
+                target="_blank" rel="noopener noreferrer"
+                style={{flex:1,padding:"10px 14px",background:"#fff",
+                  border:"1px solid #ddd",borderRadius:9,color:"#555",
+                  fontWeight:700,fontSize:12,cursor:"pointer",textDecoration:"none",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                + Google Calendar
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Upcoming */}
+        {upcoming.length>0&&(
+          <div style={{marginBottom:28}}>
+            <div style={{color:"#aaa",fontSize:10,fontWeight:700,letterSpacing:2,
+              marginBottom:12,paddingLeft:2}}>UPCOMING</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {upcoming.map(function(e){
+                var isGame = e.type==="game"||e.opponent;
+                var typeColors = {game:A,practice:"#27a560",tournament:"#7c6af5",other:"#42a5f5"};
+                var color = typeColors[e.type]||A;
+                var dLeft = Math.ceil((new Date(e.date)-new Date(today))/(1000*60*60*24));
+                return(
+                  <div key={e.id} style={{background:"#fff",border:"1px solid #eee",
+                    borderRadius:12,padding:"14px 16px",
+                    display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",
+                          background:color,flexShrink:0}}/>
+                        <div style={{color:"#111",fontWeight:700,fontSize:14}}>
+                          {isGame?"vs "+(e.opponent||""):(e.title||"Event")}
+                        </div>
+                      </div>
+                      <div style={{color:"#999",fontSize:12,paddingLeft:16}}>
+                        {formatDate(e.date, e.time)}
+                        {e.location&&" · "+e.location}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",
+                      alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:12}}>
+                      {dLeft===0?(
+                        <span style={{background:A+"18",color:A,fontSize:10,
+                          fontWeight:700,padding:"3px 8px",borderRadius:20}}>TODAY</span>
+                      ):dLeft===1?(
+                        <span style={{background:"#f0f0f0",color:"#555",fontSize:10,
+                          fontWeight:700,padding:"3px 8px",borderRadius:20}}>TOMORROW</span>
+                      ):(
+                        <span style={{color:"#bbb",fontSize:11,fontWeight:700}}>
+                          in {dLeft}d
+                        </span>
+                      )}
+                      <a href={makeGoogleCalUrl(e, teamName)}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{color:"#bbb",fontSize:10,fontWeight:700,
+                          textDecoration:"none",padding:"3px 7px",
+                          border:"1px solid #eee",borderRadius:5}}>
+                        + GCal
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Past results */}
+        {past.length>0&&(
+          <div>
+            <div style={{color:"#aaa",fontSize:10,fontWeight:700,letterSpacing:2,
+              marginBottom:12,paddingLeft:2}}>RESULTS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {past.filter(function(e){return e.type==="game"||e.opponent||e.result;}).map(function(e){
+                var r = e.result;
+                var win  = r&&r.our>r.their;
+                var loss = r&&r.our<r.their;
+                var draw = r&&r.our===r.their;
+                var rc   = win?A:loss?"#e53935":"#f57c00";
+                var rl   = win?"W":loss?"L":"D";
+                return(
+                  <div key={e.id} style={{background:"#fff",border:"1px solid #eee",
+                    borderRadius:12,padding:"12px 16px",
+                    display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{color:"#111",fontWeight:700,fontSize:14}}>
+                        vs {e.opponent||""}
+                      </div>
+                      <div style={{color:"#bbb",fontSize:12,marginTop:2}}>
+                        {formatDate(e.date, "")}
+                        {e.location&&" · "+e.location}
+                      </div>
+                    </div>
+                    {r?(
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                        <div style={{color:rc,fontFamily:"'Oswald',sans-serif",
+                          fontWeight:900,fontSize:18}}>{r.our}–{r.their}</div>
+                        <div style={{width:28,height:28,borderRadius:7,
+                          background:rc+"18",display:"flex",alignItems:"center",
+                          justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                          fontWeight:900,color:rc,fontSize:13}}>{rl}</div>
+                      </div>
+                    ):(
+                      <div style={{color:"#ddd",fontSize:12}}>No result</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {upcoming.length===0&&past.length===0&&(
+          <div style={{textAlign:"center",padding:"60px 0",color:"#bbb"}}>
+            <div style={{fontSize:32,marginBottom:12}}>📅</div>
+            <div style={{fontWeight:700,color:"#999",marginBottom:6}}>No events yet</div>
+            <div style={{fontSize:13}}>The coach hasn't added any games yet</div>
+          </div>
+        )}
+
+        <div style={{textAlign:"center",marginTop:40,display:"flex",
+          alignItems:"center",justifyContent:"center",gap:6}}>
+          <div style={{width:6,height:6,borderRadius:"50%",background:A,opacity:.35}}/>
+          <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
         </div>
       </div>
     </div>
