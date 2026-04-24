@@ -1176,18 +1176,32 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         {/* Quick score banner — prompt to add stats */}
         {game.entryType==="quick"&&(
           <div style={{background:C.accent+"15",border:`1px solid ${C.accent}44`,borderRadius:12,
-            padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",
-            justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-            <div>
-              <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Quick Score Entry</div>
-              <div style={{color:C.muted,fontSize:12,marginTop:2}}>No player stats recorded. Upload a spreadsheet to add full stats.</div>
+            padding:"14px 18px",marginBottom:16}}>
+            <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:2}}>No Stats Recorded</div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:12}}>Enter stats manually or upload a spreadsheet.</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button onClick={()=>{
+                // Pre-populate editStats with roster players at zero
+                const blankStats=(activeRoster||[]).map(p=>({
+                  playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
+                  keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
+                  tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
+                  dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90
+                }));
+                setEditStats({gameId:game.id,stats:blankStats});
+              }}
+                style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
+                  background:C.accent,border:"none",borderRadius:9,color:"#000",
+                  fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                ✏ Enter Stats Manually
+              </button>
+              <button onClick={()=>{document.getElementById("detail-stats-upload")?.click();}}
+                style={{display:"flex",alignItems:"center",gap:7,padding:"9px 14px",
+                  background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+                  color:C.muted,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                <Upload size={13}/> Upload Spreadsheet
+              </button>
             </div>
-            <button onClick={()=>{document.getElementById("detail-stats-upload")?.click();}}
-              style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
-                background:C.accent,border:"none",borderRadius:9,color:"#000",
-                fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
-              <Upload size={13}/> Upload Stats
-            </button>
           </div>
         )}
 
@@ -1607,12 +1621,21 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               )}
               </div>
               {game.entryType==="quick"&&(
-                <button onClick={e=>{e.stopPropagation();setAddStatsFor(game.id);fileRef.current?.click();}}
-                  title="Upload stats spreadsheet for this game"
+                <button onClick={e=>{
+                    e.stopPropagation();
+                    const blank=(activeRoster||[]).map(p=>({
+                      playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
+                      keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
+                      tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
+                      dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90
+                    }));
+                    setEditStats({gameId:game.id,stats:blank});
+                  }}
+                  title="Enter player stats for this game"
                   style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
                     background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,
                     color:C.accent,fontWeight:700,fontSize:11,cursor:"pointer",flexShrink:0}}>
-                  <Upload size={11}/> Add Stats
+                  ✏ Add Stats
                 </button>
               )}
               <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
@@ -11280,7 +11303,9 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
           display:"flex",justifyContent:"space-between",alignItems:"center",
           position:"sticky",top:0,background:C.card,zIndex:1}}>
           <div>
-            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>EDIT STATS</div>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>
+              {(editStats.stats||[]).every(function(s){return !Object.keys(s).some(function(k){return k!=="playerId"&&s[k]>0;})})?"ADD STATS":"EDIT STATS"}
+            </div>
             <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,margin:"2px 0 0"}}>
               vs {game.opponent} · {game.date}
             </h3>
@@ -11289,6 +11314,23 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
             style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>✕</button>
         </div>
 
+        <div style={{padding:"8px 24px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{color:C.muted,fontSize:11}}>Click any number to edit. Tab between fields.</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <label style={{color:C.muted,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+              <Upload size={11}/>
+              <span>Import spreadsheet instead</span>
+              <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
+                onChange={function(e){
+                  if(fileRef&&fileRef.current){
+                    setAddStatsFor(editStats.gameId);
+                    handleImportForGame(e,editStats.gameId);
+                    setEditStats(null);
+                  }
+                }}/>
+            </label>
+          </div>
+        </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
@@ -11353,20 +11395,44 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
           </table>
         </div>
 
-        <div style={{padding:"16px 24px",borderTop:"1px solid "+C.border,
-          display:"flex",gap:10,justifyContent:"flex-end",
-          position:"sticky",bottom:0,background:C.card}}>
-          <button onClick={function(){setEditStats(null);}}
-            style={{padding:"10px 20px",background:C.surface,border:"1px solid "+C.border,
-              borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
-            Cancel
-          </button>
-          <button onClick={save}
-            style={{padding:"10px 28px",background:C.accent,border:"none",
-              borderRadius:9,color:"#000",fontWeight:800,fontSize:14,
-              cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
-            Save Stats →
-          </button>
+        <div style={{padding:"12px 24px 16px",borderTop:"1px solid "+C.border,
+          display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",
+          position:"sticky",bottom:0,background:C.card,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={function(){
+              setEditStats(function(prev){
+                return Object.assign({},prev,{stats:prev.stats.map(function(s){
+                  return Object.assign({},s,{minutesPlayed:90});
+                })});
+              });
+            }} style={{padding:"8px 12px",background:C.surface,border:"1px solid "+C.border,
+              borderRadius:8,color:C.muted,cursor:"pointer",fontSize:11,fontWeight:700}}>
+              Set All 90 min
+            </button>
+            <button onClick={function(){
+              setEditStats(function(prev){
+                return Object.assign({},prev,{stats:prev.stats.map(function(s){
+                  return Object.assign({},s,{minutesPlayed:0});
+                })});
+              });
+            }} style={{padding:"8px 12px",background:C.surface,border:"1px solid "+C.border,
+              borderRadius:8,color:C.muted,cursor:"pointer",fontSize:11,fontWeight:700}}>
+              Clear All Min
+            </button>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={function(){setEditStats(null);}}
+              style={{padding:"10px 20px",background:C.surface,border:"1px solid "+C.border,
+                borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+              Cancel
+            </button>
+            <button onClick={save}
+              style={{padding:"10px 28px",background:C.accent,border:"none",
+                borderRadius:9,color:"#000",fontWeight:800,fontSize:14,
+                cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+              Save Stats →
+            </button>
+          </div>
         </div>
       </div>
     </div>
