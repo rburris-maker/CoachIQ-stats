@@ -1321,6 +1321,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
 
+      {/* ── EDIT STATS MODAL (also needed in detail view) ── */}
+      {editStats&&<EditStatsModal
+        editStats={editStats}
+        setEditStats={setEditStats}
+        games={games}
+        setGames={setGames}
+        roster={activeRoster||[]}
+      />}
+
       {/* ── EDIT GAME MODAL ── */}
       {editGame&&(
         <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
