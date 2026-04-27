@@ -4394,8 +4394,6 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
 
-  const SLOTS = {
-
   async function shareGamePlan(){
     if(!sel) return;
     var plan = gamePlans.find(function(p){return p.id===sel;});
