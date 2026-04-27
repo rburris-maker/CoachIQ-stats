@@ -2466,8 +2466,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       </div>
     </div>
-  </div>
-  </div>
   );
 }
 
@@ -4397,6 +4395,41 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
 
   const SLOTS = {
+
+  async function shareGamePlan(){
+    if(!sel) return;
+    var plan = gamePlans.find(function(p){return p.id===sel;});
+    if(!plan) return;
+    var sid = plan.shareId;
+    if(!sid){
+      sid = "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      setGamePlans(function(prev){return prev.map(function(p){return p.id===sel?Object.assign({},p,{shareId:sid}):p;});});
+      var updated = gamePlans.map(function(p){return p.id===sel?Object.assign({},p,{shareId:sid}):p;});
+      try{
+        await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+        if(updated.length) await supabase.from("game_plans").insert(updated.map(function(g){return {team_id:safeTeamId,user_id:userId,data:g};}));
+      }catch(e){ console.error("shareId save failed",e); }
+    }
+    setShareLink(window.location.origin+window.location.pathname+"#/plan/"+sid);
+  }
+
+  async function viewGamePlan(){
+    if(!sel) return;
+    var plan = gamePlans.find(function(p){return p.id===sel;});
+    if(!plan) return;
+    var sid = plan.shareId;
+    if(!sid){
+      sid = "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      setGamePlans(function(prev){return prev.map(function(p){return p.id===sel?Object.assign({},p,{shareId:sid}):p;});});
+      var updated = gamePlans.map(function(p){return p.id===sel?Object.assign({},p,{shareId:sid}):p;});
+      try{
+        await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
+        if(updated.length) await supabase.from("game_plans").insert(updated.map(function(g){return {team_id:safeTeamId,user_id:userId,data:g};}));
+      }catch(e){ console.error("shareId save failed",e); }
+    }
+    window.open(window.location.origin+window.location.pathname+"#/plan/"+sid,"_blank");
+  }
+
     "4-3-3":  {GK:1,DEF:4,MID:3,FWD:3},
     "4-4-2":  {GK:1,DEF:4,MID:4,FWD:2},
     "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},
@@ -4550,45 +4583,24 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 
     return(
       <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+        {/* Async handlers extracted to avoid Babel async-in-JSX-prop error */}
+        {(function(){
+          window._gpShareFn = shareGamePlan;
+          window._gpViewFn  = viewGamePlan;
+          return null;
+        })()}
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
             <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>{plan.date} · {plan.location} · {plan.formation}</div>
             <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:800}}>vs {plan.opponent}</h2>
           </div>
-          <button onClick={async ()=>{
-              let sid = plan.shareId;
-              if(!sid){
-                sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
-                setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
-                const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
-                try{
-                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
-                  if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
-                }catch(e){ console.error("shareId save failed",e); }
-              }
-              const link=`${window.location.origin}${window.location.pathname}#/plan/${sid}`;
-              setShareLink(link);
-            }}
+          <button onClick={shareGamePlan}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
             ⎘ Share
           </button>
-          <button onClick={async ()=>{
-              let sid = plan.shareId;
-              if(!sid){
-                sid = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
-                // Update local state
-                setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,shareId:sid}:p));
-                // Wait for Supabase to persist before opening
-                const updated = gamePlans.map(p=>p.id===sel?{...p,shareId:sid}:p);
-                try{
-                  await supabase.from("game_plans").delete().eq("team_id",safeTeamId);
-                  if(updated.length) await supabase.from("game_plans").insert(updated.map(g=>({team_id:safeTeamId,user_id:userId,data:g})));
-                }catch(e){ console.error("shareId save failed",e); }
-              }
-              window.open(`${window.location.origin}${window.location.pathname}#/plan/${sid}`,"_blank");
-            }}
+          <button onClick={viewGamePlan}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 12px",color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
             ⬡ View / Print
@@ -7389,6 +7401,12 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
     return(
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
         {/* Header */}
+        {/* Async handlers extracted to avoid Babel async-in-JSX-prop error */}
+        {(function(){
+          window._gpShareFn = shareGamePlan;
+          window._gpViewFn  = viewGamePlan;
+          return null;
+        })()}
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
