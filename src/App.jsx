@@ -2184,7 +2184,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:3}}>
             <button onClick={()=>setMin(m=>Math.max(0,m-1))} style={{width:20,height:20,borderRadius:4,background:C.border,border:"none",color:C.text,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-            <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:22,minWidth:40,textAlign:"center"}}>{min}&#39;</span>
+            <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:22,minWidth:40,textAlign:"center"}}>{ min + "'" }</span>
             <button onClick={()=>setMin(m=>Math.min(m+1,120))} style={{width:20,height:20,borderRadius:4,background:C.accent+"33",border:`1px solid ${C.accent}44`,color:C.accent,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
           </div>
           <button onClick={()=>setAutoMin(a=>!a)}
@@ -2224,10 +2224,10 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           </div>
           <div style={{display:"flex",gap:3}}>
             {connectedUsers.slice(0,3).map(function(u,i){return(
-              <div key={i} style={{width:18,height:18,borderRadius:"50%",background:C.accent+"33",
+              <div key={i} title={u.name}
+                style={{width:18,height:18,borderRadius:"50%",background:C.accent+"33",
                 border:`1px solid ${C.accent}55`,display:"flex",alignItems:"center",
-                justifyContent:"center",color:C.accent,fontSize:8,fontWeight:900,
-                title:u.name}}>
+                justifyContent:"center",color:C.accent,fontSize:8,fontWeight:900}}>
                 {u.name[0].toUpperCase()}
               </div>
             );})}
@@ -2419,7 +2419,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                         {s[activeStat]||0}
                       </div>
                     )}
-                    <div style={{color:C.muted,fontSize:9}}>{minsOnPitch}&#39;</div>
+                    <div style={{color:C.muted,fontSize:9}}>{ minsOnPitch + "'" }</div>
                   </div>
                 </div>
               );
@@ -2466,6 +2466,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       </div>
     </div>
+  </div>
+  </div>
   );
 }
 
