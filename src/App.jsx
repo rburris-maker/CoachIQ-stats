@@ -2232,7 +2232,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [showNoteInput,setShowNoteInput]= useState(false);
 
   // ── Possession state ───────────────────────────────────────────────────────
-  const [possession, setPossession] = useState({home:0, away:0, current:null, lastMin:null});
+  const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null}); // lastTs = Date.now()
 
   const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
@@ -2269,14 +2269,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Auto minute ticker ─────────────────────────────────────────────────────
   useEffect(()=>{
     if(autoMin&&live&&!halfTime&&!lobby){
-      timerRef.current=setInterval(()=>setMin(m=>{
-        if(m>=7200){setAutoMin(false);return 7200;} // max 120 mins in seconds
-        setPossession(p=>{
-          if(p.current&&p.lastMin!==null){
-            return {...p,[p.current]:p[p.current]+1,lastMin:m+1};
-          }
-          return p;
-        });
+      timerRef.current=setInterval(()=>setMin(function(m){
+        if(m>=7200){setAutoMin(false);return 7200;}
         return m+1;
       }),1000);
     } else { clearInterval(timerRef.current); }
@@ -2342,20 +2336,27 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         addFeedEvent("── 2nd Half ──");
         break;
       case "possession":
-        setPossession(p=>{
-          var updated={...p};
-          if(p.current&&p.lastMin!==null){
-            updated[p.current]=p[p.current]+(payload.min-p.lastMin);
+        // Remote device started possession - sync their timestamp
+        setPossession(function(p){
+          var now2 = Date.now();
+          var updated = Object.assign({},p);
+          if(p.current&&p.lastTs){
+            var elapsed3 = Math.round((now2-p.lastTs)/1000);
+            updated[p.current] = p[p.current] + elapsed3;
           }
-          updated.current=payload.team;
-          updated.lastMin=payload.min;
+          updated.current = payload.team;
+          updated.lastTs = payload.ts || now2;
           return updated;
         });
         break;
       case "possession_end":
-        setPossession(p=>{
-          if(!p.current||p.lastMin===null) return {...p,current:null};
-          return {...p,[p.current]:p[p.current]+(payload.min-p.lastMin),current:null,lastMin:null};
+        setPossession(function(p){
+          if(!p.current) return Object.assign({},p,{current:null,lastTs:null});
+          var elapsed4 = payload.elapsed || (p.lastTs ? Math.round((Date.now()-p.lastTs)/1000) : 0);
+          var u = Object.assign({},p);
+          u[p.current] = p[p.current] + elapsed4;
+          u.current = null; u.lastTs = null;
+          return u;
         });
         break;
       case "note":
@@ -2419,17 +2420,37 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   // ── Possession ─────────────────────────────────────────────────────────────
   function togglePossession(team){
+    var now = Date.now();
     if(possession.current===team){
-      broadcastEvent("possession_end",{min});
+      // End current possession
+      var elapsed = possession.lastTs ? Math.round((now - possession.lastTs)/1000) : 0;
+      setPossession(function(p){
+        return {home:p.home+(p.current==="home"?elapsed:0),away:p.away+(p.current==="away"?elapsed:0),current:null,lastTs:null};
+      });
+      broadcastEvent("possession_end",{min,elapsed,team:possession.current});
     } else {
-      broadcastEvent("possession",{team,min});
+      // Close previous if any
+      if(possession.current){
+        var elapsed2 = possession.lastTs ? Math.round((now - possession.lastTs)/1000) : 0;
+        setPossession(function(p){
+          return {home:p.home+(p.current==="home"?elapsed2:0),away:p.away+(p.current==="away"?elapsed2:0),current:team,lastTs:now};
+        });
+      } else {
+        setPossession(function(p){ return {...p,current:team,lastTs:now}; });
+      }
+      broadcastEvent("possession",{team,min,ts:now});
     }
   }
 
   function possessionPct(){
-    var total=possession.home+possession.away;
+    // Add live running time for current team
+    var extraHome = (possession.current==="home"&&possession.lastTs) ? Math.round((Date.now()-possession.lastTs)/1000) : 0;
+    var extraAway = (possession.current==="away"&&possession.lastTs) ? Math.round((Date.now()-possession.lastTs)/1000) : 0;
+    var h = possession.home + extraHome;
+    var a = possession.away + extraAway;
+    var total = h + a;
     if(!total) return {home:50,away:50};
-    return {home:Math.round(possession.home/total*100),away:100-Math.round(possession.home/total*100)};
+    return {home:Math.round(h/total*100),away:100-Math.round(h/total*100)};
   }
 
   // ── Half / End ─────────────────────────────────────────────────────────────
@@ -2655,7 +2676,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:3}}>
             <button onClick={()=>setMin(m=>Math.max(0,m-1))} style={{width:20,height:20,borderRadius:4,background:C.border,border:"none",color:C.text,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-            <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:22,minWidth:40,textAlign:"center"}}>{ min + "'" }</span>
+            <span style={{color:C.text,fontWeight:900,fontFamily:"'Oswald',sans-serif",fontSize:22,minWidth:52,textAlign:"center"}}>{lobby?"PRE":formatSecs(min)}</span>
             <button onClick={()=>setMin(m=>Math.min(m+1,120))} style={{width:20,height:20,borderRadius:4,background:C.accent+"33",border:`1px solid ${C.accent}44`,color:C.accent,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
           </div>
           <button onClick={()=>setAutoMin(a=>!a)}
@@ -2675,17 +2696,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           </div>
         </div>
 
-        {/* Possession mini bar */}
+        {/* Possession mini bar - recalculates live */}
+        {(()=>{var livePct=possessionPct();return(
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0,minWidth:90}}>
           <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1}}>POSSESSION</div>
           <div style={{width:90,height:8,background:C.border,borderRadius:4,overflow:"hidden",position:"relative"}}>
-            <div style={{position:"absolute",left:0,top:0,bottom:0,width:pct.home+"%",background:C.accent,transition:"width .5s",borderRadius:4}}/>
+            <div style={{position:"absolute",left:0,top:0,bottom:0,width:livePct.home+"%",background:C.accent,transition:"width .5s",borderRadius:4}}/>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",width:90}}>
-            <span style={{color:C.accent,fontSize:9,fontWeight:700}}>{pct.home}%</span>
-            <span style={{color:"#42a5f5",fontSize:9,fontWeight:700}}>{pct.away}%</span>
+            <span style={{color:C.accent,fontSize:9,fontWeight:700}}>{livePct.home}%</span>
+            <span style={{color:"#42a5f5",fontSize:9,fontWeight:700}}>{livePct.away}%</span>
           </div>
         </div>
+        );})()}
 
         {/* Share join link */}
         {isHost&&sessionId&&(
