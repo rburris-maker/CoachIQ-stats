@@ -301,10 +301,10 @@ const THEMES = {
     sidebar:"#080808", sidebarBorder:"#2a1000", topbar:"#080808",
   },
   light: {
-    bg:"#f4ede4", surface:"#ffffff", card:"#fdf8f4",
-    border:"#ddc9b0", accent:"#c94d00", accent2:"#a33800",
-    danger:"#bb1100", warning:"#c4620a", text:"#180c00", muted:"#6b3d1e",
-    sidebar:"#18090a", sidebarBorder:"#2a1200", topbar:"#ffffff",
+    bg:"#f5f0ea", surface:"#ffffff", card:"#ffffff",
+    border:"#d4c4b0", accent:"#cc4400", accent2:"#a33800",
+    danger:"#cc1100", warning:"#c4620a", text:"#1a0e00", muted:"#6b4020",
+    sidebar:"#1a0e00", sidebarBorder:"#3a2010", topbar:"#ffffff",
   },
 };
 // C is set dynamically in the App shell and mutated on theme change
@@ -1366,6 +1366,13 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
   const losses = done.filter(g=>g.ourScore<g.theirScore).length;
   const goalsFor     = done.reduce((a,g)=>a+(g.ourScore||0),0);
   const goalsAgainst = done.reduce((a,g)=>a+(g.theirScore||0),0);
+  const gamesWithPoss = done.filter(g=>g.possession&&(g.possession.home||g.possession.away));
+  const avgPoss = gamesWithPoss.length>0
+    ? Math.round(gamesWithPoss.reduce((a,g)=>{
+        const total=g.possession.home+g.possession.away;
+        return a+(total>0?g.possession.home/total*100:50);
+      },0)/gamesWithPoss.length)
+    : null;
 
   const topPlayers = (roster||[]).map(p=>{
     const pg = done.filter(g=>(g.stats||[]).some(s=>s.playerId===p.id));
@@ -1396,6 +1403,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
           {l:"Wins",v:wins,c:C.accent},{l:"Draws",v:draws,c:C.warning},{l:"Losses",v:losses,c:C.danger},
           {l:"Goals For",v:goalsFor,c:C.accent},{l:"Goals Against",v:goalsAgainst,c:C.muted},
           {l:"Games Played",v:done.length,c:C.muted},
+          ...(avgPoss!==null?[{l:"Avg Possession",v:avgPoss+"%",c:C.accent}]:[]),
         ].map(item=>(
           <div key={item.l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",textAlign:"center"}}>
             <div style={{color:item.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,lineHeight:1}}>{item.v}</div>
@@ -1567,6 +1575,9 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           stat_conceded:    String(st.goalsConceded||0),
           stat_minutes:     String(st.minutesPlayed||90),
           stat_is_gk:       isGK ? "true" : "false",
+          team_possession:  game.possession&&(game.possession.home+game.possession.away)>0
+            ? Math.round(game.possession.home/(game.possession.home+game.possession.away)*100)+"%"
+            : "N/A",
           coach_note:    coachNote||"",
           season_avg:    seasonAvg.toFixed(1),
           games_played:  String(gamesPlayed),
@@ -1704,7 +1715,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         )}
 
-        <div style={{background:`linear-gradient(135deg,#0d0400,#1a0800)`,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
             <div>
               <div style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{game.date} · {game.location} · {game.formation}</div>
@@ -1717,15 +1728,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             </div>
           </div>
           {game.coachNotes&&(
-              <div style={{marginTop:16,padding:"10px 14px",background:"rgba(0,0,0,.3)",borderRadius:9,borderLeft:`3px solid ${C.accent}`}}>
+              <div style={{marginTop:16,padding:"10px 14px",background:C.surface,borderRadius:9,borderLeft:`3px solid ${C.accent}`}}>
                 <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:4}}>COACH NOTES</div>
-                <div style={{color:"#ffffffcc",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{game.coachNotes}</div>
+                <div style={{color:C.text+"cc",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{game.coachNotes}</div>
               </div>
             )}
           <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
-            {[["Shots",tSh],["On Target",tSoT],["Pass Acc.",`${pacc}%`],["Passes",tPC]].map(([l,v])=>(
-              <div key={l} style={{background:"#ffffff08",borderRadius:8,padding:"8px 14px"}}>
-                <div style={{color:"#ffffff66",fontSize:10,fontWeight:600}}>{l}</div>
+            {[["Shots",tSh],["On Target",tSoT],["Pass Acc.",`${pacc}%`],["Passes",tPC],...(game.possession&&(game.possession.home||game.possession.away)?[["Poss %",Math.round((game.possession.home/(game.possession.home+game.possession.away))*100)+"%"]]:[] )].map(([l,v])=>(
+              <div key={l} style={{background:C.bg,borderRadius:8,padding:"8px 14px"}}>
+                <div style={{color:C.text+"66",fontSize:10,fontWeight:600}}>{l}</div>
                 <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700}}>{v}</div>
               </div>
             ))}
@@ -2442,7 +2453,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       finalMins[p.id]=benched.has(p.id)?pm.totalMins||0:(pm.totalMins||0)+(min-(pm.startMin??0));
     });
     const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
-    setGames(prev=>[{...live,status:"completed",stats:sa},...prev]);
+    const finalPoss={home:possession.home,away:possession.away};
+    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss},...prev]);
     // Clean up session
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
@@ -3015,7 +3027,7 @@ function TryoutMock(){
               {Object.values(c.scores).map((s,i)=>(
                 <div key={i} style={{width:18,height:18,borderRadius:4,fontSize:9,fontWeight:700,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  background:s>=8?"rgba(255,90,31,.2)":s>=6?"rgba(255,179,0,.15)":"rgba(255,255,255,.05)",
+                  background:s>=8?"rgba(255,90,31,.2)":s>=6?"rgba(255,179,0,.15)":C.surface,
                   color:s>=8?"#ff5a1f":s>=6?"#ffb300":"#6b6458"}}>{s}</div>
               ))}
             </div>
@@ -3179,7 +3191,7 @@ function LandingPage({onAuth}){
                 padding:"8px 18px",borderRadius:6,fontWeight:600,fontSize:13,cursor:"pointer",
                 fontFamily:"'DM Sans',sans-serif",transition:"all .2s"}}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="#f5f0e8";e.currentTarget.style.color="#f5f0e8";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,.2)";e.currentTarget.style.color="#c8bfb0";}}>
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color="#c8bfb0";}}>
               Sign In
             </button>
             <button onClick={openSignup} className="lp-btn-pri" style={{padding:"9px 22px",fontSize:13,boxShadow:"none"}}>
@@ -3294,7 +3306,7 @@ function LandingPage({onAuth}){
                 {icon:"📈",title:"Season Analytics",desc:"Charts and trends across the full season to guide your decisions"},
                 {icon:"🏃",title:"Practice Builder",desc:"Plan sessions with drill canvas, timings and attendance tracking"},
               ].map(function(f){return(
-                <div key={f.title} style={{background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:14,padding:"20px 18px"}}>
+                <div key={f.title} style={{background:C.surface,border:"1px solid C.border",borderRadius:14,padding:"20px 18px"}}>
                   <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
                   <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:16,color:"#f5f0e8",marginBottom:6}}>{f.title}</div>
                   <div style={{fontSize:13,color:"#a09080",lineHeight:1.6}}>{f.desc}</div>
@@ -3352,7 +3364,7 @@ function LandingPage({onAuth}){
                     border:"1.5px solid rgba(255,255,255,.2)",borderRadius:8,color:"#f5f0e8",fontWeight:700,
                     fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor="#f5f0e8"}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,.2)"}>
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
                   Get Started Free
                 </button>
               </div>
@@ -3479,7 +3491,7 @@ function AuthView({ onAuth, defaultMode="login" }) {
   const iS = {
     width:"100%", padding:"12px 16px",
     background:"#181818", border:"1px solid #3a1a00",
-    borderRadius:10, color:"#fff0e0", fontSize:15,
+    borderRadius:10, color:C.text, fontSize:15,
     outline:"none", fontFamily:"'Outfit',sans-serif",
     boxSizing:"border-box",
   };
@@ -3525,7 +3537,7 @@ function AuthView({ onAuth, defaultMode="login" }) {
 
         {/* Card */}
         <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:16,padding:32}}>
-          <h2 style={{color:"#fff0e0",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:22,marginBottom:24}}>
+          <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:22,marginBottom:24}}>
             {mode==="login"?"Sign In":mode==="signup"?"Create Account":"Reset Password"}
           </h2>
 
@@ -4252,13 +4264,13 @@ export default function CoachIQStats(){
                       <button key={t.id}
                         onClick={()=>{switchTeam(t.id);setMobileSidebarOpen(false);}}
                         style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",
-                          borderRadius:8,border:`1.5px solid ${t.id===safeTeamId?C.accent:"rgba(255,255,255,.1)"}`,
+                          borderRadius:8,border:`1.5px solid ${t.id===safeTeamId?C.accent:"C.border"}`,
                           background:t.id===safeTeamId?C.accent+"22":"transparent",
                           color:t.id===safeTeamId?C.accent:"#ffffffaa",
                           cursor:"pointer",fontSize:13,fontWeight:t.id===safeTeamId?700:500,
                           width:"100%",textAlign:"left"}}>
                         <div style={{width:8,height:8,borderRadius:"50%",
-                          background:t.id===safeTeamId?C.accent:"rgba(255,255,255,.3)",flexShrink:0}}/>
+                          background:t.id===safeTeamId?C.accent:C.border,flexShrink:0}}/>
                         {t.name}
                         {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10,opacity:.7}}>✓</span>}
                       </button>
@@ -4295,7 +4307,7 @@ export default function CoachIQStats(){
               <div style={{borderTop:`1px solid ${C.sidebarBorder}`,padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
                 <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")}
                   style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
-                    background:"transparent",border:`1px solid rgba(255,255,255,.1)`,borderRadius:8,
+                    background:"transparent",border:`1px solid C.border`,borderRadius:8,
                     color:"#ffffffaa",cursor:"pointer",fontSize:13,fontWeight:600,width:"100%"}}>
                   {theme==="dark"?"☀ Light Mode":"☾ Dark Mode"}
                 </button>
@@ -4375,20 +4387,20 @@ export default function CoachIQStats(){
                   {teams.map(t=>(
                     <button key={t.id} onClick={()=>switchTeam(t.id)}
                       style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
-                        borderRadius:7,border:`1.5px solid ${t.id===safeTeamId?C.accent:"rgba(255,255,255,.1)"}`,
+                        borderRadius:7,border:`1.5px solid ${t.id===safeTeamId?C.accent:"C.border"}`,
                         background:t.id===safeTeamId?C.accent+"22":"transparent",
                         color:t.id===safeTeamId?C.accent:"#ffffffaa",
                         cursor:"pointer",fontSize:12,fontWeight:t.id===safeTeamId?700:500,
                         width:"100%",textAlign:"left"}}>
                       <div style={{width:7,height:7,borderRadius:"50%",flexShrink:0,
-                        background:t.id===safeTeamId?C.accent:"rgba(255,255,255,.3)"}}/>
+                        background:t.id===safeTeamId?C.accent:C.border}}/>
                       {t.name}
                       {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10}}>✓</span>}
                     </button>
                   ))}
                   <button onClick={addTeam}
                     style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",
-                      borderRadius:7,border:`1px solid rgba(255,255,255,.15)`,
+                      borderRadius:7,border:`1px solid C.border`,
                       background:"transparent",color:"rgba(255,255,255,.4)",
                       cursor:"pointer",fontSize:11,width:"100%"}}>
                     + Add Team
@@ -7570,7 +7582,7 @@ function OnboardingWizard({teamName, onComplete}){
   const POSITIONS = ["GK","CB","FB","DM","CM","W","ST"];
 
   const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
-    borderRadius:10,color:"#fff0e0",fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"};
+    borderRadius:10,color:C.text,fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"};
 
   function finish(skipPlayer=false){
     onComplete(name.trim()||teamName, skipPlayer?null:{
@@ -8318,7 +8330,7 @@ function PlayerProfilePage(){
   }
 
   const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
-    borderRadius:10,color:"#fff0e0",fontSize:18,outline:"none",fontFamily:"'Outfit',sans-serif",
+    borderRadius:10,color:C.text,fontSize:18,outline:"none",fontFamily:"'Outfit',sans-serif",
     boxSizing:"border-box",textAlign:"center",letterSpacing:8,fontWeight:700};
 
   if(unlocked && profile){
@@ -8374,7 +8386,7 @@ function PlayerProfilePage(){
                 padding:"9px 12px",background:"#0a0400",borderRadius:9}}>
                 <div style={{color:rColor(h.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,minWidth:36}}>{h.rating.toFixed(1)}</div>
                 <div style={{flex:1}}>
-                  <div style={{color:"#fff0e0",fontWeight:600,fontSize:13}}>vs {h.opponent}</div>
+                  <div style={{color:C.text,fontWeight:600,fontSize:13}}>vs {h.opponent}</div>
                   <div style={{color:"#7a4a2a",fontSize:11}}>{h.date}</div>
                 </div>
                 <div style={{color:"#7a4a2a",fontSize:12}}>{h.label}</div>
@@ -11099,7 +11111,7 @@ function PublicSchedulePage(){
               width:"fit-content"}}>
               {[[wins,"W","#fff"],[draws,"D","rgba(255,255,255,.7)"],[losses,"L","rgba(255,255,255,.5)"]].map(function(item){return(
                 <div key={item[1]} style={{padding:"10px 20px",textAlign:"center",
-                  borderRight:"1px solid rgba(255,255,255,.15)"}}>
+                  borderRight:"1px solid C.border"}}>
                   <div style={{color:item[2],fontFamily:"'Oswald',sans-serif",
                     fontWeight:900,fontSize:22,lineHeight:1}}>{item[0]}</div>
                   <div style={{color:"rgba(255,255,255,.55)",fontSize:9,
