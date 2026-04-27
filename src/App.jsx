@@ -3613,6 +3613,8 @@ export default function CoachIQStats(){
     ]},
   ];
 
+  const NAV = SIDEBAR_GROUPS.flatMap(function(g){ return g.items; });
+
   const [session,       setSession]       = useState(()=>supabase.auth.getSession().data.session);
   const [authLoading,   setAuthLoading]   = useState(!supabase.auth.getSession().data.session);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
