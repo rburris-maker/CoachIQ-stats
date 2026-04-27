@@ -2591,6 +2591,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
         🔴 KICK OFF →
       </button>
+
+      {/* Join active session */}
+      <JoinActiveSession teamId={teamId} onJoin={handleJoinSession}/>
     </div>
   );
 
@@ -2669,6 +2672,18 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             <span style={{color:"#42a5f5",fontSize:9,fontWeight:700}}>{pct.away}%</span>
           </div>
         </div>
+
+        {/* Share join link */}
+        {isHost&&sessionId&&(
+          <button onClick={()=>{
+            var link=window.location.origin+window.location.pathname+"#/live/"+sessionId;
+            navigator.clipboard?.writeText(link).then(()=>alert("Join link copied! Share with your assistants.")).catch(()=>alert(link));
+          }}
+            style={{padding:"4px 10px",background:C.accent+"22",border:"1px solid "+C.accent+"44",
+              borderRadius:6,color:C.accent,fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+            ⎘ Share Link
+          </button>
+        )}
 
         {/* RT status + connected users */}
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
@@ -4090,6 +4105,7 @@ export default function CoachIQStats(){
   // ── Show auth screen if not logged in ────────────────────────────────────
   // Public routes — render before auth check
   if(window.location.hash.startsWith("#/player/"))   return <PlayerPortalPage/>;
+  if(window.location.hash.startsWith("#/live/"))      return <LiveJoinPage/>;
   if(window.location.hash.startsWith("#/schedule/")) return <PublicSchedulePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
@@ -11289,6 +11305,413 @@ function PublicSchedulePage(){
           <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── JOIN ACTIVE SESSION COMPONENT ───────────────────────────────────────────
+// Shows inside LiveTrackView setup screen — lets assistants join active sessions
+function JoinActiveSession({teamId, onJoin}){
+  const [sessions, setSessions] = useState([]);
+  const [loading,  setLoading]  = useState(false);
+
+  useEffect(function(){
+    if(!teamId) return;
+    setLoading(true);
+    supabase.from("live_sessions").select("*")
+      .eq("team_id", teamId)
+      .eq("status", "active")
+      .then(function(result){
+        setSessions(result.data||[]);
+        setLoading(false);
+      });
+  },[teamId]);
+
+  if(loading||!sessions.length) return null;
+
+  return(
+    <div style={{marginTop:20,padding:"16px",background:C.accent+"15",
+      border:"1px solid "+C.accent+"44",borderRadius:12}}>
+      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:10}}>
+        ACTIVE GAME IN PROGRESS
+      </div>
+      {sessions.map(function(s){
+        var setup = s.game_setup||{};
+        return(
+          <div key={s.id} style={{display:"flex",justifyContent:"space-between",
+            alignItems:"center",gap:12}}>
+            <div>
+              <div style={{color:C.text,fontWeight:700,fontSize:14}}>
+                vs {setup.opponent||"Unknown"}
+              </div>
+              <div style={{color:C.muted,fontSize:12,marginTop:2}}>
+                {setup.date||""} · {setup.location||""}
+              </div>
+            </div>
+            <button onClick={function(){onJoin(s.id);}}
+              style={{padding:"9px 18px",background:C.accent,border:"none",
+                borderRadius:9,color:"#000",fontWeight:800,fontSize:13,
+                cursor:"pointer",fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
+              Join →
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── LIVE JOIN PAGE (no login required) ──────────────────────────────────────
+// Accessible at #/live/[sessionId]
+function LiveJoinPage(){
+  var sessionId = window.location.hash.replace("#/live/","").split("?")[0];
+  var [session,   setSessionData] = useState(null);
+  var [loading,   setLoading]     = useState(true);
+  var [error,     setError]       = useState(null);
+  var [name,      setName]        = useState("");
+  var [role,      setRole]        = useState(null);
+  var [joined,    setJoined]      = useState(false);
+  var [stats,     setStats]       = useState({});
+  var [events,    setEvents]      = useState([]);
+  var [score,     setScore]       = useState({our:0,their:0});
+  var [min,       setMin]         = useState(0);
+  var [activeStat,setActiveStat]  = useState(null);
+  var [possession,setPossession]  = useState({home:0,away:0,current:null,lastMin:null});
+  var [roster,    setRoster]      = useState([]);
+  var [rtStatus,  setRtStatus]    = useState("disconnected");
+  var [connectedUsers,setConnectedUsers] = useState([]);
+  var [flash,     setFlash]       = useState(null);
+  var [oppScorer, setOppScorer]   = useState(false);
+  var [oppName,   setOppName]     = useState("");
+
+  var A = "#ff6b00";
+
+  var ROLES = [
+    {k:"attack",   label:"Attack Analyst",   desc:"Goals, assists, shots, key passes",    color:"#ef4444",
+     stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
+    {k:"defence",  label:"Defence Analyst",  desc:"Tackles, interceptions, fouls, turnovers", color:"#3b82f6",
+     stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
+    {k:"possession",label:"Possession Tracker",desc:"Possession timing + passing stats",   color:"#27a560",
+     stats:["passesCompleted","passesIncomplete","keyPasses"]},
+  ];
+
+  var STAT_BTNS = [
+    {k:"goals",label:"Goal",color:"#ef4444"},{k:"assists",label:"Assist",color:"#ef4444"},
+    {k:"shots",label:"Shot",color:"#f59e0b"},{k:"shotsOnTarget",label:"On Target",color:"#f59e0b"},
+    {k:"keyPasses",label:"Key Pass",color:"#8b5cf6"},
+    {k:"passesCompleted",label:"Pass ✓",color:"#27a560"},{k:"passesIncomplete",label:"Pass ✗",color:"#ef4444"},
+    {k:"tackles",label:"Tackle",color:"#3b82f6"},{k:"interceptions",label:"Int",color:"#3b82f6"},
+    {k:"aerialDuelsWon",label:"Aerial",color:"#3b82f6"},
+    {k:"fouls",label:"Foul",color:"#f59e0b"},{k:"dangerousTurnovers",label:"Bad Turn",color:"#f59e0b"},
+    {k:"saves",label:"Save",color:"#a855f7"},{k:"goalsConceded",label:"Conceded",color:"#ef4444"},
+  ];
+
+  function myStats(){
+    if(!role) return STAT_BTNS;
+    var r = ROLES.find(function(x){return x.k===role;});
+    if(!r) return STAT_BTNS;
+    return STAT_BTNS.filter(function(b){return r.stats.includes(b.k);});
+  }
+
+  useEffect(function(){
+    async function load(){
+      try{
+        var result = await supabase.from("live_sessions").select("*").eq("id",sessionId);
+        if(!result.data||!result.data[0]){ setError("Session not found or already ended."); setLoading(false); return; }
+        setSessionData(result.data[0]);
+        var rResult = await supabase.from("rosters").select("*").eq("team_id",result.data[0].team_id);
+        setRoster(rResult.data&&rResult.data[0]?rResult.data[0].players||[]:[]);
+        var setup = result.data[0].game_setup||{};
+        setScore({our:setup.ourScore||0,their:setup.theirScore||0});
+      }catch(e){ setError("Failed to load session."); }
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  function applyEvent(event, payload){
+    if(event==="stat"){
+      setStats(function(prev){
+        var s=Object.assign({},prev[payload.pid]||{});
+        s[payload.stat]=(s[payload.stat]||0)+payload.delta;
+        return Object.assign({},prev,{[payload.pid]:s});
+      });
+      if(payload.stat==="goals") setScore(function(sc){return {our:sc.our+1,their:sc.their};});
+      setFlash({pid:payload.pid,key:payload.stat});
+      setTimeout(function(){setFlash(null);},400);
+    } else if(event==="opp_goal"){
+      setScore(function(sc){return {our:sc.our,their:sc.their+1};});
+    } else if(event==="min_update"){
+      setMin(payload.min);
+    } else if(event==="possession"){
+      setPossession(function(p){
+        var u=Object.assign({},p);
+        if(p.current&&p.lastMin!==null) u[p.current]=p[p.current]+(payload.min-p.lastMin);
+        u.current=payload.team; u.lastMin=payload.min; return u;
+      });
+    } else if(event==="possession_end"){
+      setPossession(function(p){
+        if(!p.current||p.lastMin===null) return Object.assign({},p,{current:null});
+        var u=Object.assign({},p);
+        u[p.current]=p[p.current]+(payload.min-p.lastMin);
+        u.current=null; u.lastMin=null; return u;
+      });
+    } else if(event==="game_ended"){
+      setError("The game has ended.");
+    } else if(event==="user_joined"){
+      setConnectedUsers(function(prev){
+        if(prev.find(function(u){return u.name===payload.name;})) return prev;
+        return [...prev,{name:payload.name,role:payload.role}];
+      });
+      setEvents(function(ev){return [{id:Date.now(),text:"👋 "+payload.name+" joined"},...ev.slice(0,19)];});
+    }
+  }
+
+  function broadcast(event, payload){
+    realtimeManager.broadcast(event, payload);
+    applyEvent(event, payload);
+  }
+
+  function joinSession(){
+    if(!name.trim()||!role) return;
+    realtimeManager.connect("game_"+sessionId, applyEvent, setRtStatus);
+    broadcast("user_joined",{name:name.trim(),role:ROLES.find(function(r){return r.k===role;})?ROLES.find(function(r){return r.k===role;}).label:role});
+    setJoined(true);
+  }
+
+  function logStat(pid){
+    if(!activeStat) return;
+    broadcast("stat",{pid:pid,stat:activeStat,delta:1,min:min});
+  }
+
+  function togglePossession(team){
+    if(possession.current===team){
+      broadcast("possession_end",{min:min});
+    } else {
+      broadcast("possession",{team:team,min:min});
+    }
+  }
+
+  function possPct(){
+    var total=possession.home+possession.away;
+    if(!total) return {home:50,away:50};
+    return {home:Math.round(possession.home/total*100),away:100-Math.round(possession.home/total*100)};
+  }
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",alignItems:"center",
+      justifyContent:"center",flexDirection:"column",gap:14,fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid "+A,
+        borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
+      <div style={{color:A,fontSize:13,fontWeight:600}}>Connecting to game...</div>
+    </div>
+  );
+
+  if(error) return(
+    <div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",alignItems:"center",
+      justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif",flexDirection:"column",gap:12}}>
+      <div style={{color:"#ef4444",fontSize:15,textAlign:"center"}}>{error}</div>
+      <a href={window.location.origin+window.location.pathname}
+        style={{color:A,fontSize:13,fontWeight:700}}>← Back to CoachIQ</a>
+    </div>
+  );
+
+  var setup = (session&&session.game_setup)||{};
+
+  // ── Name + role picker ──
+  if(!joined) return(
+    <div style={{minHeight:"100vh",background:"#0a0a0a",fontFamily:"'Outfit',sans-serif",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{width:"100%",maxWidth:420}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{color:A,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:8}}>COACHIQ · LIVE</div>
+          <h1 style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900,marginBottom:4}}>
+            Join Game
+          </h1>
+          <div style={{color:"#ffffff88",fontSize:14}}>vs {setup.opponent||"Opponent"} · {setup.date||""}</div>
+        </div>
+
+        <div style={{marginBottom:16}}>
+          <label style={{color:"#ffffff66",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>YOUR NAME</label>
+          <input value={name} onChange={function(e){setName(e.target.value);}}
+            placeholder="e.g. Coach Smith" autoFocus
+            style={{width:"100%",padding:"13px 16px",background:"#1a1a1a",border:"1px solid #333",
+              borderRadius:10,color:"#fff",fontSize:15,outline:"none",
+              fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+        </div>
+
+        <div style={{marginBottom:24}}>
+          <label style={{color:"#ffffff66",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:10}}>YOUR ROLE</label>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {ROLES.map(function(r){return(
+              <button key={r.k} onClick={function(){setRole(r.k);}}
+                style={{padding:"14px 16px",background:role===r.k?r.color+"22":"#1a1a1a",
+                  border:"1.5px solid "+(role===r.k?r.color:"#333"),borderRadius:11,
+                  cursor:"pointer",textAlign:"left",transition:"all .12s"}}>
+                <div style={{color:role===r.k?r.color:"#fff",fontWeight:800,fontSize:14,fontFamily:"'Oswald',sans-serif",marginBottom:2}}>
+                  {r.label}
+                </div>
+                <div style={{color:"#ffffff66",fontSize:12}}>{r.desc}</div>
+              </button>
+            );})}
+          </div>
+        </div>
+
+        <button onClick={joinSession} disabled={!name.trim()||!role}
+          style={{width:"100%",padding:"15px",
+            background:name.trim()&&role?A:"#1a1a1a",border:"none",borderRadius:11,
+            color:name.trim()&&role?"#000":"#666",fontWeight:900,fontSize:16,
+            cursor:name.trim()&&role?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+          Join Game →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Live tracking screen ──
+  var activeStat_def = STAT_BTNS.find(function(b){return b.k===activeStat;});
+  var pct = possPct();
+  var activePlayers = roster.filter(function(p){return true;});
+
+  return(
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",
+      background:"#0a0a0a",fontFamily:"'Outfit',sans-serif",overflow:"hidden",userSelect:"none"}}>
+
+      {/* Top bar */}
+      <div style={{background:"#111",borderBottom:"1px solid #2a2a2a",padding:"8px 12px",
+        display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div style={{color:"#ffffff55",fontSize:10,fontWeight:700,letterSpacing:2}}>COACHIQ</div>
+        <div style={{flex:1,textAlign:"center"}}>
+          <div style={{color:"#ffffff66",fontSize:10,fontWeight:600}}>vs {setup.opponent||""}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <span style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900}}>{score.our}</span>
+            <span style={{color:"#666",fontSize:14}}>–</span>
+            <span style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900}}>{score.their}</span>
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{color:"#ffffff44",fontSize:9,fontWeight:700}}>POSSESSION</div>
+          <div style={{width:80,height:6,background:"#333",borderRadius:3,overflow:"hidden",margin:"3px 0"}}>
+            <div style={{height:"100%",background:A,width:pct.home+"%",transition:"width .5s",borderRadius:3}}/>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <span style={{color:A,fontSize:9,fontWeight:700}}>{pct.home}%</span>
+            <span style={{color:"#3b82f6",fontSize:9,fontWeight:700}}>{pct.away}%</span>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+          <div style={{width:6,height:6,borderRadius:"50%",background:rtStatus==="connected"?"#27a560":"#ef4444"}}/>
+          <span style={{color:"#ffffff44",fontSize:9,fontWeight:700}}>{connectedUsers.length} online</span>
+        </div>
+      </div>
+
+      {/* Possession row */}
+      <div style={{background:"#0a0a0a",borderBottom:"1px solid #1a1a1a",
+        padding:"8px 12px",display:"flex",gap:8,flexShrink:0}}>
+        <button onClick={function(){togglePossession("home");}}
+          style={{flex:1,padding:"9px",borderRadius:8,cursor:"pointer",fontWeight:800,fontSize:12,
+            fontFamily:"'Oswald',sans-serif",letterSpacing:.5,transition:"all .15s",
+            background:possession.current==="home"?A:"#1a1000",
+            border:"2px solid "+(possession.current==="home"?A:"#333"),
+            color:possession.current==="home"?"#000":"#666"}}>
+          🟠 HOME {possession.current==="home"?"●":""}
+        </button>
+        <button onClick={function(){togglePossession("away");}}
+          style={{flex:1,padding:"9px",borderRadius:8,cursor:"pointer",fontWeight:800,fontSize:12,
+            fontFamily:"'Oswald',sans-serif",letterSpacing:.5,transition:"all .15s",
+            background:possession.current==="away"?"#3b82f6":"#0a1020",
+            border:"2px solid "+(possession.current==="away"?"#3b82f6":"#333"),
+            color:possession.current==="away"?"#fff":"#666"}}>
+          🔵 AWAY {possession.current==="away"?"●":""}
+        </button>
+      </div>
+
+      {/* Stat buttons */}
+      <div style={{background:"#111",borderBottom:"1px solid #1a1a1a",padding:"8px 10px",
+        display:"flex",gap:6,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+        {myStats().map(function(btn){
+          var active=activeStat===btn.k;
+          return(
+            <button key={btn.k} onClick={function(){setActiveStat(active?null:btn.k);}}
+              style={{padding:"7px 12px",borderRadius:7,cursor:"pointer",flexShrink:0,
+                whiteSpace:"nowrap",fontWeight:700,fontSize:11,transition:"all .1s",
+                background:active?btn.color+"33":"#1a1a1a",
+                border:"2px solid "+(active?btn.color:"#333"),
+                color:active?btn.color:"#888",
+                boxShadow:active?"0 0 8px "+btn.color+"44":"none"}}>
+              {btn.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active stat prompt */}
+      <div style={{background:activeStat_def?activeStat_def.color+"18":"#0a0a0a",
+        borderBottom:"1px solid "+(activeStat_def?activeStat_def.color+"22":"#1a1a1a"),
+        padding:"6px 12px",flexShrink:0,minHeight:26,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        {activeStat_def
+          ?<span style={{color:activeStat_def.color,fontWeight:700,fontSize:12}}>{activeStat_def.label} — tap a player</span>
+          :<span style={{color:"#555",fontSize:11}}>Select a stat above then tap a player</span>}
+        <span style={{color:"#555",fontSize:10,background:"#1a1a1a",padding:"2px 6px",borderRadius:4,fontWeight:700}}>
+          {ROLES.find(function(r){return r.k===role;})?ROLES.find(function(r){return r.k===role;}).label:""}
+        </span>
+      </div>
+
+      {/* Player grid */}
+      <div style={{flex:1,overflowY:"auto",padding:10}}>
+        {activePlayers.length===0?(
+          <div style={{textAlign:"center",padding:"40px 0",color:"#444",fontSize:13}}>
+            No roster loaded
+          </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(85px,1fr))",gap:7}}>
+            {activePlayers.map(function(player){
+              var s=stats[player.id]||{};
+              var pc=posColor(primaryPos(player));
+              var isFlash=flash&&flash.pid===player.id;
+              var canLog=!!activeStat&&!!myStats().find(function(b){return b.k===activeStat;});
+              return(
+                <div key={player.id}
+                  onClick={function(){canLog&&logStat(player.id);}}
+                  style={{borderRadius:10,padding:"7px 5px 5px",display:"flex",
+                    flexDirection:"column",alignItems:"center",gap:2,
+                    background:isFlash?(activeStat_def?activeStat_def.color+"44":"#ff6b0044"):"#1a1a1a",
+                    border:"2px solid "+(isFlash?(activeStat_def?activeStat_def.color:"#ff6b00"):canLog&&activeStat?activeStat_def?activeStat_def.color+"44":"#333":"#222"),
+                    transform:isFlash?"scale(0.95)":"scale(1)",
+                    transition:"all .1s",cursor:canLog?"pointer":"default",
+                    opacity:canLog||!activeStat?1:0.35}}>
+                  <div style={{width:42,height:42,borderRadius:9,background:pc+"22",
+                    border:"2px solid "+pc+"55",display:"flex",alignItems:"center",
+                    justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                    fontWeight:900,color:pc,fontSize:20}}>
+                    {player.number}
+                  </div>
+                  <div style={{color:"#ccc",fontWeight:700,fontSize:10,textAlign:"center",
+                    maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {player.name.split(" ")[0]}
+                  </div>
+                  {activeStat&&(
+                    <div style={{color:activeStat_def?activeStat_def.color:"#ff6b00",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
+                      {s[activeStat]||0}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Match feed */}
+      {events.length>0&&(
+        <div style={{background:"#111",borderTop:"1px solid #1a1a1a",
+          padding:"6px 12px",maxHeight:80,overflowY:"auto",flexShrink:0}}>
+          {events.slice(0,3).map(function(ev){return(
+            <div key={ev.id} style={{color:"#555",fontSize:11,lineHeight:1.6}}>{ev.text}</div>
+          );})}
+        </div>
+      )}
     </div>
   );
 }
