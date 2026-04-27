@@ -1020,6 +1020,220 @@ function parseGameSpreadsheet(file) {
 }
 
 // ─── GAMES VIEW ───────────────────────────────────────────────────────────────
+// ─── PLAYER MODAL ────────────────────────────────────────────────────────────
+function PlayerModal({player, onSave, onDelete, onClose}){
+  const isNew = !player.id;
+  const initPositions = (()=>{
+    const p = player.position || player.positions;
+    if(Array.isArray(p)&&p.length) return p;
+    if(typeof p==="string"&&p) return [p];
+    return [];
+  })();
+
+  const [form, setForm] = useState({
+    id:        player.id       || ("p"+Date.now()),
+    name:      player.name     || "",
+    number:    player.number   ?? "",
+    positions: initPositions,
+    captain:   player.captain  || false,
+    email:     player.email    || "",
+    availability: player.availability || "available",
+    availNote:    player.availNote    || "",
+    returnDate:   player.returnDate   || "",
+    gradYear:     player.gradYear     || "",
+    height:       player.height       || "",
+    weight:       player.weight       || "",
+    gpa:          player.gpa          || "",
+    highlightsUrl:    player.highlightsUrl    || "",
+    recruitingStatus: player.recruitingStatus || "open",
+    recruitingSchools: player.recruitingSchools || [],
+    coachScoutNotes:   player.coachScoutNotes  || "",
+    videoLinks:        player.videoLinks        || [],
+    playerBio:         player.playerBio         || "",
+    initialTab:        player.initialTab        || "info",
+  });
+  const [err, setErr] = useState("");
+  const [activeTab, setActiveTab] = useState(player.initialTab||"info");
+  const [addingSchool, setAddingSchool] = useState(false);
+  const [newSchool, setNewSchool] = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
+
+  const POSITIONS = ["GK","CB","FB","DM","CM","W","AM","ST"];
+  const primaryColor = posColor(form.positions[0]||"CM");
+
+  function togglePos(p){
+    setForm(f=>({...f, positions: f.positions.includes(p) ? f.positions.filter(x=>x!==p) : [...f.positions,p]}));
+  }
+
+  function addSchool(){
+    if(!newSchool.school.trim()) return;
+    setForm(f=>({...f, recruitingSchools:[...f.recruitingSchools,{...newSchool,id:"s"+Date.now()}]}));
+    setNewSchool({school:"",division:"D1",contact:"",status:"identified",notes:""});
+    setAddingSchool(false);
+  }
+
+  function removeSchool(id){
+    setForm(f=>({...f, recruitingSchools:f.recruitingSchools.filter(s=>s.id!==id)}));
+  }
+
+  function save(){
+    if(!form.name.trim()){ setErr("Name is required"); return; }
+    onSave({
+      ...form,
+      number: parseInt(form.number)||0,
+      position: form.positions,
+      positions: form.positions,
+    });
+  }
+
+  const iStyle = (extra={})=>({
+    width:"100%", padding:"9px 12px", background:C.bg,
+    border:"1px solid "+C.border, borderRadius:7,
+    color:C.text, fontSize:13, outline:"none",
+    fontFamily:"'Outfit',sans-serif", boxSizing:"border-box", ...extra
+  });
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:16,
+        width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",padding:24}}>
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>
+            {isNew?"Add Player":"Edit Player"}
+          </h2>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+        </div>
+
+        {/* Tabs */}
+        {!isNew&&(
+          <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+C.border}}>
+            {[{t:"info",l:"Player Info"},{t:"recruiting",l:"Recruiting"}].map(item=>(
+              <button key={item.t} onClick={()=>setActiveTab(item.t)}
+                style={{padding:"8px 16px",background:"none",border:"none",
+                  borderBottom:"2px solid "+(activeTab===item.t?C.accent:"transparent"),
+                  color:activeTab===item.t?C.accent:C.muted,cursor:"pointer",
+                  fontWeight:700,fontSize:13,marginBottom:-1}}>
+                {item.l}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(isNew||activeTab==="info")&&(
+          <>
+            {/* Jersey preview */}
+            <div style={{display:"flex",justifyContent:"center",marginBottom:18}}>
+              <div style={{width:64,height:64,borderRadius:14,background:primaryColor+"22",
+                border:"3px solid "+primaryColor+"55",display:"flex",alignItems:"center",
+                justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                color:primaryColor,fontSize:28}}>
+                {form.number||"#"}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>NAME</label>
+              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}
+                placeholder="Full name" autoFocus style={iStyle()}/>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>JERSEY #</label>
+                <input type="number" value={form.number} onChange={e=>setForm(f=>({...f,number:e.target.value}))}
+                  placeholder="9" style={iStyle()}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>EMAIL</label>
+                <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+                  placeholder="player@email.com" style={iStyle()}/>
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>POSITIONS</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {POSITIONS.map(p=>(
+                  <button key={p} onClick={()=>togglePos(p)}
+                    style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:700,
+                      background:form.positions.includes(p)?posColor(p)+"22":"transparent",
+                      border:"1px solid "+(form.positions.includes(p)?posColor(p):C.border),
+                      color:form.positions.includes(p)?posColor(p):C.muted}}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>AVAILABILITY</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[["available","Available"],["injured","Injured"],["doubtful","Doubtful"],["suspended","Suspended"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setForm(f=>({...f,availability:k}))}
+                    style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:700,
+                      background:form.availability===k?C.accent+"22":"transparent",
+                      border:"1px solid "+(form.availability===k?C.accent:C.border),
+                      color:form.availability===k?C.accent:C.muted}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                <input type="checkbox" checked={form.captain}
+                  onChange={e=>setForm(f=>({...f,captain:e.target.checked}))}
+                  style={{width:16,height:16,accentColor:C.accent}}/>
+                <span style={{color:C.text,fontSize:13,fontWeight:600}}>Team Captain</span>
+              </label>
+            </div>
+
+            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
+          </>
+        )}
+
+        {!isNew&&activeTab==="recruiting"&&(
+          <RecruitingTab
+            form={form}
+            setForm={setForm}
+            addingSchool={addingSchool}
+            setAddingSchool={setAddingSchool}
+            newSchool={newSchool}
+            setNewSchool={setNewSchool}
+            addSchool={addSchool}
+            removeSchool={removeSchool}
+          />
+        )}
+
+        {/* Actions */}
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          {!isNew&&(
+            <button onClick={()=>onDelete&&onDelete()}
+              style={{padding:"10px 14px",background:C.surface,border:"1px solid "+C.border,
+                borderRadius:9,color:C.danger,cursor:"pointer",fontSize:13,fontWeight:700}}>
+              Delete
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{flex:1,padding:"11px",background:C.surface,border:"1px solid "+C.border,
+              borderRadius:9,color:C.muted,cursor:"pointer",fontSize:14}}>
+            Cancel
+          </button>
+          <button onClick={save}
+            style={{flex:2,padding:"11px",background:C.accent,border:"none",borderRadius:9,
+              color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+            {isNew?"Add Player":"Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────
 function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam, games, practices}){
   const [editingPlayer, setEditingPlayer] = useState(null);
@@ -2915,6 +3129,30 @@ function LandingPage({onAuth}){
     ["Can I manage Varsity and JV separately?","Yes. Each team has its own roster, games and stats. The tryout module moves players to the right roster when you close tryouts."],
     ["Can players see their own stats?","Yes. Set a PIN per player and share a link. They enter their PIN and see their season stats, rating trend and recent games — no account needed."],
     ["Is my data safe?","All data is stored securely in the cloud. Only you can see it. We never delete anything if you cancel."],
+  ];
+
+  const SIDEBAR_GROUPS = [
+    { label:"MATCH", items:[
+      {id:"home",     icon:LayoutDashboard, label:"Home"},
+      {id:"games",    icon:Trophy,          label:"Games"},
+      {id:"live",     icon:Radio,           label:"Live",    pro:true},
+      {id:"calendar", icon:CalendarDays,    label:"Calendar"},
+      {id:"opponents",icon:Target,          label:"Opponents",pro:true},
+    ]},
+    { label:"SQUAD", items:[
+      {id:"roster",   icon:Users,           label:"Squad"},
+      {id:"tryouts",  icon:UserPlus,        label:"Tryouts"},
+    ]},
+    { label:"PLANNING", items:[
+      {id:"gameplan", icon:BookOpen,        label:"Game Plan",pro:true},
+      {id:"practice", icon:Dumbbell,        label:"Practice"},
+    ]},
+    { label:"INSIGHTS", items:[
+      {id:"analytics",icon:BarChart2,       label:"Analytics",pro:true},
+    ]},
+    { label:"ACCOUNT", items:[
+      {id:"settings", icon:Settings,        label:"Settings"},
+    ]},
   ];
 
   return(
