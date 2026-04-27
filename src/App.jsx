@@ -3131,30 +3131,6 @@ function LandingPage({onAuth}){
     ["Is my data safe?","All data is stored securely in the cloud. Only you can see it. We never delete anything if you cancel."],
   ];
 
-  const SIDEBAR_GROUPS = [
-    { label:"MATCH", items:[
-      {id:"home",     icon:LayoutDashboard, label:"Home"},
-      {id:"games",    icon:Trophy,          label:"Games"},
-      {id:"live",     icon:Radio,           label:"Live",    pro:true},
-      {id:"calendar", icon:CalendarDays,    label:"Calendar"},
-      {id:"opponents",icon:Target,          label:"Opponents",pro:true},
-    ]},
-    { label:"SQUAD", items:[
-      {id:"roster",   icon:Users,           label:"Squad"},
-      {id:"tryouts",  icon:UserPlus,        label:"Tryouts"},
-    ]},
-    { label:"PLANNING", items:[
-      {id:"gameplan", icon:BookOpen,        label:"Game Plan",pro:true},
-      {id:"practice", icon:Dumbbell,        label:"Practice"},
-    ]},
-    { label:"INSIGHTS", items:[
-      {id:"analytics",icon:BarChart2,       label:"Analytics",pro:true},
-    ]},
-    { label:"ACCOUNT", items:[
-      {id:"settings", icon:Settings,        label:"Settings"},
-    ]},
-  ];
-
   return(
     <>
       <style>{`
@@ -3612,6 +3588,31 @@ function AuthView({ onAuth, defaultMode="login" }) {
 
 export default function CoachIQStats(){
   const [view,          setView]          = useState("home");
+
+  const SIDEBAR_GROUPS = [
+    { label:"MATCH", items:[
+      {id:"home",     icon:LayoutDashboard, label:"Home"},
+      {id:"games",    icon:Trophy,          label:"Games"},
+      {id:"live",     icon:Radio,           label:"Live",    pro:true},
+      {id:"calendar", icon:CalendarDays,    label:"Calendar"},
+      {id:"opponents",icon:Target,          label:"Opponents",pro:true},
+    ]},
+    { label:"SQUAD", items:[
+      {id:"roster",   icon:Users,           label:"Squad"},
+      {id:"tryouts",  icon:UserPlus,        label:"Tryouts"},
+    ]},
+    { label:"PLANNING", items:[
+      {id:"gameplan", icon:BookOpen,        label:"Game Plan",pro:true},
+      {id:"practice", icon:Dumbbell,        label:"Practice"},
+    ]},
+    { label:"INSIGHTS", items:[
+      {id:"analytics",icon:BarChart2,       label:"Analytics",pro:true},
+    ]},
+    { label:"ACCOUNT", items:[
+      {id:"settings", icon:Settings,        label:"Settings"},
+    ]},
+  ];
+
   const [session,       setSession]       = useState(()=>supabase.auth.getSession().data.session);
   const [authLoading,   setAuthLoading]   = useState(!supabase.auth.getSession().data.session);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
