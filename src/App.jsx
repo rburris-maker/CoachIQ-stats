@@ -4428,6 +4428,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     window.open(window.location.origin+window.location.pathname+"#/plan/"+sid,"_blank");
   }
 
+  const SLOTS = {
     "4-3-3":  {GK:1,DEF:4,MID:3,FWD:3},
     "4-4-2":  {GK:1,DEF:4,MID:4,FWD:2},
     "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},
