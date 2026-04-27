@@ -2224,6 +2224,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [role,         setRole]         = useState(null); // null=not picked yet
   const [connectedUsers, setConnectedUsers] = useState([]); // [{name,role}]
   const [isHost,       setIsHost]       = useState(false);
+  const [lobby,        setLobby]        = useState(false); // waiting for kickoff
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [oppScorer,    setOppScorer]    = useState(false); // show opp scorer input
   const [oppScorerName,setOppScorerName]= useState("");
@@ -2267,19 +2268,17 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   // ── Auto minute ticker ─────────────────────────────────────────────────────
   useEffect(()=>{
-    if(autoMin&&live&&!halfTime){
+    if(autoMin&&live&&!halfTime&&!lobby){
       timerRef.current=setInterval(()=>setMin(m=>{
-        if(m>=120){setAutoMin(false);return 120;}
-        // Update possession timing
+        if(m>=7200){setAutoMin(false);return 7200;} // max 120 mins in seconds
         setPossession(p=>{
           if(p.current&&p.lastMin!==null){
-            const elapsed = 1;
-            return {...p,[p.current]:p[p.current]+elapsed,lastMin:m+1};
+            return {...p,[p.current]:p[p.current]+1,lastMin:m+1};
           }
           return p;
         });
         return m+1;
-      }),60000);
+      }),1000);
     } else { clearInterval(timerRef.current); }
     return ()=>clearInterval(timerRef.current);
   },[autoMin,live,halfTime]);
@@ -2290,6 +2289,13 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     handleJoinSession(joinSessionId);
     onClearJoin&&onClearJoin();
   },[joinSessionId]);
+
+  // Format seconds to MM:SS
+  function formatSecs(s){
+    var m=Math.floor(s/60);
+    var sec=s%60;
+    return m+"'"+String(sec).padStart(2,"0")+'"';
+  }
 
   // ── Realtime event handler ─────────────────────────────────────────────────
   function applyRemoteEvent(event, payload){
@@ -2377,6 +2383,13 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   }
 
   // ── Broadcast + apply locally ──────────────────────────────────────────────
+  function kickOff(){
+    setLobby(false);
+    setAutoMin(true);
+    broadcastEvent("kickoff",{min:0});
+    addFeedEvent("🔴 KICK OFF!");
+  }
+
   function broadcastEvent(event, payload){
     realtimeManager.broadcast(event, payload);
     // Also apply locally (self:false so not echoed back)
@@ -2421,25 +2434,25 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   // ── Half / End ─────────────────────────────────────────────────────────────
   function doHalfTime(){
-    broadcastEvent("half_time",{min:45});
+    broadcastEvent("half_time",{min:min});
     setPlayerMins(pm=>{
       const u={...pm};
       PLAYERS.forEach(p=>{
         if(!benched.has(p.id)){
           const start=u[p.id]?.startMin??0;
-          u[p.id]={startMin:45,totalMins:(u[p.id]?.totalMins||0)+(45-start)};
+          u[p.id]={startMin:min,totalMins:(u[p.id]?.totalMins||0)+(min-start)};
         }
       });
       return u;
     });
-    setMin(45); setAutoMin(false); setHalfTime(true);
+    setMin(2700); setAutoMin(false); setHalfTime(true); // 45*60 = 2700 secs
   }
 
   function startSecondHalf(){
-    broadcastEvent("second_half",{min:45});
+    broadcastEvent("second_half",{min:min});
     setPlayerMins(pm=>{
       const u={...pm};
-      PLAYERS.forEach(p=>{ if(!benched.has(p.id)) u[p.id]={...u[p.id],startMin:45}; });
+      PLAYERS.forEach(p=>{ if(!benched.has(p.id)) u[p.id]={...u[p.id],startMin:min}; });
       return u;
     });
     setHalfTime(false);
@@ -2499,6 +2512,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
     setRole("head"); setConnectedUsers([{name:userName,role:"Head Coach"}]);
     setPossession({home:0,away:0,current:null,lastMin:null});
+    setLobby(true); // wait in lobby until kickoff
   }
 
   async function handleJoinSession(sid){
@@ -2732,6 +2746,36 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             style={{flex:1,padding:"5px 10px",background:C.bg,border:`1px solid ${C.danger}44`,borderRadius:6,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
           <button onClick={logOppGoal} style={{padding:"5px 12px",background:C.danger,border:"none",borderRadius:6,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>Log Goal</button>
           <button onClick={()=>{setOppScorer(false);setOppScorerName("");}} style={{padding:"5px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontSize:11,cursor:"pointer"}}>✕</button>
+        </div>
+      )}
+
+      {/* ── LOBBY BANNER ── */}
+      {lobby&&(
+        <div style={{background:"#1a0800",borderBottom:`1px solid ${C.accent}44`,
+          padding:"10px 14px",display:"flex",alignItems:"center",
+          justifyContent:"space-between",gap:12,flexShrink:0}}>
+          <div>
+            <div style={{color:C.accent,fontWeight:800,fontSize:13,fontFamily:"'Oswald',sans-serif"}}>
+              PRE-GAME LOBBY
+            </div>
+            <div style={{color:C.muted,fontSize:11,marginTop:1}}>
+              {connectedUsers.length} coach{connectedUsers.length!==1?"es":""} connected — waiting for kickoff
+            </div>
+          </div>
+          {isHost&&(
+            <button onClick={kickOff}
+              style={{padding:"10px 22px",background:C.accent,border:"none",borderRadius:9,
+                color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",
+                fontFamily:"'Oswald',sans-serif",letterSpacing:.5,flexShrink:0,
+                animation:"pulse 1.5s infinite"}}>
+              🔴 KICK OFF
+            </button>
+          )}
+          {!isHost&&(
+            <div style={{color:C.muted,fontSize:12,fontStyle:"italic"}}>
+              Waiting for coach to kick off…
+            </div>
+          )}
         </div>
       )}
 
