@@ -11679,6 +11679,28 @@ function PublicSchedulePage(){
         {/* Upcoming */}
         {upcoming.length>0&&(
           <div style={{marginBottom:28}}>
+
+            {/* Export to calendar */}
+            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+              <button onClick={function(){downloadICS(upcoming, teamName);}}
+                style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+                  gap:8,padding:"12px 14px",background:"#fff",border:"1px solid #ddd",
+                  borderRadius:10,color:"#333",fontWeight:700,fontSize:13,
+                  cursor:"pointer",minWidth:140,boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+                🍎 Apple / Outlook
+              </button>
+              {upcoming[0]&&(
+                <a href={makeGoogleCalUrl(upcoming[0], teamName)}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+                    gap:8,padding:"12px 14px",background:"#fff",border:"1px solid #ddd",
+                    borderRadius:10,color:"#333",fontWeight:700,fontSize:13,
+                    textDecoration:"none",minWidth:140,boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+                  📅 Google Calendar
+                </a>
+              )}
+            </div>
+
             <div style={{color:"#aaa",fontSize:10,fontWeight:700,letterSpacing:2,
               marginBottom:12,paddingLeft:2}}>UPCOMING</div>
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
