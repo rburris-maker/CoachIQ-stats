@@ -4851,7 +4851,7 @@ export default function CoachIQStats(){
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
-            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} practices={practices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
+            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
@@ -6692,7 +6692,7 @@ function downloadICS(events, teamName){
 }
 
 
-function CalendarView({schedule, setSchedule, games, practices, setView, teamName, activeTeamId}){
+function CalendarView({schedule, setSchedule, games, setGames, practices, setView, teamName, activeTeamId}){
   const today = new Date();
   const [curMonth, setCurMonth] = useState(today.getMonth());
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -6995,6 +6995,34 @@ function CalendarView({schedule, setSchedule, games, practices, setView, teamNam
                         <div style={{color:C.muted,fontSize:11,marginTop:2}}>{dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}</div>
                         {evt.location&&<div style={{color:C.muted,fontSize:11}}>{evt.location}</div>}
                         {r&&<div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:C.warning,fontSize:12,fontWeight:700,marginTop:2}}>{r.our}–{r.their}</div>}
+                        {/* Log Result button for game events that haven't been logged yet */}
+                        {evt.type==="game"&&evt.opponent&&(()=>{
+                          const already = (games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date);
+                          const isPast = evt.date < new Date().toISOString().split("T")[0];
+                          if(already) return <div style={{color:"#27a560",fontSize:11,fontWeight:700,marginTop:3}}>✓ Logged</div>;
+                          return(
+                            <button onClick={e=>{
+                              e.stopPropagation();
+                              const newGame = {
+                                id:"g"+Date.now(), opponent:evt.opponent,
+                                date:evt.date, time:evt.time||"",
+                                location:evt.location||"Home",
+                                ourScore:isPast?0:"", theirScore:isPast?0:"",
+                                status:isPast?"completed":"upcoming",
+                                stats:[], coachNotes:"", formation:"4-3-3"
+                              };
+                              setGames(prev=>[newGame,...prev]);
+                              setView("games");
+                            }}
+                              style={{marginTop:5,padding:"4px 10px",
+                                background:isPast?C.accent+"22":"#27a56022",
+                                border:"1px solid "+(isPast?C.accent+"44":"#27a56044"),
+                                borderRadius:6,color:isPast?C.accent:"#27a560",
+                                fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                              {isPast?"Log Result →":"Add to Games →"}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
