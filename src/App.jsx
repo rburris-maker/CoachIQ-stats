@@ -1242,6 +1242,25 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
   const [importing, setImporting]         = useState(false);
   const fileRef = useRef(null);
 
+  async function handleUpload(e){
+    const file=e.target.files?.[0]; if(!file) return;
+    setImporting(true); setMsg(null);
+    try{
+      const newPlayers=await parseRosterSpreadsheet(file);
+      setPlayers(prev=>{
+        const merged=[...(prev||[])];
+        newPlayers.forEach(np=>{
+          if(!merged.find(p=>p.name.toLowerCase()===np.name.toLowerCase())){
+            merged.push({...np,positions:np.position||np.positions||[],email:"",availability:"available"});
+          }
+        });
+        return merged;
+      });
+      setMsg({type:"ok",text:"✓ Added "+newPlayers.length+" player"+(newPlayers.length!==1?"s":"")+" from spreadsheet"});
+    }catch(err){ setMsg({type:"err",text:err.message||"Failed to import"}); }
+    setImporting(false); e.target.value="";
+  }
+
   const posGroups = ["GK","CB","FB","DM","CM","W","AM","ST"];
   const grouped = posGroups.map(pos=>({
     pos, players: (players||[]).filter(p=>primaryPos(p)===pos)
@@ -1275,15 +1294,37 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
         />
       )}
 
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+
+      <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleUpload}/>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:700,margin:0}}>Squad</h2>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={()=>downloadRosterTemplate()}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            ⬇ Template
+          </button>
+          <button onClick={()=>fileRef.current?.click()} disabled={importing}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            {importing?"Importing…":"⬆ Upload Roster"}
+          </button>
           <button onClick={()=>setEditingPlayer({id:"",name:"",number:"",positions:[],captain:false,email:"",availability:"available"})}
             style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
             + Add Player
           </button>
         </div>
       </div>
+
+      {msg&&(
+        <div style={{marginBottom:14,padding:"10px 16px",borderRadius:9,
+          background:msg.type==="ok"?C.accent+"18":C.danger+"18",
+          border:`1px solid ${msg.type==="ok"?C.accent+"44":C.danger+"44"}`,
+          color:msg.type==="ok"?C.accent:C.danger,fontSize:13,fontWeight:600,
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>{msg.text}</span>
+          <button onClick={()=>setMsg(null)} style={{background:"none",border:"none",color:"inherit",cursor:"pointer",fontSize:16}}>×</button>
+        </div>
+      )}
 
       {(players||[]).length===0?(
         <div style={{textAlign:"center",padding:"60px 0",color:C.muted}}>
