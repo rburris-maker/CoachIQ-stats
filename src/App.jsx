@@ -10261,7 +10261,11 @@ function PlayerPortalPage(){
   // Attendance
   var totalPractices = (practices||[]).length;
   var attended = (practices||[]).filter(function(p){
-    return (p.attendance||[]).find(function(a){return a.playerId===playerId&&a.present;});
+    var att = p.attendance||{};
+    if(Array.isArray(att)){
+      return att.find(function(a){return a.playerId===playerId&&a.present;});
+    }
+    return att[playerId]==="present"||att[playerId]===true;
   }).length;
   var attendPct = totalPractices>0 ? Math.round(attended/totalPractices*100) : null;
 
