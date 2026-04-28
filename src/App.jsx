@@ -10097,6 +10097,7 @@ function PlayerPortalPage(){
   var [player,     setPlayer]    = useState(null);
   var [teamName,   setTeamName]  = useState("");
   var [games,      setGamesP]    = useState([]);
+  var [practices,  setPractices] = useState([]);
   var [error,      setError]     = useState(null);
   var [loading,    setLoading]   = useState(true);
   var [tab,        setTab]       = useState("stats");
@@ -10109,6 +10110,9 @@ function PlayerPortalPage(){
   var [editBio,    setEditBio]   = useState(false);
   var [savingBio,  setSavingBio] = useState(false);
   var [copied,     setCopied]    = useState(false);
+  var [photoUrl,   setPhotoUrl]  = useState("");
+  var [editPhoto,  setEditPhoto] = useState(false);
+  var [photoInput, setPhotoInput]= useState("");
 
   useEffect(function(){
     async function load(){
@@ -10125,10 +10129,13 @@ function PlayerPortalPage(){
         setPlayer(Object.assign({},foundPlayer,{teamId:teamId}));
         setVideos(foundPlayer.videoLinks||[]);
         setBio(foundPlayer.playerBio||"");
+        setPhotoUrl(foundPlayer.photoUrl||"");
         var {data:teams} = await supabase.from("teams").select("name").eq("id",teamId);
         setTeamName(teams?.[0]?.name||"");
         var {data:gData} = await supabase.from("games").select("*").eq("team_id",teamId);
         setGamesP((gData||[]).map(function(x){return x.data;}));
+        var {data:pData} = await supabase.from("practices").select("*").eq("team_id",teamId);
+        setPractices((pData||[]).map(function(x){return x.data;}));
       }catch(e){setError("Failed to load profile.");}
       setLoading(false);
     }
@@ -10153,6 +10160,14 @@ function PlayerPortalPage(){
     setPlayer(function(p){return Object.assign({},p,{playerBio:bio});});
   }
 
+  async function savePhoto(){
+    if(!photoInput.trim()) return;
+    await saveField("photoUrl", photoInput.trim());
+    setPhotoUrl(photoInput.trim());
+    setPlayer(function(p){return Object.assign({},p,{photoUrl:photoInput.trim()});});
+    setEditPhoto(false); setPhotoInput("");
+  }
+
   async function saveVideos(list){
     setSavingVid(true);
     await saveField("videoLinks", list);
@@ -10174,7 +10189,7 @@ function PlayerPortalPage(){
   var A = "#ff6b00";
 
   if(loading) return(
-    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+    <div style={{minHeight:"100vh",background:"#f7f7f7",display:"flex",alignItems:"center",
       justifyContent:"center",flexDirection:"column",gap:14,fontFamily:"'Outfit',sans-serif"}}>
       <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid "+A,
         borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
@@ -10183,86 +10198,57 @@ function PlayerPortalPage(){
   );
 
   if(error) return(
-    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+    <div style={{minHeight:"100vh",background:"#f7f7f7",display:"flex",alignItems:"center",
       justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
       <div style={{color:"#c00",fontSize:14,textAlign:"center"}}>{error}</div>
     </div>
   );
 
-  // ── Stats calculations ──────────────────────────────────────────────────────
+  // ── Calculations ──────────────────────────────────────────────────────────
   var pos = primaryPos(player);
-  var posColor = (POS_META[pos]||{}).color||A;
+  var posCol = posColor(pos);
   var playerGames = (games||[]).filter(function(g){
-    return (g.stats||[]).some(function(s){return s.playerId===playerId;});
+    return g.status==="completed"&&(g.stats||[]).some(function(s){return s.playerId===playerId;});
   });
   var gp = playerGames.length||1;
   var allStats = playerGames.flatMap(function(g){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
   });
+
+  // Season totals
   var tots = allStats.reduce(function(acc,s){
     return {
       goals:acc.goals+(s.goals||0), assists:acc.assists+(s.assists||0),
       shots:acc.shots+(s.shots||0), shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
       tackles:acc.tackles+(s.tackles||0), interceptions:acc.interceptions+(s.interceptions||0),
-      keyPasses:acc.keyPasses+(s.keyPasses||0), passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
+      keyPasses:acc.keyPasses+(s.keyPasses||0),
+      passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
       passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
       saves:acc.saves+(s.saves||0), goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       aerialDuelsWon:acc.aerialDuelsWon+(s.aerialDuelsWon||0),
-      minutesPlayed:acc.minutesPlayed+(s.minutesPlayed||0),
+      fouls:acc.fouls+(s.fouls||0), dangerousTurnovers:acc.dangerousTurnovers+(s.dangerousTurnovers||0),
     };
   },{goals:0,assists:0,shots:0,shotsOnTarget:0,tackles:0,interceptions:0,
     keyPasses:0,passesCompleted:0,passesAttempted:0,saves:0,goalsConceded:0,
-    aerialDuelsWon:0,minutesPlayed:0});
+    aerialDuelsWon:0,fouls:0,dangerousTurnovers:0});
 
   var passAcc = tots.passesAttempted>0
-    ? Math.round(tots.passesCompleted/tots.passesAttempted*100)+"%"
-    : "—";
+    ? Math.round(tots.passesCompleted/tots.passesAttempted*100)+"%" : "—";
   var shotConv = tots.shots>0
     ? Math.round(tots.goals/tots.shots*100)+"%" : "—";
-  var avgRating = (function(){
-    var ratings = playerGames.map(function(g){
-      var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
-      if(!s) return null;
-      return calcRating(s, pos, g.theirScore===0).rating;
-    }).filter(function(r){return r!==null;});
-    return ratings.length ? (ratings.reduce(function(a,b){return a+b;},0)/ratings.length).toFixed(1) : "—";
-  })();
 
-  // Per-game divider
-  var D = perGame ? gp : 1;
-  var fmt = function(n){ return perGame ? (n/D).toFixed(1) : n; };
+  // Ratings
+  var ratingList = playerGames.map(function(g){
+    var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
+    if(!s) return null;
+    return {r:calcRating(s,pos,g.theirScore===0).rating, date:g.date, opp:g.opponent};
+  }).filter(Boolean);
+  var avgRating = ratingList.length
+    ? (ratingList.reduce(function(a,b){return a+b.r;},0)/ratingList.length).toFixed(1) : "—";
 
-  // Position-specific stat blocks
-  var isGK  = allPos(player).includes("GK");
-  var isCB  = ["CB","FB"].some(function(p){return allPos(player).includes(p);});
-  var isMid = ["CM","DM","W"].some(function(p){return allPos(player).includes(p);});
-
-  var posStats = isGK
-    ? [{l:"Saves",v:fmt(tots.saves)},{l:"Conceded",v:fmt(tots.goalsConceded)},
-       {l:"Avg Rating",v:avgRating},{l:"Games",v:playerGames.length}]
-    : isCB
-    ? [{l:"Goals",v:fmt(tots.goals)},{l:"Tackles",v:fmt(tots.tackles)},
-       {l:"Interceptions",v:fmt(tots.interceptions)},{l:"Aerials",v:fmt(tots.aerialDuelsWon)},
-       {l:"Pass Acc",v:passAcc},{l:"Games",v:playerGames.length}]
-    : isMid
-    ? [{l:"Goals",v:fmt(tots.goals)},{l:"Assists",v:fmt(tots.assists)},
-       {l:"Key Passes",v:fmt(tots.keyPasses)},{l:"Pass Acc",v:passAcc},
-       {l:"Tackles",v:fmt(tots.tackles)},{l:"Games",v:playerGames.length}]
-    : [{l:"Goals",v:fmt(tots.goals)},{l:"Assists",v:fmt(tots.assists)},
-       {l:"Shots",v:fmt(tots.shots)},{l:"Conv",v:shotConv},
-       {l:"Key Passes",v:fmt(tots.keyPasses)},{l:"Games",v:playerGames.length}];
-
-  // Rating trend — last 5 games
-  var trend = [].concat(playerGames)
-    .sort(function(a,b){return (a.date||"").localeCompare(b.date||"");})
-    .slice(-5)
-    .map(function(g){
-      var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
-      if(!s) return null;
-      return {r:calcRating(s,pos,g.theirScore===0).rating, opp:g.opponent, date:g.date};
-    }).filter(Boolean);
-
-  var maxR = Math.max.apply(null, trend.map(function(t){return t.r;}).concat([10]));
+  // Last 5 form
+  var last5 = ratingList.slice(-5);
+  var maxR   = Math.max.apply(null, last5.map(function(x){return x.r;}).concat([10]));
 
   // Best game
   var bestGame = playerGames.reduce(function(best,g){
@@ -10271,6 +10257,38 @@ function PlayerPortalPage(){
     var r=calcRating(s,pos,g.theirScore===0).rating;
     return (!best||r>best.r)?{g:g,s:s,r:r}:best;
   },null);
+
+  // Attendance
+  var totalPractices = (practices||[]).length;
+  var attended = (practices||[]).filter(function(p){
+    return (p.attendance||[]).find(function(a){return a.playerId===playerId&&a.present;});
+  }).length;
+  var attendPct = totalPractices>0 ? Math.round(attended/totalPractices*100) : null;
+
+  // Per-game divider
+  var D = perGame ? gp : 1;
+  var fmt = function(n){ return perGame ? (n/D).toFixed(1) : n; };
+
+  var isGK  = allPos(player).includes("GK");
+  var isCB  = ["CB","FB"].some(function(p){return allPos(player).includes(p);});
+  var isMid = ["CM","DM","W"].some(function(p){return allPos(player).includes(p);});
+  var isFwd = ["ST","AM"].some(function(p){return allPos(player).includes(p);});
+
+  // Position-specific headline stats
+  var headlineStats = isGK
+    ? [{l:"Saves",v:fmt(tots.saves),hi:true},{l:"Conceded",v:fmt(tots.goalsConceded),hi:false},
+       {l:"Avg Rating",v:avgRating,hi:true},{l:"Games",v:playerGames.length,hi:false}]
+    : isCB
+    ? [{l:"Goals",v:fmt(tots.goals),hi:tots.goals>0},{l:"Tackles",v:fmt(tots.tackles),hi:true},
+       {l:"Ints",v:fmt(tots.interceptions),hi:true},{l:"Aerials",v:fmt(tots.aerialDuelsWon),hi:false},
+       {l:"Pass Acc",v:passAcc,hi:false},{l:"Games",v:playerGames.length,hi:false}]
+    : isMid
+    ? [{l:"Goals",v:fmt(tots.goals),hi:tots.goals>0},{l:"Assists",v:fmt(tots.assists),hi:true},
+       {l:"Key Pass",v:fmt(tots.keyPasses),hi:true},{l:"Pass Acc",v:passAcc,hi:false},
+       {l:"Tackles",v:fmt(tots.tackles),hi:false},{l:"Games",v:playerGames.length,hi:false}]
+    : [{l:"Goals",v:fmt(tots.goals),hi:true},{l:"Assists",v:fmt(tots.assists),hi:true},
+       {l:"Shots",v:fmt(tots.shots),hi:false},{l:"Conv",v:shotConv,hi:false},
+       {l:"Key Pass",v:fmt(tots.keyPasses),hi:false},{l:"Games",v:playerGames.length,hi:false}];
 
   var sortedGames = [].concat(playerGames).sort(function(a,b){
     return (b.date||"").localeCompare(a.date||"");
@@ -10289,8 +10307,7 @@ function PlayerPortalPage(){
 
       {/* ── TOP BAR ── */}
       <div style={{background:"#fff",borderBottom:"1px solid #eee",
-        padding:"10px 20px",display:"flex",alignItems:"center",
-        justifyContent:"space-between"}}>
+        padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
           <div style={{width:7,height:7,borderRadius:"50%",background:A}}/>
           <span style={{color:A,fontSize:11,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
@@ -10308,14 +10325,33 @@ function PlayerPortalPage(){
       <div style={{background:"#fff",borderBottom:"1px solid #eee",padding:"20px 20px 0"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
 
-          {/* Name + jersey */}
+          {/* Avatar + name */}
           <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:16}}>
-            <div style={{width:72,height:72,borderRadius:16,flexShrink:0,
-              background:posColor+"18",border:"2px solid "+posColor+"44",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor,fontSize:28}}>
-              #{player.number}
+            {/* Photo / avatar */}
+            <div style={{position:"relative",flexShrink:0}}>
+              {photoUrl?(
+                <img src={photoUrl} alt={player.name}
+                  onError={function(){setPhotoUrl("");}}
+                  style={{width:76,height:76,borderRadius:16,objectFit:"cover",
+                    border:"2px solid "+posCol+"44"}}/>
+              ):(
+                <div style={{width:76,height:76,borderRadius:16,
+                  background:posCol+"18",border:"2px solid "+posCol+"44",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                  color:posCol,fontSize:28}}>
+                  #{player.number}
+                </div>
+              )}
+              <button onClick={function(){setEditPhoto(true);setPhotoInput(photoUrl);}}
+                style={{position:"absolute",bottom:-6,right:-6,width:22,height:22,
+                  borderRadius:"50%",background:"#fff",border:"1px solid #eee",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  cursor:"pointer",fontSize:11,boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                📷
+              </button>
             </div>
+
             <div style={{flex:1,paddingTop:4}}>
               <h1 style={{color:"#111",fontFamily:"'Oswald',sans-serif",
                 fontSize:26,fontWeight:900,margin:"0 0 4px",lineHeight:1.1}}>
@@ -10332,12 +10368,14 @@ function PlayerPortalPage(){
                     {recLabel}
                   </span>
                 )}
-                <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
-                  background:"#27a56018",border:"1px solid #27a56033",color:"#27a560"}}>
-                  {player.availability==="injured"?"Injured":
-                   player.availability==="doubtful"?"Doubtful":
-                   player.availability==="suspended"?"Suspended":"Available"}
-                </span>
+                {attendPct!==null&&(
+                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
+                    background:attendPct>=80?"#27a56018":"#f59e0b18",
+                    border:"1px solid "+(attendPct>=80?"#27a56033":"#f59e0b33"),
+                    color:attendPct>=80?"#27a560":"#f59e0b"}}>
+                    {attendPct}% attendance
+                  </span>
+                )}
               </div>
             </div>
             <div style={{textAlign:"right",flexShrink:0,paddingTop:4}}>
@@ -10347,15 +10385,46 @@ function PlayerPortalPage(){
             </div>
           </div>
 
-          {/* Position stats */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat("+posStats.length+",1fr)",
+          {/* Photo edit modal */}
+          {editPhoto&&(
+            <div style={{background:"#f8f8f8",border:"1px solid #eee",borderRadius:10,
+              padding:14,marginBottom:14}}>
+              <div style={{color:"#999",fontSize:11,fontWeight:700,marginBottom:8}}>
+                PHOTO URL (paste a link to your photo)
+              </div>
+              <input value={photoInput}
+                onChange={function(e){setPhotoInput(e.target.value);}}
+                placeholder="https://example.com/my-photo.jpg"
+                style={{width:"100%",padding:"9px 12px",background:"#fff",
+                  border:"1px solid #eee",borderRadius:7,color:"#111",fontSize:13,
+                  outline:"none",fontFamily:"'Outfit',sans-serif",
+                  boxSizing:"border-box",marginBottom:8}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={savePhoto}
+                  style={{flex:1,padding:"8px",background:A,border:"none",
+                    borderRadius:7,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  Save Photo
+                </button>
+                <button onClick={function(){setEditPhoto(false);}}
+                  style={{padding:"8px 14px",background:"#f0f0f0",border:"none",
+                    borderRadius:7,color:"#666",fontSize:13,cursor:"pointer"}}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Position-specific stat pills */}
+          <div style={{display:"grid",
+            gridTemplateColumns:"repeat("+headlineStats.length+",1fr)",
             gap:6,marginBottom:14}}>
-            {posStats.map(function(item){return(
+            {headlineStats.map(function(item){return(
               <div key={item.l} style={{background:"#f8f8f8",borderRadius:9,
-                padding:"10px 6px",textAlign:"center"}}>
-                <div style={{color:item.l==="Goals"||item.l==="Assists"?A:"#111",
+                padding:"10px 4px",textAlign:"center"}}>
+                <div style={{color:item.hi?A:"#111",
                   fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                  fontSize:item.l==="Pass Acc"||item.l==="Conv"?14:18,lineHeight:1}}>
+                  fontSize:typeof item.v==="string"&&item.v.includes("%")?14:18,
+                  lineHeight:1}}>
                   {item.v}
                 </div>
                 <div style={{color:"#bbb",fontSize:9,fontWeight:700,
@@ -10364,38 +10433,72 @@ function PlayerPortalPage(){
             );})}
           </div>
 
-          {/* Rating trend */}
-          {trend.length>=2&&(
-            <div style={{marginBottom:0,padding:"12px 0 16px",
-              borderTop:"1px solid #f0f0f0"}}>
-              <div style={{display:"flex",justifyContent:"space-between",
-                alignItems:"center",marginBottom:8}}>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:1}}>
-                  RATING TREND (LAST {trend.length} GAMES)
-                </div>
-                <div style={{color:A,fontSize:11,fontWeight:700}}>
-                  {trend[trend.length-1].r.toFixed(1)} latest
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"flex-end",gap:4,height:36}}>
-                {trend.map(function(t,i){
-                  var h=Math.max(10,Math.round((t.r/maxR)*100));
-                  var isLatest=i===trend.length-1;
-                  return(
-                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",
-                      alignItems:"center",gap:3}}>
-                      <div style={{width:"100%",background:isLatest?A:A+"44",
-                        borderRadius:"3px 3px 0 0",height:h+"%",
-                        transition:"height .3s"}}/>
-                      <div style={{color:"#ccc",fontSize:8,whiteSpace:"nowrap",
-                        overflow:"hidden",textOverflow:"ellipsis",
-                        maxWidth:"100%",textAlign:"center"}}>
-                        {(t.opp||"").split(" ")[0]}
-                      </div>
+          {/* Rating trend + attendance bar */}
+          {(last5.length>=2||attendPct!==null)&&(
+            <div style={{padding:"12px 0 16px",borderTop:"1px solid #f0f0f0",
+              display:"flex",gap:16,alignItems:"flex-end"}}>
+              {/* Rating trend */}
+              {last5.length>=2&&(
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",
+                    alignItems:"center",marginBottom:6}}>
+                    <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1}}>
+                      FORM (LAST {last5.length})
                     </div>
-                  );
-                })}
-              </div>
+                    <div style={{color:A,fontSize:11,fontWeight:700}}>
+                      {last5[last5.length-1].r.toFixed(1)} last
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"flex-end",gap:3,height:32}}>
+                    {last5.map(function(t,i){
+                      var h=Math.max(15,Math.round((t.r/maxR)*100));
+                      var isLatest=i===last5.length-1;
+                      return(
+                        <div key={i} style={{flex:1,display:"flex",
+                          flexDirection:"column",alignItems:"center",gap:2}}>
+                          <div style={{width:"100%",
+                            background:isLatest?A:rColor(t.r)+"66",
+                            borderRadius:"3px 3px 0 0",
+                            height:h+"%"}}/>
+                          <div style={{color:"#ccc",fontSize:8,
+                            overflow:"hidden",textOverflow:"ellipsis",
+                            whiteSpace:"nowrap",maxWidth:"100%",textAlign:"center"}}>
+                            {(t.opp||"").split(" ")[0]}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Attendance */}
+              {attendPct!==null&&(
+                <div style={{flexShrink:0,minWidth:80,textAlign:"center"}}>
+                  <div style={{color:"#bbb",fontSize:9,fontWeight:700,
+                    letterSpacing:1,marginBottom:6}}>ATTENDANCE</div>
+                  <div style={{position:"relative",width:56,height:56,
+                    margin:"0 auto",flexShrink:0}}>
+                    <svg viewBox="0 0 56 56" style={{width:56,height:56,transform:"rotate(-90deg)"}}>
+                      <circle cx="28" cy="28" r="22" fill="none"
+                        stroke="#f0f0f0" strokeWidth="5"/>
+                      <circle cx="28" cy="28" r="22" fill="none"
+                        stroke={attendPct>=80?A:"#f59e0b"} strokeWidth="5"
+                        strokeDasharray={""+Math.round(2*Math.PI*22*attendPct/100)+" 999"}
+                        strokeLinecap="round"/>
+                    </svg>
+                    <div style={{position:"absolute",inset:0,display:"flex",
+                      alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                      fontSize:13,color:attendPct>=80?A:"#f59e0b"}}>
+                      {attendPct}%
+                    </div>
+                  </div>
+                  <div style={{color:"#bbb",fontSize:9,marginTop:4}}>
+                    {attended}/{totalPractices}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -10456,7 +10559,8 @@ function PlayerPortalPage(){
                     <span style={{color:"#999",fontWeight:400,fontSize:12}}> · {bestGame.g.date}</span>
                   </div>
                   <div style={{color:"#888",fontSize:12,marginTop:2}}>
-                    {bestGame.s.goals||0}G · {bestGame.s.assists||0}A · {bestGame.s.tackles||0} tackles
+                    {bestGame.s.goals||0}G · {bestGame.s.assists||0}A
+                    {!isGK&&" · "+bestGame.s.tackles||0+" tkl"}
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -10465,6 +10569,37 @@ function PlayerPortalPage(){
                     {bestGame.r.toFixed(1)}
                   </div>
                   <div style={{color:"#bbb",fontSize:10,fontWeight:700}}>RATING</div>
+                </div>
+              </div>
+            )}
+
+            {/* Full season breakdown */}
+            {playerGames.length>0&&(
+              <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,
+                padding:"14px 16px",marginBottom:12}}>
+                <div style={{color:"#bbb",fontSize:10,fontWeight:700,
+                  letterSpacing:1,marginBottom:12}}>SEASON BREAKDOWN</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
+                  {(isGK
+                    ? [{l:"Saves",v:fmt(tots.saves)},{l:"Goals Conceded",v:fmt(tots.goalsConceded)},
+                       {l:"Minutes Played",v:allStats.reduce(function(a,s){return a+(s.minutesPlayed||0);},0)}]
+                    : [{l:"Goals",v:fmt(tots.goals)},{l:"Assists",v:fmt(tots.assists)},
+                       {l:"Shots",v:fmt(tots.shots)},{l:"On Target",v:fmt(tots.shotsOnTarget)},
+                       {l:"Key Passes",v:fmt(tots.keyPasses)},{l:"Pass Acc",v:passAcc},
+                       {l:"Tackles",v:fmt(tots.tackles)},{l:"Interceptions",v:fmt(tots.interceptions)},
+                       {l:"Aerial Duels",v:fmt(tots.aerialDuelsWon)},{l:"Fouls",v:fmt(tots.fouls)},
+                       {l:"Bad Turns",v:fmt(tots.dangerousTurnovers)},
+                       {l:"Mins Played",v:allStats.reduce(function(a,s){return a+(s.minutesPlayed||0);},0)}]
+                  ).map(function(item,i,arr){return(
+                    <div key={item.l} style={{padding:"9px 0",
+                      borderBottom:i<arr.length-2?"1px solid #f5f5f5":"none",
+                      display:"flex",justifyContent:"space-between",alignItems:"center",
+                      paddingRight:i%2===0?12:0,paddingLeft:i%2===1?12:0,
+                      borderRight:i%2===0?"1px solid #f5f5f5":"none"}}>
+                      <div style={{color:"#999",fontSize:12}}>{item.l}</div>
+                      <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
+                    </div>
+                  );})}
                 </div>
               </div>
             )}
@@ -10484,10 +10619,21 @@ function PlayerPortalPage(){
                   var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
                   var rc=win?A:loss?"#e53935":"#f57c00";
                   var rl=win?"W":loss?"L":"D";
+                  // Position-specific stat row per game
                   var statRow = isGK
-                    ? [{l:"Saves",v:s.saves||0},{l:"Conceded",v:s.goalsConceded||0},{l:"Mins",v:s.minutesPlayed||90}]
+                    ? [{l:"Saves",v:s.saves||0},{l:"Conceded",v:s.goalsConceded||0},
+                       {l:"Mins",v:s.minutesPlayed||90}]
+                    : isCB
+                    ? [{l:"Goals",v:s.goals||0},{l:"Tackles",v:s.tackles||0},
+                       {l:"Ints",v:s.interceptions||0},{l:"Aerials",v:s.aerialDuelsWon||0},
+                       {l:"Mins",v:s.minutesPlayed||90}]
+                    : isMid
+                    ? [{l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
+                       {l:"K.Pass",v:s.keyPasses||0},{l:"Tackles",v:s.tackles||0},
+                       {l:"Mins",v:s.minutesPlayed||90}]
                     : [{l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                       {l:"Shots",v:s.shots||0},{l:"Tackles",v:s.tackles||0},{l:"Mins",v:s.minutesPlayed||90}];
+                       {l:"Shots",v:s.shots||0},{l:"K.Pass",v:s.keyPasses||0},
+                       {l:"Mins",v:s.minutesPlayed||90}];
                   return(
                     <div key={g.id} style={{background:"#fff",border:"1px solid #eee",
                       borderRadius:14,overflow:"hidden"}}>
@@ -10526,7 +10672,7 @@ function PlayerPortalPage(){
                           <div key={item.l} style={{flex:1,padding:"8px 0",
                             textAlign:"center",
                             borderRight:i<statRow.length-1?"1px solid #eee":"none"}}>
-                            <div style={{color:(item.v>0&&(item.l==="Goals"||item.l==="Assists"))?A:"#111",
+                            <div style={{color:(item.v>0&&item.l!=="Mins")?A:"#111",
                               fontWeight:900,fontSize:15,lineHeight:1,
                               fontFamily:"'Oswald',sans-serif"}}>
                               {item.v}
@@ -10538,6 +10684,24 @@ function PlayerPortalPage(){
                           </div>
                         );})}
                       </div>
+                      {/* Possession bar if available */}
+                      {g.possession&&(g.possession.home+g.possession.away)>0&&(
+                        <div style={{padding:"6px 14px 8px",
+                          background:"#fff",borderTop:"1px solid #f5f5f5",
+                          display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{color:"#ccc",fontSize:9,fontWeight:700,
+                            letterSpacing:.5,flexShrink:0}}>POSS</div>
+                          <div style={{flex:1,height:4,background:"#f0f0f0",
+                            borderRadius:2,overflow:"hidden"}}>
+                            <div style={{height:"100%",background:A,
+                              width:Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)+"%",
+                              borderRadius:2}}/>
+                          </div>
+                          <div style={{color:A,fontSize:10,fontWeight:700,flexShrink:0}}>
+                            {Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)}%
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -10551,13 +10715,9 @@ function PlayerPortalPage(){
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {player.coachScoutNotes&&(
               <div style={{background:"#fff8f3",border:"1px solid "+A+"33",
-                borderLeft:"3px solid "+A,borderRadius:"0 12px 12px 0",
-                padding:"14px 16px"}}>
-                <div style={{color:A,fontSize:10,fontWeight:700,
-                  letterSpacing:2,marginBottom:6}}>COACH PROFILE</div>
-                <div style={{color:"#333",fontSize:14,lineHeight:1.7}}>
-                  {player.coachScoutNotes}
-                </div>
+                borderLeft:"3px solid "+A,borderRadius:"0 12px 12px 0",padding:"14px 16px"}}>
+                <div style={{color:A,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:6}}>COACH PROFILE</div>
+                <div style={{color:"#333",fontSize:14,lineHeight:1.7}}>{player.coachScoutNotes}</div>
               </div>
             )}
             {(player.gpa||player.height||player.weight)&&(
@@ -10566,7 +10726,7 @@ function PlayerPortalPage(){
                   {l:"Weight",v:player.weight&&player.weight+" lbs"}
                 ].filter(function(x){return x.v;}).map(function(x){return(
                   <div key={x.l} style={{background:"#fff",border:"1px solid #eee",
-                    borderRadius:10,padding:"12px",textAlign:"center"}}>
+                    borderRadius:10,padding:12,textAlign:"center"}}>
                     <div style={{color:"#111",fontWeight:900,fontSize:18,
                       fontFamily:"'Oswald',sans-serif"}}>{x.v}</div>
                     <div style={{color:"#bbb",fontSize:10,fontWeight:700,
@@ -10578,18 +10738,14 @@ function PlayerPortalPage(){
             {player.highlightsUrl&&(
               <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
                 style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
-                  background:"#fff",border:"1px solid #eee",borderRadius:12,
-                  textDecoration:"none"}}>
+                  background:"#fff",border:"1px solid #eee",borderRadius:12,textDecoration:"none"}}>
                 <div style={{width:40,height:40,borderRadius:10,background:A+"18",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   color:A,fontSize:18,flexShrink:0}}>▶</div>
                 <div>
-                  <div style={{color:"#111",fontWeight:700,fontSize:14}}>
-                    Watch Highlights
-                  </div>
-                  <div style={{color:"#aaa",fontSize:11,marginTop:2,
-                    overflow:"hidden",textOverflow:"ellipsis",
-                    whiteSpace:"nowrap",maxWidth:240}}>
+                  <div style={{color:"#111",fontWeight:700,fontSize:14}}>Watch Highlights</div>
+                  <div style={{color:"#aaa",fontSize:11,marginTop:2,overflow:"hidden",
+                    textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:240}}>
                     {player.highlightsUrl}
                   </div>
                 </div>
@@ -10597,33 +10753,21 @@ function PlayerPortalPage(){
             )}
             {(player.recruitingSchools||[]).length>0&&(
               <div>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,
-                  letterSpacing:2,marginBottom:10,paddingLeft:2}}>
-                  INTERESTED SCHOOLS
-                </div>
+                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:10,paddingLeft:2}}>INTERESTED SCHOOLS</div>
                 {(player.recruitingSchools||[]).map(function(s){
-                  var sc={identified:"#aaa",contacted:"#f57c00",
-                    visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
-                  var sl={identified:"Identified",contacted:"Contacted",
-                    visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
+                  var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
+                  var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
                   return(
                     <div key={s.id} style={{background:"#fff",border:"1px solid #eee",
                       borderRadius:12,padding:"12px 16px",marginBottom:8,
                       display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
-                        <div style={{color:"#111",fontWeight:700,fontSize:14}}>
-                          {s.school}
-                        </div>
-                        {s.contact&&(
-                          <div style={{color:"#999",fontSize:12,marginTop:2}}>
-                            Contact: {s.contact}
-                          </div>
-                        )}
+                        <div style={{color:"#111",fontWeight:700,fontSize:14}}>{s.school}</div>
+                        {s.contact&&<div style={{color:"#999",fontSize:12,marginTop:2}}>Contact: {s.contact}</div>}
                       </div>
                       <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
-                        <div style={{background:sc+"18",color:sc,fontSize:11,
-                          fontWeight:700,padding:"4px 10px",borderRadius:20,
-                          marginBottom:3}}>{sl}</div>
+                        <div style={{background:sc+"18",color:sc,fontSize:11,fontWeight:700,
+                          padding:"4px 10px",borderRadius:20,marginBottom:3}}>{sl}</div>
                         <div style={{color:"#ccc",fontSize:11}}>{s.division}</div>
                       </div>
                     </div>
@@ -10631,13 +10775,10 @@ function PlayerPortalPage(){
                 })}
               </div>
             )}
-            {!player.coachScoutNotes&&!(player.recruitingSchools||[]).length
-              &&!player.gpa&&!player.highlightsUrl&&(
+            {!player.coachScoutNotes&&!(player.recruitingSchools||[]).length&&!player.gpa&&!player.highlightsUrl&&(
               <div style={{textAlign:"center",padding:"48px 0",color:"#bbb"}}>
                 <div style={{fontSize:32,marginBottom:10}}>🎓</div>
-                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>
-                  Recruiting info coming soon
-                </div>
+                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>Recruiting info coming soon</div>
                 <div style={{fontSize:13}}>Your coach will add this</div>
               </div>
             )}
@@ -10647,67 +10788,49 @@ function PlayerPortalPage(){
         {/* VIDEOS */}
         {tab==="videos"&&(
           <div>
-            <div style={{display:"flex",justifyContent:"space-between",
-              alignItems:"center",marginBottom:14}}>
-              <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>
-                MY VIDEOS
-              </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>MY VIDEOS</div>
               <button onClick={function(){setAddingVid(true);}}
-                style={{padding:"7px 14px",background:A,border:"none",
-                  borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,
-                  cursor:"pointer"}}>
-                + Add Link
-              </button>
+                style={{padding:"7px 14px",background:A,border:"none",borderRadius:8,
+                  color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Add Link</button>
             </div>
             {addingVid&&(
-              <div style={{background:"#fff",border:"1px solid "+A+"33",
-                borderRadius:12,padding:16,marginBottom:12}}>
+              <div style={{background:"#fff",border:"1px solid "+A+"33",borderRadius:12,
+                padding:16,marginBottom:12}}>
                 <input value={newVideo.label}
-                  onChange={function(e){setNewVideo(function(v){
-                    return Object.assign({},v,{label:e.target.value});});}}
-                  placeholder="Label (e.g. Junior Year Highlights)"
-                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",
-                    border:"1px solid #eee",borderRadius:8,color:"#111",fontSize:13,
-                    outline:"none",fontFamily:"'Outfit',sans-serif",
-                    boxSizing:"border-box",marginBottom:8}}/>
+                  onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{label:e.target.value});});}}
+                  placeholder="Label e.g. Junior Year Highlights"
+                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",border:"1px solid #eee",
+                    borderRadius:8,color:"#111",fontSize:13,outline:"none",
+                    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
                 <input value={newVideo.url}
-                  onChange={function(e){setNewVideo(function(v){
-                    return Object.assign({},v,{url:e.target.value});});}}
+                  onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{url:e.target.value});});}}
                   placeholder="YouTube, Hudl, or any video URL"
-                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",
-                    border:"1px solid #eee",borderRadius:8,color:"#111",fontSize:13,
-                    outline:"none",fontFamily:"'Outfit',sans-serif",
-                    boxSizing:"border-box",marginBottom:10}}/>
+                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",border:"1px solid #eee",
+                    borderRadius:8,color:"#111",fontSize:13,outline:"none",
+                    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:10}}/>
                 <div style={{display:"flex",gap:8}}>
-                  <button onClick={addVideo}
-                    disabled={savingVid||!newVideo.url.trim()}
-                    style={{flex:1,padding:"9px",background:A,border:"none",
-                      borderRadius:8,color:"#fff",fontWeight:700,fontSize:13,
-                      cursor:"pointer"}}>
+                  <button onClick={addVideo} disabled={savingVid||!newVideo.url.trim()}
+                    style={{flex:1,padding:"9px",background:A,border:"none",borderRadius:8,
+                      color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                     {savingVid?"Saving...":"Save Link"}
                   </button>
-                  <button onClick={function(){setAddingVid(false);
-                    setNewVideo({label:"",url:""});}}
+                  <button onClick={function(){setAddingVid(false);setNewVideo({label:"",url:""}); }}
                     style={{padding:"9px 14px",background:"#f0f0f0",border:"none",
-                      borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>
-                    Cancel
-                  </button>
+                      borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>Cancel</button>
                 </div>
               </div>
             )}
             {videos.length===0&&!addingVid&&(
               <div style={{textAlign:"center",padding:"48px 0",color:"#bbb"}}>
-                <div style={{width:52,height:52,borderRadius:12,background:"#f5f5f5",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  margin:"0 auto 10px",color:"#ddd",fontSize:22}}>▶</div>
+                <div style={{fontSize:22,marginBottom:10}}>▶</div>
                 <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No videos yet</div>
                 <div style={{fontSize:13}}>Add your highlight links for college coaches</div>
               </div>
             )}
             {videos.map(function(v){return(
-              <div key={v.id} style={{background:"#fff",border:"1px solid #eee",
-                borderRadius:12,padding:"12px 14px",marginBottom:8,
-                display:"flex",alignItems:"center",gap:12}}>
+              <div key={v.id} style={{background:"#fff",border:"1px solid #eee",borderRadius:12,
+                padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
                 <div style={{width:40,height:40,borderRadius:9,background:A+"15",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   color:A,fontSize:16,flexShrink:0}}>▶</div>
@@ -10715,16 +10838,11 @@ function PlayerPortalPage(){
                   <div style={{color:"#111",fontWeight:700,fontSize:13}}>{v.label}</div>
                   <a href={v.url} target="_blank" rel="noopener noreferrer"
                     style={{color:A,fontSize:11,textDecoration:"none",display:"block",
-                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    {v.url}
-                  </a>
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.url}</a>
                 </div>
-                <button onClick={function(){
-                  saveVideos(videos.filter(function(x){return x.id!==v.id;}));}}
-                  style={{background:"none",border:"none",color:"#ddd",
-                    cursor:"pointer",fontSize:18,padding:4,flexShrink:0,lineHeight:1}}>
-                  ×
-                </button>
+                <button onClick={function(){saveVideos(videos.filter(function(x){return x.id!==v.id;}));}}
+                  style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",
+                    fontSize:18,padding:4,flexShrink:0,lineHeight:1}}>×</button>
               </div>
             );})}
           </div>
@@ -10733,70 +10851,52 @@ function PlayerPortalPage(){
         {/* ABOUT */}
         {tab==="about"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-
-            {/* Personal bio */}
             <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",
-                alignItems:"center",marginBottom:8}}>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>
-                  ABOUT ME
-                </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>ABOUT ME</div>
                 {!editBio&&(
                   <button onClick={function(){setEditBio(true);}}
                     style={{background:"none",border:"1px solid #eee",borderRadius:6,
-                      padding:"4px 10px",color:"#aaa",fontSize:11,cursor:"pointer",
-                      fontWeight:700}}>
+                      padding:"4px 10px",color:"#aaa",fontSize:11,cursor:"pointer",fontWeight:700}}>
                     {player.playerBio?"Edit":"+ Add Bio"}
                   </button>
                 )}
               </div>
               {editBio?(
                 <div>
-                  <textarea value={bio}
-                    onChange={function(e){setBio(e.target.value);}}
-                    placeholder="Tell college coaches about yourself — your playing style, strengths, goals..."
+                  <textarea value={bio} onChange={function(e){setBio(e.target.value);}}
+                    placeholder="Tell college coaches about yourself..."
                     rows={4}
                     style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",
                       border:"1px solid #eee",borderRadius:8,color:"#111",fontSize:13,
                       outline:"none",fontFamily:"'Outfit',sans-serif",
-                      boxSizing:"border-box",resize:"vertical",lineHeight:1.6,
-                      marginBottom:8}}/>
+                      boxSizing:"border-box",resize:"vertical",lineHeight:1.6,marginBottom:8}}/>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={saveBio} disabled={savingBio}
-                      style={{flex:1,padding:"8px",background:A,border:"none",
-                        borderRadius:8,color:"#fff",fontWeight:700,fontSize:13,
-                        cursor:"pointer"}}>
+                      style={{flex:1,padding:"8px",background:A,border:"none",borderRadius:8,
+                        color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                       {savingBio?"Saving...":"Save"}
                     </button>
                     <button onClick={function(){setEditBio(false);setBio(player.playerBio||"");}}
                       style={{padding:"8px 14px",background:"#f0f0f0",border:"none",
-                        borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>
-                      Cancel
-                    </button>
+                        borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>Cancel</button>
                   </div>
                 </div>
               ):(
                 <div style={{color:player.playerBio?"#444":"#ccc",fontSize:14,
                   lineHeight:1.7,fontStyle:player.playerBio?"normal":"italic"}}>
-                  {player.playerBio||"No bio yet — tap Edit to introduce yourself to college coaches"}
+                  {player.playerBio||"No bio yet — tap Edit to introduce yourself"}
                 </div>
               )}
             </div>
-
-            {/* Info */}
-            <div style={{background:"#fff",border:"1px solid #eee",
-              borderRadius:12,overflow:"hidden"}}>
-              {[
-                {l:"Position",v:allPos(player).join(", ")},
-                {l:"Jersey",v:"#"+player.number},
-                {l:"Graduation Year",v:player.gradYear},
-                {l:"Height",v:player.height},
-                {l:"Weight",v:player.weight&&player.weight+" lbs"},
-                {l:"GPA",v:player.gpa},
+            <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,overflow:"hidden"}}>
+              {[{l:"Position",v:allPos(player).join(", ")},{l:"Jersey",v:"#"+player.number},
+                {l:"Graduation Year",v:player.gradYear},{l:"Height",v:player.height},
+                {l:"Weight",v:player.weight&&player.weight+" lbs"},{l:"GPA",v:player.gpa},
+                {l:"Attendance",v:attendPct!==null?(attendPct+"% ("+attended+"/"+totalPractices+" sessions)"):null},
               ].filter(function(item){return item.v;}).map(function(item,i){return(
                 <div key={item.l} style={{display:"flex",justifyContent:"space-between",
-                  alignItems:"center",padding:"13px 16px",
-                  borderBottom:"1px solid #f5f5f5"}}>
+                  alignItems:"center",padding:"13px 16px",borderBottom:"1px solid #f5f5f5"}}>
                   <div style={{color:"#999",fontSize:13}}>{item.l}</div>
                   <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
                 </div>
