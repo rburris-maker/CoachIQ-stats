@@ -2496,7 +2496,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
     setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
-    setPossession({home:0,away:0,current:null,lastMin:null});
+    setPossession({home:0,away:0,current:null,lastTs:null});
     addFeedEvent("── Game Ended ──");
   }
 
@@ -2566,7 +2566,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setLive(setup); setStats(initStats); setMin(curMin); setEvents([]);
     setBenched(new Set()); setPlayerMins(initMins); setHalfTime(false);
     setSessionId(sid); setIsHost(false);
-    setPossession({home:0,away:0,current:null,lastMin:null});
+    setPossession({home:0,away:0,current:null,lastTs:null});
     setShowRolePicker(true); // prompt role selection
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
   }
@@ -11614,7 +11614,7 @@ function LiveJoinPage(){
   var [score,     setScore]       = useState({our:0,their:0});
   var [min,       setMin]         = useState(0);
   var [activeStat,setActiveStat]  = useState(null);
-  var [possession,setPossession]  = useState({home:0,away:0,current:null,lastMin:null});
+  var [possession,setPossession]  = useState({home:0,away:0,current:null,lastTs:null});
   var [roster,    setRoster]      = useState([]);
   var [rtStatus,  setRtStatus]    = useState("disconnected");
   var [connectedUsers,setConnectedUsers] = useState([]);
@@ -11684,17 +11684,20 @@ function LiveJoinPage(){
     } else if(event==="min_update"){
       setMin(payload.min);
     } else if(event==="possession"){
+      // From remote device - sync timestamp
       setPossession(function(p){
+        var now2 = Date.now();
         var u=Object.assign({},p);
-        if(p.current&&p.lastMin!==null) u[p.current]=p[p.current]+(payload.min-p.lastMin);
-        u.current=payload.team; u.lastMin=payload.min; return u;
+        if(p.current&&p.lastTs){ u[p.current]=p[p.current]+Math.round((now2-p.lastTs)/1000); }
+        u.current=payload.team; u.lastTs=payload.ts||now2; return u;
       });
     } else if(event==="possession_end"){
       setPossession(function(p){
-        if(!p.current||p.lastMin===null) return Object.assign({},p,{current:null});
-        var u=Object.assign({},p);
-        u[p.current]=p[p.current]+(payload.min-p.lastMin);
-        u.current=null; u.lastMin=null; return u;
+        if(!p.current) return Object.assign({},p,{current:null,lastTs:null});
+        var elapsed5 = payload.elapsed || (p.lastTs ? Math.round((Date.now()-p.lastTs)/1000) : 0);
+        var u2=Object.assign({},p);
+        u2[p.current]=p[p.current]+elapsed5;
+        u2.current=null; u2.lastTs=null; return u2;
       });
     } else if(event==="game_ended"){
       setError("The game has ended.");
@@ -11725,16 +11728,38 @@ function LiveJoinPage(){
   }
 
   function togglePossession(team){
+    var now = Date.now();
     if(possession.current===team){
-      broadcast("possession_end",{min:min});
+      // End possession - update local state directly
+      var elapsed = possession.lastTs ? Math.round((now - possession.lastTs)/1000) : 0;
+      setPossession(function(p){
+        var u = Object.assign({},p);
+        if(p.current) u[p.current] = p[p.current] + elapsed;
+        u.current = null; u.lastTs = null;
+        return u;
+      });
+      realtimeManager.broadcast("possession_end",{min:min,elapsed:elapsed,team:team});
     } else {
-      broadcast("possession",{team:team,min:min});
+      // Switch possession - update local state directly
+      var elapsed2 = possession.current && possession.lastTs ? Math.round((now - possession.lastTs)/1000) : 0;
+      setPossession(function(p){
+        var u = Object.assign({},p);
+        if(p.current) u[p.current] = p[p.current] + elapsed2;
+        u.current = team; u.lastTs = now;
+        return u;
+      });
+      realtimeManager.broadcast("possession",{team:team,min:min,ts:now});
     }
   }
 
   function possPct(){
-    var total=possession.home+possession.away;
+    var extraHome = (possession.current==="home"&&possession.lastTs) ? Math.round((Date.now()-possession.lastTs)/1000) : 0;
+    var extraAway = (possession.current==="away"&&possession.lastTs) ? Math.round((Date.now()-possession.lastTs)/1000) : 0;
+    var h = possession.home + extraHome;
+    var a = possession.away + extraAway;
+    var total=h+a;
     if(!total) return {home:50,away:50};
+    return {home:Math.round(h/total*100),away:100-Math.round(h/total*100)};
     return {home:Math.round(possession.home/total*100),away:100-Math.round(possession.home/total*100)};
   }
 
