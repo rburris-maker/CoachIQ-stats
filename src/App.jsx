@@ -4610,27 +4610,40 @@ export default function CoachIQStats(){
                 <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>TEAM</div>
                 <div style={{display:"flex",flexDirection:"column",gap:5}}>
                   {teams.map(t=>(
-                    <button key={t.id} onClick={()=>switchTeam(t.id)}
-                      style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
-                        borderRadius:7,border:`1.5px solid ${t.id===safeTeamId?C.accent:"C.border"}`,
-                        background:t.id===safeTeamId?C.accent+"22":"transparent",
-                        color:t.id===safeTeamId?C.accent:"#ffffffaa",
-                        cursor:"pointer",fontSize:12,fontWeight:t.id===safeTeamId?700:500,
-                        width:"100%",textAlign:"left"}}>
-                      <div style={{width:7,height:7,borderRadius:"50%",flexShrink:0,
-                        background:t.id===safeTeamId?C.accent:C.border}}/>
-                      {t.name}
-                      {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10}}>✓</span>}
-                    </button>
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:3}}>
+                      <button onClick={()=>switchTeam(t.id)}
+                        style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"6px 10px",
+                          borderRadius:7,border:`1.5px solid ${t.id===safeTeamId?C.accent:"rgba(255,255,255,.1)"}`,
+                          background:t.id===safeTeamId?C.accent+"22":"transparent",
+                          color:t.id===safeTeamId?C.accent:"#ffffffaa",
+                          cursor:"pointer",fontSize:12,fontWeight:t.id===safeTeamId?700:500,
+                          textAlign:"left"}}>
+                        <div style={{width:7,height:7,borderRadius:"50%",flexShrink:0,
+                          background:t.id===safeTeamId?C.accent:C.border}}/>
+                        {t.name}
+                        {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10}}>✓</span>}
+                      </button>
+                      <button onClick={()=>{var n=window.prompt("Rename:",t.name);if(n&&n.trim()&&n!==t.name)renameTeam(t.id,n.trim());}}
+                        style={{padding:"5px 6px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,255,255,.1)",color:"rgba(255,255,255,.25)",cursor:"pointer",fontSize:10,flexShrink:0}}>
+                        ✏
+                      </button>
+                      {teams.length>1&&(
+                        <button onClick={()=>{if(window.confirm("Delete "+t.name+"? Cannot be undone."))deleteTeam(t.id);}}
+                          style={{padding:"5px 6px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,80,80,.2)",color:"rgba(255,80,80,.4)",cursor:"pointer",fontSize:10,flexShrink:0}}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   ))}
                   <button onClick={addTeam}
                     style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",
-                      borderRadius:7,border:`1px solid C.border`,
+                      borderRadius:7,border:"1px solid rgba(255,255,255,.15)",
                       background:"transparent",color:"rgba(255,255,255,.4)",
                       cursor:"pointer",fontSize:11,width:"100%"}}>
                     + Add Team
                   </button>
                 </div>
+
               </>
             )}
           </div>
