@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+=import { useState, useMemo, useRef, useEffect } from "react";
 import {
   AreaChart, Area, BarChart, Bar, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, XAxis, YAxis,
@@ -2665,6 +2665,89 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const activePlayers = PLAYERS.filter(p=>!benched.has(p.id));
   const benchPlayers  = PLAYERS.filter(p=>benched.has(p.id));
   const pct = possessionPct();
+
+  // ── POSSESSION TRACKER FULL SCREEN ──────────────────────────────────────
+  if(role==="possession"){
+    const lp = possessionPct();
+    const homeTime = possession.home + (possession.current==="home"&&possession.lastTs?Math.round((Date.now()-possession.lastTs)/1000):0);
+    const awayTime = possession.away + (possession.current==="away"&&possession.lastTs?Math.round((Date.now()-possession.lastTs)/1000):0);
+    return(
+      <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",background:"#000",userSelect:"none",overflow:"hidden"}}>
+        {/* Score bar */}
+        <div style={{background:"#0a0a0a",borderBottom:"1px solid #1a1a1a",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:lobby?"#444":C.accent,animation:!lobby&&autoMin?"pulse 1.2s infinite":"none"}}/>
+            <span style={{color:"#ffffff44",fontSize:10,fontWeight:700,letterSpacing:2}}>POSSESSION TRACKER</span>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{color:"#ffffff44",fontSize:10,fontWeight:600}}>vs {live.opponent}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900}}>{live.ourScore}</span>
+              <span style={{color:"#444",fontSize:14}}>-</span>
+              <span style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900}}>{live.theirScore}</span>
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{color:lobby?"#444":C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{lobby?"PRE":formatSecs(min)}</div>
+            <div style={{color:"#ffffff33",fontSize:9,fontWeight:700}}>{connectedUsers.length} online</div>
+          </div>
+        </div>
+        {lobby&&(
+          <div style={{background:"#1a0800",borderBottom:"1px solid #ff6b0033",padding:"10px 16px",textAlign:"center",flexShrink:0}}>
+            <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Waiting for kick off...</div>
+          </div>
+        )}
+        {/* Main buttons */}
+        <div style={{flex:1,display:"flex",gap:3,minHeight:0}}>
+          <button onClick={()=>togglePossession("home")}
+            style={{flex:1,border:"none",cursor:"pointer",background:possession.current==="home"?C.accent:"#0d0d0d",transition:"background .12s",position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
+            {possession.current==="home"&&<div style={{position:"absolute",top:16,right:16,width:14,height:14,borderRadius:"50%",background:"rgba(0,0,0,.35)",animation:"pulse 1s infinite"}}/>}
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,letterSpacing:4,fontSize:"clamp(28px,6vw,52px)",color:possession.current==="home"?"#000":"#2a2a2a",transition:"color .12s"}}>HOME</div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:"clamp(20px,4vw,36px)",color:possession.current==="home"?"rgba(0,0,0,.5)":"#1a1a1a",transition:"color .12s"}}>{formatSecs(homeTime)}</div>
+            {possession.current==="home"&&<div style={{fontSize:"clamp(14px,3vw,20px)",fontWeight:700,color:"rgba(0,0,0,.4)",fontFamily:"'Oswald',sans-serif"}}>ACTIVE</div>}
+          </button>
+          <div style={{width:3,background:"#000",flexShrink:0}}/>
+          <button onClick={()=>togglePossession("away")}
+            style={{flex:1,border:"none",cursor:"pointer",background:possession.current==="away"?"#3b82f6":"#0d0d0d",transition:"background .12s",position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
+            {possession.current==="away"&&<div style={{position:"absolute",top:16,right:16,width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,.3)",animation:"pulse 1s infinite"}}/>}
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,letterSpacing:4,fontSize:"clamp(28px,6vw,52px)",color:possession.current==="away"?"#fff":"#2a2a2a",transition:"color .12s"}}>AWAY</div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:"clamp(20px,4vw,36px)",color:possession.current==="away"?"rgba(255,255,255,.5)":"#1a1a1a",transition:"color .12s"}}>{formatSecs(awayTime)}</div>
+            {possession.current==="away"&&<div style={{fontSize:"clamp(14px,3vw,20px)",fontWeight:700,color:"rgba(255,255,255,.4)",fontFamily:"'Oswald',sans-serif"}}>ACTIVE</div>}
+          </button>
+        </div>
+        {/* Possession bar */}
+        <div style={{flexShrink:0}}>
+          <div style={{height:10,background:"#000",display:"flex"}}>
+            <div style={{width:lp.home+"%",background:C.accent,transition:"width .5s"}}/>
+          </div>
+          <div style={{background:"#0a0a0a",padding:"10px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,lineHeight:1}}>{lp.home}%</div>
+              <div style={{color:"#ffffff33",fontSize:10,fontWeight:700,marginTop:2}}>HOME</div>
+            </div>
+            <button onClick={()=>setShowNoteInput(s=>!s)}
+              style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 14px",color:"#666",fontSize:13,cursor:"pointer"}}>
+              Note
+            </button>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:"#3b82f6",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,lineHeight:1}}>{lp.away}%</div>
+              <div style={{color:"#ffffff33",fontSize:10,fontWeight:700,marginTop:2}}>AWAY</div>
+            </div>
+          </div>
+        </div>
+        {showNoteInput&&(
+          <div style={{background:"#111",borderTop:"1px solid #1a1a1a",padding:"8px 12px",display:"flex",gap:8,flexShrink:0}}>
+            <input value={gameNote} onChange={e=>setGameNote(e.target.value)}
+              placeholder={"Note at "+formatSecs(min)+"..."}
+              onKeyDown={e=>{if(e.key==="Enter"&&gameNote.trim()){broadcastEvent("note",{text:gameNote.trim(),min,author:userName});setGameNote("");setShowNoteInput(false);}}}
+              style={{flex:1,padding:"8px 12px",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:7,color:"#fff",fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+            <button onClick={()=>{if(gameNote.trim()){broadcastEvent("note",{text:gameNote.trim(),min,author:userName});setGameNote("");setShowNoteInput(false);}}}
+              style={{padding:"8px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return(
     <div style={{height:"calc(100vh - 56px)",display:"flex",flexDirection:"column",overflow:"hidden",userSelect:"none"}}>
