@@ -4314,6 +4314,7 @@ export default function CoachIQStats(){
   // Public routes — render before auth check
   if(window.location.hash.startsWith("#/player/"))   return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/live/"))      return <LiveJoinPage/>;
+  if(window.location.hash.startsWith("#/recruit/"))   return <RecruitProfilePage/>;
   if(window.location.hash.startsWith("#/schedule/")) return <PublicSchedulePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
@@ -10092,51 +10093,59 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
 }
 
 // ─── FEEDBACK MODAL ───────────────────────────────────────────────────────────
+
 function PlayerPortalPage(){
   var playerId = window.location.hash.replace("#/player/","").split("?")[0];
-  var [player,     setPlayer]    = useState(null);
-  var [teamName,   setTeamName]  = useState("");
-  var [games,      setGamesP]    = useState([]);
-  var [practices,  setPractices] = useState([]);
-  var [error,      setError]     = useState(null);
-  var [loading,    setLoading]   = useState(true);
-  var [tab,        setTab]       = useState("stats");
-  var [perGame,    setPerGame]   = useState(false);
-  var [videos,     setVideos]    = useState([]);
-  var [newVideo,   setNewVideo]  = useState({label:"",url:""});
-  var [addingVid,  setAddingVid] = useState(false);
-  var [savingVid,  setSavingVid] = useState(false);
-  var [bio,        setBio]       = useState("");
-  var [editBio,    setEditBio]   = useState(false);
-  var [savingBio,  setSavingBio] = useState(false);
-  var [copied,     setCopied]    = useState(false);
-  var [photoUrl,   setPhotoUrl]  = useState("");
-  var [editPhoto,  setEditPhoto] = useState(false);
-  var [photoInput, setPhotoInput]= useState("");
+  var [player,    setPlayer]    = useState(null);
+  var [teamName,  setTeamName]  = useState("");
+  var [teamId,    setTeamId]    = useState(null);
+  var [games,     setGamesP]    = useState([]);
+  var [schedule,  setSchedule]  = useState([]);
+  var [practices, setPractices] = useState([]);
+  var [error,     setError]     = useState(null);
+  var [loading,   setLoading]   = useState(true);
+  var [tab,       setTab]       = useState("home");
+  var [expandedGame, setExpandedGame] = useState(null);
+  var [bio,       setBio]       = useState("");
+  var [editBio,   setEditBio]   = useState(false);
+  var [savingBio, setSavingBio] = useState(false);
+  var [copied,    setCopied]    = useState(false);
+  var [recruitCopied, setRecruitCopied] = useState(false);
+  var [photoUrl,  setPhotoUrl]  = useState("");
+  var [editPhoto, setEditPhoto] = useState(false);
+  var [photoInput,setPhotoInput]= useState("");
+  var [videos,    setVideos]    = useState([]);
+  var [addingVid, setAddingVid] = useState(false);
+  var [newVideo,  setNewVideo]  = useState({label:"",url:""});
+  var [savingVid, setSavingVid] = useState(false);
+
+  var A = "#ff6b00";
 
   useEffect(function(){
     async function load(){
       setLoading(true);
       try{
         var {data:rosters} = await supabase.from("rosters").select("*");
-        var foundPlayer=null, teamId=null;
+        var found=null, tid=null;
         for(var i=0;i<(rosters||[]).length;i++){
-          var r=rosters[i];
-          var p=(r.players||[]).find(function(p){return p.id===playerId;});
-          if(p){foundPlayer=p;teamId=r.team_id;break;}
+          var p=(rosters[i].players||[]).find(function(p){return p.id===playerId;});
+          if(p){found=p;tid=rosters[i].team_id;break;}
         }
-        if(!foundPlayer){setError("Player not found.");setLoading(false);return;}
-        setPlayer(Object.assign({},foundPlayer,{teamId:teamId}));
-        setVideos(foundPlayer.videoLinks||[]);
-        setBio(foundPlayer.playerBio||"");
-        setPhotoUrl(foundPlayer.photoUrl||"");
-        var {data:teams} = await supabase.from("teams").select("name").eq("id",teamId);
+        if(!found){setError("Player not found.");setLoading(false);return;}
+        setPlayer(Object.assign({},found,{teamId:tid}));
+        setTeamId(tid);
+        setBio(found.playerBio||"");
+        setPhotoUrl(found.photoUrl||"");
+        setVideos(found.videoLinks||[]);
+        var {data:teams} = await supabase.from("teams").select("name").eq("id",tid);
         setTeamName(teams?.[0]?.name||"");
-        var {data:gData} = await supabase.from("games").select("*").eq("team_id",teamId);
-        setGamesP((gData||[]).map(function(x){return x.data;}));
-        var {data:pData} = await supabase.from("practices").select("*").eq("team_id",teamId);
+        var {data:gData} = await supabase.from("games").select("*").eq("team_id",tid);
+        setGamesP((gData||[]).map(function(x){return x.data;}).filter(function(g){return g.status==="completed";}));
+        var {data:sData} = await supabase.from("schedule").select("*").eq("team_id",tid);
+        setSchedule((sData||[]).map(function(x){return x.data;}));
+        var {data:pData} = await supabase.from("practices").select("*").eq("team_id",tid);
         setPractices((pData||[]).map(function(x){return x.data;}));
-      }catch(e){setError("Failed to load profile.");}
+      }catch(e){setError("Failed to load.");}
       setLoading(false);
     }
     load();
@@ -10155,67 +10164,65 @@ function PlayerPortalPage(){
 
   async function saveBio(){
     setSavingBio(true);
-    await saveField("playerBio", bio);
-    setEditBio(false); setSavingBio(false);
+    await saveField("playerBio",bio);
+    setEditBio(false);setSavingBio(false);
     setPlayer(function(p){return Object.assign({},p,{playerBio:bio});});
   }
 
   async function savePhoto(){
     if(!photoInput.trim()) return;
-    await saveField("photoUrl", photoInput.trim());
+    await saveField("photoUrl",photoInput.trim());
     setPhotoUrl(photoInput.trim());
     setPlayer(function(p){return Object.assign({},p,{photoUrl:photoInput.trim()});});
-    setEditPhoto(false); setPhotoInput("");
+    setEditPhoto(false);setPhotoInput("");
   }
 
   async function saveVideos(list){
     setSavingVid(true);
-    await saveField("videoLinks", list);
-    setVideos(list); setSavingVid(false);
-    setAddingVid(false); setNewVideo({label:"",url:""});
+    await saveField("videoLinks",list);
+    setVideos(list);setSavingVid(false);
+    setAddingVid(false);setNewVideo({label:"",url:""});
   }
 
-  function addVideo(){
-    if(!newVideo.url.trim()) return;
-    saveVideos(videos.concat([{id:"v"+Date.now(),label:newVideo.label.trim()||"Highlights",url:newVideo.url.trim()}]));
+  function copyLink(type){
+    var base = window.location.origin+window.location.pathname;
+    var url = base+(type==="recruit"?"#/recruit/":"#/player/")+playerId;
+    navigator.clipboard.writeText(url).then(function(){
+      if(type==="recruit"){setRecruitCopied(true);setTimeout(function(){setRecruitCopied(false);},2500);}
+      else{setCopied(true);setTimeout(function(){setCopied(false);},2500);}
+    }).catch(function(){alert(url);});
   }
-
-  function copyLink(){
-    navigator.clipboard.writeText(window.location.href)
-      .then(function(){setCopied(true);setTimeout(function(){setCopied(false);},2000);})
-      .catch(function(){});
-  }
-
-  var A = "#ff6b00";
 
   if(loading) return(
-    <div style={{minHeight:"100vh",background:"#f7f7f7",display:"flex",alignItems:"center",
+    <div style={{minHeight:"100vh",background:"#f5f5f5",display:"flex",alignItems:"center",
       justifyContent:"center",flexDirection:"column",gap:14,fontFamily:"'Outfit',sans-serif"}}>
       <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid "+A,
         borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
-      <div style={{color:A,fontSize:13,fontWeight:600}}>Loading profile...</div>
+      <div style={{color:A,fontSize:13,fontWeight:600}}>Loading...</div>
     </div>
   );
 
   if(error) return(
-    <div style={{minHeight:"100vh",background:"#f7f7f7",display:"flex",alignItems:"center",
+    <div style={{minHeight:"100vh",background:"#f5f5f5",display:"flex",alignItems:"center",
       justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
       <div style={{color:"#c00",fontSize:14,textAlign:"center"}}>{error}</div>
     </div>
   );
 
   // ── Calculations ──────────────────────────────────────────────────────────
-  var pos = primaryPos(player);
+  var pos    = primaryPos(player);
   var posCol = posColor(pos);
+  var isGK   = allPos(player).includes("GK");
+  var isCB   = ["CB","FB"].some(function(p){return allPos(player).includes(p);});
+  var isMid  = ["CM","DM","W"].some(function(p){return allPos(player).includes(p);});
+
   var playerGames = (games||[]).filter(function(g){
-    return g.status==="completed"&&(g.stats||[]).some(function(s){return s.playerId===playerId;});
+    return (g.stats||[]).some(function(s){return s.playerId===playerId;});
   });
   var gp = playerGames.length||1;
   var allStats = playerGames.flatMap(function(g){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
   });
-
-  // Season totals
   var tots = allStats.reduce(function(acc,s){
     return {
       goals:acc.goals+(s.goals||0), assists:acc.assists+(s.assists||0),
@@ -10227,294 +10234,182 @@ function PlayerPortalPage(){
       saves:acc.saves+(s.saves||0), goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       aerialDuelsWon:acc.aerialDuelsWon+(s.aerialDuelsWon||0),
       fouls:acc.fouls+(s.fouls||0), dangerousTurnovers:acc.dangerousTurnovers+(s.dangerousTurnovers||0),
+      minutes:acc.minutes+(s.minutesPlayed||0),
     };
   },{goals:0,assists:0,shots:0,shotsOnTarget:0,tackles:0,interceptions:0,
-    keyPasses:0,passesCompleted:0,passesAttempted:0,saves:0,goalsConceded:0,
-    aerialDuelsWon:0,fouls:0,dangerousTurnovers:0});
+   keyPasses:0,passesCompleted:0,passesAttempted:0,saves:0,goalsConceded:0,
+   aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,minutes:0});
 
-  var passAcc = tots.passesAttempted>0
-    ? Math.round(tots.passesCompleted/tots.passesAttempted*100)+"%" : "—";
-  var shotConv = tots.shots>0
-    ? Math.round(tots.goals/tots.shots*100)+"%" : "—";
+  var passAcc = tots.passesAttempted>0 ? Math.round(tots.passesCompleted/tots.passesAttempted*100) : 0;
+  var shotConv = tots.shots>0 ? Math.round(tots.goals/tots.shots*100) : 0;
 
-  // Ratings
   var ratingList = playerGames.map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
     if(!s) return null;
-    return {r:calcRating(s,pos,g.theirScore===0).rating, date:g.date, opp:g.opponent};
+    return {r:calcRating(s,pos,g.theirScore===0).rating,opp:g.opponent,date:g.date};
   }).filter(Boolean);
   var avgRating = ratingList.length
-    ? (ratingList.reduce(function(a,b){return a+b.r;},0)/ratingList.length).toFixed(1) : "—";
+    ? (ratingList.reduce(function(a,b){return a+b.r;},0)/ratingList.length) : 0;
 
-  // Last 5 form
   var last5 = ratingList.slice(-5);
-  var maxR   = Math.max.apply(null, last5.map(function(x){return x.r;}).concat([10]));
+  var maxR  = Math.max.apply(null, last5.map(function(x){return x.r;}).concat([10]));
 
-  // Best game
-  var bestGame = playerGames.reduce(function(best,g){
-    var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
-    if(!s) return best;
-    var r=calcRating(s,pos,g.theirScore===0).rating;
-    return (!best||r>best.r)?{g:g,s:s,r:r}:best;
-  },null);
-
-  // Attendance
-  var totalPractices = (practices||[]).length;
   var attended = (practices||[]).filter(function(p){
-    var att = p.attendance||{};
-    if(Array.isArray(att)){
-      return att.find(function(a){return a.playerId===playerId&&a.present;});
-    }
+    var att=p.attendance||{};
+    if(Array.isArray(att)) return att.find(function(a){return a.playerId===playerId&&a.present;});
     return att[playerId]==="present"||att[playerId]===true;
   }).length;
-  var attendPct = totalPractices>0 ? Math.round(attended/totalPractices*100) : null;
-
-  // Per-game divider
-  var D = perGame ? gp : 1;
-  var fmt = function(n){ return perGame ? (n/D).toFixed(1) : n; };
-
-  var isGK  = allPos(player).includes("GK");
-  var isCB  = ["CB","FB"].some(function(p){return allPos(player).includes(p);});
-  var isMid = ["CM","DM","W"].some(function(p){return allPos(player).includes(p);});
-  var isFwd = ["ST","AM"].some(function(p){return allPos(player).includes(p);});
-
-  // Position-specific headline stats
-  var headlineStats = isGK
-    ? [{l:"Saves",v:fmt(tots.saves),hi:true},{l:"Conceded",v:fmt(tots.goalsConceded),hi:false},
-       {l:"Avg Rating",v:avgRating,hi:true},{l:"Games",v:playerGames.length,hi:false}]
-    : isCB
-    ? [{l:"Goals",v:fmt(tots.goals),hi:tots.goals>0},{l:"Tackles",v:fmt(tots.tackles),hi:true},
-       {l:"Ints",v:fmt(tots.interceptions),hi:true},{l:"Aerials",v:fmt(tots.aerialDuelsWon),hi:false},
-       {l:"Pass Acc",v:passAcc,hi:false},{l:"Games",v:playerGames.length,hi:false}]
-    : isMid
-    ? [{l:"Goals",v:fmt(tots.goals),hi:tots.goals>0},{l:"Assists",v:fmt(tots.assists),hi:true},
-       {l:"Key Pass",v:fmt(tots.keyPasses),hi:true},{l:"Pass Acc",v:passAcc,hi:false},
-       {l:"Tackles",v:fmt(tots.tackles),hi:false},{l:"Games",v:playerGames.length,hi:false}]
-    : [{l:"Goals",v:fmt(tots.goals),hi:true},{l:"Assists",v:fmt(tots.assists),hi:true},
-       {l:"Shots",v:fmt(tots.shots),hi:false},{l:"Conv",v:shotConv,hi:false},
-       {l:"Key Pass",v:fmt(tots.keyPasses),hi:false},{l:"Games",v:playerGames.length,hi:false}];
+  var attendPct = practices.length>0 ? Math.round(attended/practices.length*100) : null;
 
   var sortedGames = [].concat(playerGames).sort(function(a,b){
     return (b.date||"").localeCompare(a.date||"");
   });
+
+  var lastGame = sortedGames[0];
+  var lastRating = lastGame ? (function(){
+    var s=(lastGame.stats||[]).find(function(x){return x.playerId===playerId;});
+    if(!s) return null;
+    return calcRating(s,pos,lastGame.theirScore===0);
+  })() : null;
+  var lastCoachNote = lastRating ? (function(){
+    var s=(lastGame.stats||[]).find(function(x){return x.playerId===playerId;});
+    if(!s) return null;
+    return calcRating(s,pos,lastGame.theirScore===0).coachNote;
+  })() : null;
+
+  var today = new Date().toISOString().split("T")[0];
+  var upcomingEvents = [].concat(schedule||[])
+    .filter(function(e){return e.date>=today;})
+    .sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
+  var nextGame = upcomingEvents.find(function(e){return e.type==="game"||e.opponent;});
+  var daysUntil = nextGame ? Math.ceil((new Date(nextGame.date)-new Date(today))/(1000*60*60*24)) : null;
 
   var recLabel = {open:"Open",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
     committed:"Committed",not_recruiting:"Not Recruiting"}[player.recruitingStatus]||"";
   var recColor = {open:A,d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",
     committed:"#2e7d32",not_recruiting:"#888"}[player.recruitingStatus]||A;
 
-  var TABS=[{t:"stats",l:"Stats"},{t:"recruiting",l:"Recruiting"},
-            {t:"videos",l:"Videos"},{t:"about",l:"About"}];
+  var TABS = [{t:"home",l:"Home"},{t:"games",l:"Games"},
+              {t:"schedule",l:"Schedule"},{t:"recruit",l:"Recruit"}];
+
+  // ── ESPN stat row helper ──────────────────────────────────────────────────
+  function StatRow(label, value, max, color, isBold){
+    var pct = max>0 ? Math.min(100,Math.round(value/max*100)) : 0;
+    return(
+      <div key={label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+        padding:"8px 16px",borderBottom:"0.5px solid #f0f0f0"}}>
+        <span style={{color:"#888",fontSize:12,minWidth:110}}>{label}</span>
+        <div style={{display:"flex",alignItems:"center",gap:10,flex:1,justifyContent:"flex-end"}}>
+          <div style={{width:80,height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+            <div style={{height:"100%",width:pct+"%",background:color||"#ddd",borderRadius:2,transition:"width .4s"}}/>
+          </div>
+          <span style={{fontWeight:isBold?700:600,fontSize:13,color:isBold?color:"#111",minWidth:34,textAlign:"right"}}>{value}</span>
+        </div>
+      </div>
+    );
+  }
 
   return(
-    <div style={{minHeight:"100vh",background:"#f7f7f7",fontFamily:"'Outfit',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"#f5f5f5",fontFamily:"'Outfit',sans-serif"}}>
 
-      {/* ── TOP BAR ── */}
-      <div style={{background:"#fff",borderBottom:"1px solid #eee",
-        padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:A}}/>
-          <span style={{color:A,fontSize:11,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
-          {teamName&&<span style={{color:"#ccc",fontSize:11}}>· {teamName}</span>}
+      {/* ── HEADER ── */}
+      <div style={{background:"#fff",borderBottom:"1px solid #eee"}}>
+        <div style={{padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:7}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:A}}/>
+            <span style={{color:A,fontSize:11,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
+            {teamName&&<span style={{color:"#ccc",fontSize:11}}>· {teamName}</span>}
+          </div>
+          <button onClick={function(){copyLink("player");}}
+            style={{padding:"5px 12px",background:copied?"#27a56018":A+"18",
+              border:"1px solid "+(copied?"#27a56044":A+"44"),borderRadius:20,
+              color:copied?"#27a560":A,fontWeight:700,fontSize:11,cursor:"pointer"}}>
+            {copied?"✓ Copied!":"⎘ Share"}
+          </button>
         </div>
-        <button onClick={copyLink}
-          style={{padding:"6px 14px",background:copied?"#27a56018":A+"18",
-            border:"1px solid "+(copied?"#27a56044":A+"44"),borderRadius:20,
-            color:copied?"#27a560":A,fontWeight:700,fontSize:11,cursor:"pointer"}}>
-          {copied?"✓ Copied!":"⎘ Share Profile"}
-        </button>
-      </div>
 
-      {/* ── HERO ── */}
-      <div style={{background:"#fff",borderBottom:"1px solid #eee",padding:"20px 20px 0"}}>
-        <div style={{maxWidth:600,margin:"0 auto"}}>
-
-          {/* Avatar + name */}
-          <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:16}}>
-            {/* Photo / avatar */}
-            <div style={{position:"relative",flexShrink:0}}>
-              {photoUrl?(
-                <img src={photoUrl} alt={player.name}
-                  onError={function(){setPhotoUrl("");}}
-                  style={{width:76,height:76,borderRadius:16,objectFit:"cover",
-                    border:"2px solid "+posCol+"44"}}/>
-              ):(
-                <div style={{width:76,height:76,borderRadius:16,
-                  background:posCol+"18",border:"2px solid "+posCol+"44",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                  color:posCol,fontSize:28}}>
-                  #{player.number}
-                </div>
-              )}
-              <button onClick={function(){setEditPhoto(true);setPhotoInput(photoUrl);}}
-                style={{position:"absolute",bottom:-6,right:-6,width:22,height:22,
-                  borderRadius:"50%",background:"#fff",border:"1px solid #eee",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  cursor:"pointer",fontSize:11,boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
-                📷
-              </button>
-            </div>
-
-            <div style={{flex:1,paddingTop:4}}>
-              <h1 style={{color:"#111",fontFamily:"'Oswald',sans-serif",
-                fontSize:26,fontWeight:900,margin:"0 0 4px",lineHeight:1.1}}>
-                {player.name}
-              </h1>
-              <div style={{color:"#888",fontSize:12,marginBottom:8}}>
-                {allPos(player).join(" · ")}
-                {player.gradYear&&" · Class of "+player.gradYear}
+        {/* Player identity */}
+        <div style={{padding:"0 16px 16px",display:"flex",gap:14,alignItems:"flex-start"}}>
+          {/* Avatar */}
+          <div style={{position:"relative",flexShrink:0}}>
+            {photoUrl?(
+              <img src={photoUrl} alt={player.name} onError={function(){setPhotoUrl("");}}
+                style={{width:72,height:72,borderRadius:14,objectFit:"cover",
+                  border:"2px solid "+posCol+"44"}}/>
+            ):(
+              <div style={{width:72,height:72,borderRadius:14,background:posCol+"18",
+                border:"2px solid "+posCol+"44",display:"flex",alignItems:"center",
+                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                fontWeight:900,color:posCol,fontSize:26}}>
+                #{player.number}
               </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {recLabel&&(
-                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
-                    background:recColor+"18",border:"1px solid "+recColor+"33",color:recColor}}>
-                    {recLabel}
-                  </span>
-                )}
-                {attendPct!==null&&(
-                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
-                    background:attendPct>=80?"#27a56018":"#f59e0b18",
-                    border:"1px solid "+(attendPct>=80?"#27a56033":"#f59e0b33"),
-                    color:attendPct>=80?"#27a560":"#f59e0b"}}>
-                    {attendPct}% attendance
-                  </span>
-                )}
-              </div>
-            </div>
-            <div style={{textAlign:"right",flexShrink:0,paddingTop:4}}>
-              <div style={{color:A,fontFamily:"'Oswald',sans-serif",
-                fontWeight:900,fontSize:36,lineHeight:1}}>{avgRating}</div>
-              <div style={{color:"#bbb",fontSize:10,fontWeight:700,marginTop:2}}>AVG RTG</div>
-            </div>
+            )}
+            <button onClick={function(){setEditPhoto(true);setPhotoInput(photoUrl);}}
+              style={{position:"absolute",bottom:-5,right:-5,width:20,height:20,
+                borderRadius:"50%",background:"#fff",border:"1px solid #ddd",
+                fontSize:10,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,.12)"}}>
+              📷
+            </button>
           </div>
 
-          {/* Photo edit modal */}
-          {editPhoto&&(
-            <div style={{background:"#f8f8f8",border:"1px solid #eee",borderRadius:10,
-              padding:14,marginBottom:14}}>
-              <div style={{color:"#999",fontSize:11,fontWeight:700,marginBottom:8}}>
-                PHOTO URL (paste a link to your photo)
-              </div>
-              <input value={photoInput}
-                onChange={function(e){setPhotoInput(e.target.value);}}
-                placeholder="https://example.com/my-photo.jpg"
-                style={{width:"100%",padding:"9px 12px",background:"#fff",
-                  border:"1px solid #eee",borderRadius:7,color:"#111",fontSize:13,
-                  outline:"none",fontFamily:"'Outfit',sans-serif",
-                  boxSizing:"border-box",marginBottom:8}}/>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={savePhoto}
-                  style={{flex:1,padding:"8px",background:A,border:"none",
-                    borderRadius:7,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                  Save Photo
-                </button>
-                <button onClick={function(){setEditPhoto(false);}}
-                  style={{padding:"8px 14px",background:"#f0f0f0",border:"none",
-                    borderRadius:7,color:"#666",fontSize:13,cursor:"pointer"}}>
-                  Cancel
-                </button>
-              </div>
+          <div style={{flex:1}}>
+            <h1 style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontSize:24,
+              fontWeight:900,margin:"0 0 3px",lineHeight:1.1}}>{player.name}</h1>
+            <div style={{color:"#888",fontSize:12,marginBottom:8}}>
+              {allPos(player).join(" · ")}{player.gradYear&&" · Class of "+player.gradYear}
             </div>
-          )}
-
-          {/* Position-specific stat pills */}
-          <div style={{display:"grid",
-            gridTemplateColumns:"repeat("+headlineStats.length+",1fr)",
-            gap:6,marginBottom:14}}>
-            {headlineStats.map(function(item){return(
-              <div key={item.l} style={{background:"#f8f8f8",borderRadius:9,
-                padding:"10px 4px",textAlign:"center"}}>
-                <div style={{color:item.hi?A:"#111",
-                  fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                  fontSize:typeof item.v==="string"&&item.v.includes("%")?14:18,
-                  lineHeight:1}}>
-                  {item.v}
-                </div>
-                <div style={{color:"#bbb",fontSize:9,fontWeight:700,
-                  letterSpacing:.5,marginTop:3}}>{item.l.toUpperCase()}</div>
-              </div>
-            );})}
-          </div>
-
-          {/* Rating trend + attendance bar */}
-          {(last5.length>=2||attendPct!==null)&&(
-            <div style={{padding:"12px 0 16px",borderTop:"1px solid #f0f0f0",
-              display:"flex",gap:16,alignItems:"flex-end"}}>
-              {/* Rating trend */}
-              {last5.length>=2&&(
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",
-                    alignItems:"center",marginBottom:6}}>
-                    <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1}}>
-                      FORM (LAST {last5.length})
-                    </div>
-                    <div style={{color:A,fontSize:11,fontWeight:700}}>
-                      {last5[last5.length-1].r.toFixed(1)} last
-                    </div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"flex-end",gap:3,height:32}}>
-                    {last5.map(function(t,i){
-                      var h=Math.max(15,Math.round((t.r/maxR)*100));
-                      var isLatest=i===last5.length-1;
-                      return(
-                        <div key={i} style={{flex:1,display:"flex",
-                          flexDirection:"column",alignItems:"center",gap:2}}>
-                          <div style={{width:"100%",
-                            background:isLatest?A:rColor(t.r)+"66",
-                            borderRadius:"3px 3px 0 0",
-                            height:h+"%"}}/>
-                          <div style={{color:"#ccc",fontSize:8,
-                            overflow:"hidden",textOverflow:"ellipsis",
-                            whiteSpace:"nowrap",maxWidth:"100%",textAlign:"center"}}>
-                            {(t.opp||"").split(" ")[0]}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              {recLabel&&(
+                <span style={{fontSize:10,fontWeight:700,padding:"3px 9px",borderRadius:20,
+                  background:recColor+"18",border:"1px solid "+recColor+"33",color:recColor}}>
+                  {recLabel}
+                </span>
               )}
-
-              {/* Attendance */}
               {attendPct!==null&&(
-                <div style={{flexShrink:0,minWidth:80,textAlign:"center"}}>
-                  <div style={{color:"#bbb",fontSize:9,fontWeight:700,
-                    letterSpacing:1,marginBottom:6}}>ATTENDANCE</div>
-                  <div style={{position:"relative",width:56,height:56,
-                    margin:"0 auto",flexShrink:0}}>
-                    <svg viewBox="0 0 56 56" style={{width:56,height:56,transform:"rotate(-90deg)"}}>
-                      <circle cx="28" cy="28" r="22" fill="none"
-                        stroke="#f0f0f0" strokeWidth="5"/>
-                      <circle cx="28" cy="28" r="22" fill="none"
-                        stroke={attendPct>=80?A:"#f59e0b"} strokeWidth="5"
-                        strokeDasharray={""+Math.round(2*Math.PI*22*attendPct/100)+" 999"}
-                        strokeLinecap="round"/>
-                    </svg>
-                    <div style={{position:"absolute",inset:0,display:"flex",
-                      alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                      fontSize:13,color:attendPct>=80?A:"#f59e0b"}}>
-                      {attendPct}%
-                    </div>
-                  </div>
-                  <div style={{color:"#bbb",fontSize:9,marginTop:4}}>
-                    {attended}/{totalPractices}
-                  </div>
-                </div>
+                <span style={{fontSize:10,fontWeight:700,padding:"3px 9px",borderRadius:20,
+                  background:attendPct>=80?"#27a56018":"#f59e0b18",
+                  border:"1px solid "+(attendPct>=80?"#27a56033":"#f59e0b33"),
+                  color:attendPct>=80?"#27a560":"#f59e0b"}}>
+                  {attendPct}% attend
+                </span>
               )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* ── TABS ── */}
-      <div style={{background:"#fff",borderBottom:"1px solid #eee",
-        position:"sticky",top:0,zIndex:10}}>
-        <div style={{maxWidth:600,margin:"0 auto",display:"flex"}}>
+          {/* Rating */}
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{color:A,fontFamily:"'Oswald',sans-serif",
+              fontWeight:900,fontSize:34,lineHeight:1}}>
+              {avgRating>0?avgRating.toFixed(1):"—"}
+            </div>
+            <div style={{color:"#bbb",fontSize:9,fontWeight:700,marginTop:2}}>AVG RTG</div>
+          </div>
+        </div>
+
+        {/* Photo edit */}
+        {editPhoto&&(
+          <div style={{padding:"12px 16px",borderTop:"1px solid #f5f5f5",background:"#fafafa"}}>
+            <input value={photoInput} onChange={function(e){setPhotoInput(e.target.value);}}
+              placeholder="Paste photo URL..."
+              style={{width:"100%",padding:"9px 12px",background:"#fff",border:"1px solid #eee",
+                borderRadius:8,color:"#111",fontSize:13,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={savePhoto}
+                style={{flex:1,padding:"8px",background:A,border:"none",borderRadius:8,
+                  color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>Save</button>
+              <button onClick={function(){setEditPhoto(false);}}
+                style={{padding:"8px 14px",background:"#eee",border:"none",borderRadius:8,
+                  color:"#666",fontSize:12,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{display:"flex",borderTop:"1px solid #f0f0f0"}}>
           {TABS.map(function(item){return(
             <button key={item.t} onClick={function(){setTab(item.t);}}
-              style={{flex:1,padding:"13px 0",background:"none",border:"none",
+              style={{flex:1,padding:"12px 0",background:"none",border:"none",
                 borderBottom:"2px solid "+(tab===item.t?A:"transparent"),
                 color:tab===item.t?A:"#999",cursor:"pointer",
                 fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif"}}>
@@ -10525,133 +10420,241 @@ function PlayerPortalPage(){
       </div>
 
       {/* ── CONTENT ── */}
-      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px 48px"}}>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"16px 14px 48px"}}>
 
-        {/* STATS */}
-        {tab==="stats"&&(
-          <div>
-            {/* Per-game toggle */}
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
-              <div style={{display:"flex",background:"#f0f0f0",borderRadius:20,padding:3}}>
-                <button onClick={function(){setPerGame(false);}}
-                  style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",
-                    background:!perGame?"#fff":"transparent",
-                    color:!perGame?"#111":"#999",fontWeight:700,fontSize:11,
-                    boxShadow:!perGame?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
-                  Season
-                </button>
-                <button onClick={function(){setPerGame(true);}}
-                  style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",
-                    background:perGame?"#fff":"transparent",
-                    color:perGame?"#111":"#999",fontWeight:700,fontSize:11,
-                    boxShadow:perGame?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
-                  Per Game
-                </button>
+        {/* ══ HOME TAB ══ */}
+        {tab==="home"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Quick stats grid */}
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #eee",padding:"14px 16px"}}>
+              <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:12}}>THIS SEASON</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+                {(isGK
+                  ? [{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:gp},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
+                  : isCB
+                  ? [{l:"Goals",v:tots.goals},{l:"Tackles",v:tots.tackles},{l:"Games",v:gp},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
+                  : isMid
+                  ? [{l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},{l:"Games",v:gp},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
+                  : [{l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},{l:"Games",v:gp},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
+                ).map(function(item){return(
+                  <div key={item.l} style={{textAlign:"center",background:"#f8f8f8",
+                    borderRadius:9,padding:"10px 4px"}}>
+                    <div style={{color:A,fontFamily:"'Oswald',sans-serif",
+                      fontWeight:900,fontSize:20,lineHeight:1}}>{item.v}</div>
+                    <div style={{color:"#bbb",fontSize:8,fontWeight:700,
+                      letterSpacing:.5,marginTop:3}}>{item.l.toUpperCase()}</div>
+                  </div>
+                );})}
               </div>
             </div>
 
-            {/* Best game callout */}
-            {bestGame&&(
-              <div style={{background:"#fff8f3",border:"1px solid "+A+"33",
-                borderRadius:12,padding:"12px 16px",marginBottom:12,
-                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{color:A,fontSize:10,fontWeight:700,
-                    letterSpacing:1,marginBottom:3}}>BEST PERFORMANCE</div>
-                  <div style={{color:"#111",fontWeight:700,fontSize:14}}>
-                    vs {bestGame.g.opponent}
-                    <span style={{color:"#999",fontWeight:400,fontSize:12}}> · {bestGame.g.date}</span>
+            {/* Form chart */}
+            {last5.length>=2&&(
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #eee",padding:"14px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>
+                    RECENT FORM (LAST {last5.length})
                   </div>
-                  <div style={{color:"#888",fontSize:12,marginTop:2}}>
-                    {bestGame.s.goals||0}G · {bestGame.s.assists||0}A
-                    {!isGK&&" · "+bestGame.s.tackles||0+" tkl"}
+                  <div style={{color:rColor(last5[last5.length-1].r),fontSize:12,fontWeight:700}}>
+                    {last5[last5.length-1].r.toFixed(1)} last game
                   </div>
                 </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{color:A,fontFamily:"'Oswald',sans-serif",
-                    fontWeight:900,fontSize:28,lineHeight:1}}>
-                    {bestGame.r.toFixed(1)}
-                  </div>
-                  <div style={{color:"#bbb",fontSize:10,fontWeight:700}}>RATING</div>
+                <div style={{display:"flex",alignItems:"flex-end",gap:5,height:48}}>
+                  {last5.map(function(t,i){
+                    var h=Math.max(15,Math.round((t.r/maxR)*100));
+                    var isLatest=i===last5.length-1;
+                    return(
+                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",
+                        alignItems:"center",gap:3}}>
+                        <div style={{fontSize:8,color:isLatest?rColor(t.r):"#bbb",fontWeight:700}}>
+                          {t.r.toFixed(1)}
+                        </div>
+                        <div style={{width:"100%",background:isLatest?rColor(t.r):rColor(t.r)+"55",
+                          borderRadius:"3px 3px 0 0",height:h+"%"}}/>
+                        <div style={{color:"#ccc",fontSize:8,overflow:"hidden",
+                          textOverflow:"ellipsis",whiteSpace:"nowrap",
+                          maxWidth:"100%",textAlign:"center"}}>
+                          {(t.opp||"").split(" ")[0]}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Full season breakdown */}
-            {playerGames.length>0&&(
-              <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,
-                padding:"14px 16px",marginBottom:12}}>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,
-                  letterSpacing:1,marginBottom:12}}>SEASON BREAKDOWN</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
-                  {(isGK
-                    ? [{l:"Saves",v:fmt(tots.saves)},{l:"Goals Conceded",v:fmt(tots.goalsConceded)},
-                       {l:"Minutes Played",v:allStats.reduce(function(a,s){return a+(s.minutesPlayed||0);},0)}]
-                    : [{l:"Goals",v:fmt(tots.goals)},{l:"Assists",v:fmt(tots.assists)},
-                       {l:"Shots",v:fmt(tots.shots)},{l:"On Target",v:fmt(tots.shotsOnTarget)},
-                       {l:"Key Passes",v:fmt(tots.keyPasses)},{l:"Pass Acc",v:passAcc},
-                       {l:"Tackles",v:fmt(tots.tackles)},{l:"Interceptions",v:fmt(tots.interceptions)},
-                       {l:"Aerial Duels",v:fmt(tots.aerialDuelsWon)},{l:"Fouls",v:fmt(tots.fouls)},
-                       {l:"Bad Turns",v:fmt(tots.dangerousTurnovers)},
-                       {l:"Mins Played",v:allStats.reduce(function(a,s){return a+(s.minutesPlayed||0);},0)}]
-                  ).map(function(item,i,arr){return(
-                    <div key={item.l} style={{padding:"9px 0",
-                      borderBottom:i<arr.length-2?"1px solid #f5f5f5":"none",
-                      display:"flex",justifyContent:"space-between",alignItems:"center",
-                      paddingRight:i%2===0?12:0,paddingLeft:i%2===1?12:0,
-                      borderRight:i%2===0?"1px solid #f5f5f5":"none"}}>
-                      <div style={{color:"#999",fontSize:12}}>{item.l}</div>
-                      <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
+            {/* Next game */}
+            {nextGame&&(
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #eee",padding:"14px 16px"}}>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>NEXT GAME</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{color:"#111",fontWeight:700,fontSize:15}}>
+                      vs {nextGame.opponent||nextGame.title}
                     </div>
-                  );})}
+                    <div style={{color:"#aaa",fontSize:12,marginTop:3}}>
+                      {nextGame.date}{nextGame.time?" · "+nextGame.time:""}
+                      {nextGame.location?" · "+nextGame.location:""}
+                    </div>
+                  </div>
+                  {daysUntil!==null&&(
+                    <div style={{textAlign:"center",background:A+"15",
+                      padding:"8px 14px",borderRadius:10}}>
+                      <div style={{color:A,fontFamily:"'Oswald',sans-serif",
+                        fontWeight:900,fontSize:daysUntil===0?14:22,lineHeight:1}}>
+                        {daysUntil===0?"TODAY":daysUntil}
+                      </div>
+                      {daysUntil>0&&<div style={{color:A+"99",fontSize:8,fontWeight:700}}>DAYS</div>}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
+            {/* Last game + coach note */}
+            {lastGame&&lastRating&&(
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #eee",overflow:"hidden"}}>
+                <div style={{padding:"14px 16px",borderBottom:"1px solid #f5f5f5"}}>
+                  <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>LAST GAME</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{color:"#111",fontWeight:700,fontSize:14}}>vs {lastGame.opponent}</div>
+                      <div style={{color:"#aaa",fontSize:12,marginTop:2}}>{lastGame.date}</div>
+                      <div style={{color:lastGame.ourScore>lastGame.theirScore?A:"#e53935",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,marginTop:4}}>
+                        {lastGame.ourScore}–{lastGame.theirScore}
+                      </div>
+                    </div>
+                    {/* Rating ring */}
+                    <div style={{position:"relative",width:60,height:60,flexShrink:0}}>
+                      <svg viewBox="0 0 60 60" style={{width:60,height:60,transform:"rotate(-90deg)"}}>
+                        <circle cx="30" cy="30" r="24" fill="none" stroke="#f0f0f0" strokeWidth="5"/>
+                        <circle cx="30" cy="30" r="24" fill="none"
+                          stroke={rColor(lastRating.rating)} strokeWidth="5"
+                          strokeDasharray={Math.round(2*Math.PI*24*lastRating.rating/10)+" 999"}
+                          strokeLinecap="round"/>
+                      </svg>
+                      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
+                        justifyContent:"center",flexDirection:"column"}}>
+                        <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16,
+                          color:rColor(lastRating.rating),lineHeight:1}}>
+                          {lastRating.rating.toFixed(1)}
+                        </div>
+                        <div style={{fontSize:8,color:"#bbb",fontWeight:700,marginTop:1}}>
+                          {lastRating.label.toUpperCase().slice(0,4)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {lastCoachNote&&(
+                  <div style={{padding:"12px 16px",background:"#fff8f3"}}>
+                    <div style={{color:A,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:5}}>COACH NOTE</div>
+                    <div style={{color:"#555",fontSize:13,lineHeight:1.6,fontStyle:"italic"}}>
+                      "{lastCoachNote}"
+                    </div>
+                  </div>
+                )}
+                <div style={{padding:"10px 16px",display:"flex",gap:8}}>
+                  <button onClick={function(){setTab("games");setExpandedGame(lastGame.id);}}
+                    style={{flex:1,padding:"8px",background:"#f5f5f5",border:"none",
+                      borderRadius:8,color:"#666",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                    Full Breakdown →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Attendance card */}
+            {attendPct!==null&&(
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #eee",
+                padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:4}}>
+                    PRACTICE ATTENDANCE
+                  </div>
+                  <div style={{color:"#111",fontWeight:700,fontSize:15}}>{attended} of {practices.length} sessions</div>
+                  <div style={{color:"#aaa",fontSize:12,marginTop:2}}>This season</div>
+                </div>
+                <div style={{position:"relative",width:56,height:56,flexShrink:0}}>
+                  <svg viewBox="0 0 56 56" style={{width:56,height:56,transform:"rotate(-90deg)"}}>
+                    <circle cx="28" cy="28" r="22" fill="none" stroke="#f0f0f0" strokeWidth="5"/>
+                    <circle cx="28" cy="28" r="22" fill="none"
+                      stroke={attendPct>=80?A:"#f59e0b"} strokeWidth="5"
+                      strokeDasharray={Math.round(2*Math.PI*22*attendPct/100)+" 999"}
+                      strokeLinecap="round"/>
+                  </svg>
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
+                    justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                    fontSize:14,color:attendPct>=80?A:"#f59e0b"}}>
+                    {attendPct}%
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recruiting CTA */}
+            <button onClick={function(){copyLink("recruit");}}
+              style={{width:"100%",padding:"16px",background:A,border:"none",borderRadius:12,
+                cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{textAlign:"left"}}>
+                <div style={{color:"#000",fontWeight:800,fontSize:15,fontFamily:"'Oswald',sans-serif",
+                  letterSpacing:.5}}>Recruiting Profile</div>
+                <div style={{color:"rgba(0,0,0,.5)",fontSize:11,marginTop:2}}>
+                  {recruitCopied?"Link copied! Send to college coaches ✓":"Share with college coaches"}
+                </div>
+              </div>
+              <div style={{background:"rgba(0,0,0,.15)",padding:"8px 14px",borderRadius:8,
+                color:"#000",fontWeight:700,fontSize:12}}>
+                {recruitCopied?"✓ Copied":"⎘ Copy Link"}
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* ══ GAMES TAB ══ */}
+        {tab==="games"&&(
+          <div>
             {sortedGames.length===0?(
-              <div style={{textAlign:"center",padding:"48px 0",color:"#bbb"}}>
+              <div style={{textAlign:"center",padding:"60px 0",color:"#bbb"}}>
                 <div style={{fontSize:32,marginBottom:10}}>⚽</div>
-                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No stats yet</div>
-                <div style={{fontSize:13}}>Stats appear here after games are logged</div>
+                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No games yet</div>
+                <div style={{fontSize:13}}>Stats will appear after games are logged</div>
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {sortedGames.map(function(g){
                   var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
                   if(!s) return null;
-                  var rat=calcRating(s,pos,g.theirScore===0);
-                  var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
-                  var rc=win?A:loss?"#e53935":"#f57c00";
-                  var rl=win?"W":loss?"L":"D";
-                  // Position-specific stat row per game
-                  var statRow = isGK
-                    ? [{l:"Saves",v:s.saves||0},{l:"Conceded",v:s.goalsConceded||0},
-                       {l:"Mins",v:s.minutesPlayed||90}]
-                    : isCB
-                    ? [{l:"Goals",v:s.goals||0},{l:"Tackles",v:s.tackles||0},
-                       {l:"Ints",v:s.interceptions||0},{l:"Aerials",v:s.aerialDuelsWon||0},
-                       {l:"Mins",v:s.minutesPlayed||90}]
-                    : isMid
-                    ? [{l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                       {l:"K.Pass",v:s.keyPasses||0},{l:"Tackles",v:s.tackles||0},
-                       {l:"Mins",v:s.minutesPlayed||90}]
-                    : [{l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                       {l:"Shots",v:s.shots||0},{l:"K.Pass",v:s.keyPasses||0},
-                       {l:"Mins",v:s.minutesPlayed||90}];
+                  var rat  = calcRating(s,pos,g.theirScore===0);
+                  var win  = g.ourScore>g.theirScore;
+                  var loss = g.ourScore<g.theirScore;
+                  var rc   = win?A:loss?"#e53935":"#f57c00";
+                  var rl   = win?"W":loss?"L":"D";
+                  var isExpanded = expandedGame===g.id;
+                  var paTotal = (s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);
+                  var pacc = paTotal>0?Math.round((s.passesCompleted||0)/paTotal*100):0;
+
+                  // Season averages for bar context
+                  var avgG=tots.goals/gp, avgA=tots.assists/gp, avgSh=tots.shots/gp;
+                  var avgTac=tots.tackles/gp, avgPa=passAcc;
+
                   return(
                     <div key={g.id} style={{background:"#fff",border:"1px solid #eee",
-                      borderRadius:14,overflow:"hidden"}}>
-                      <div style={{padding:"12px 14px 10px",
-                        display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{width:24,height:24,borderRadius:6,
-                            background:rc+"18",display:"flex",alignItems:"center",
-                            justifyContent:"center",fontWeight:900,fontSize:11,
-                            color:rc,fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
-                            {rl}
-                          </div>
+                      borderRadius:12,overflow:"hidden"}}>
+
+                      {/* Game header — always visible */}
+                      <div onClick={function(){setExpandedGame(isExpanded?null:g.id);}}
+                        style={{padding:"12px 14px",cursor:"pointer",
+                          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:26,height:26,borderRadius:6,background:rc+"18",
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontWeight:900,fontSize:11,color:rc,
+                            fontFamily:"'Oswald',sans-serif",flexShrink:0}}>{rl}</div>
                           <div>
-                            <div style={{color:"#111",fontWeight:700,fontSize:13}}>
+                            <div style={{color:"#111",fontWeight:700,fontSize:14}}>
                               vs {g.opponent}
                             </div>
                             <div style={{color:"#bbb",fontSize:10,marginTop:1}}>
@@ -10659,51 +10662,114 @@ function PlayerPortalPage(){
                             </div>
                           </div>
                         </div>
-                        <div style={{textAlign:"right",flexShrink:0}}>
-                          <div style={{color:rc,fontFamily:"'Oswald',sans-serif",
-                            fontWeight:900,fontSize:17,lineHeight:1}}>
-                            {g.ourScore}–{g.theirScore}
+                        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{color:rc,fontFamily:"'Oswald',sans-serif",
+                              fontWeight:900,fontSize:17,lineHeight:1}}>
+                              {g.ourScore}–{g.theirScore}
+                            </div>
+                            <div style={{color:rColor(rat.rating),fontSize:11,
+                              fontWeight:700,marginTop:2}}>
+                              {rat.rating.toFixed(1)} · {rat.label}
+                            </div>
                           </div>
-                          <div style={{color:rColor(rat.rating),
-                            fontSize:11,fontWeight:700,marginTop:2}}>
-                            {rat.rating.toFixed(1)} · {rat.label}
-                          </div>
+                          <div style={{color:"#ccc",fontSize:14,transform:isExpanded?"rotate(90deg)":"none",
+                            transition:"transform .2s"}}>›</div>
                         </div>
                       </div>
-                      <div style={{display:"flex",background:"#f8f8f8",
-                        borderTop:"1px solid #f0f0f0"}}>
-                        {statRow.map(function(item,i){return(
-                          <div key={item.l} style={{flex:1,padding:"8px 0",
-                            textAlign:"center",
-                            borderRight:i<statRow.length-1?"1px solid #eee":"none"}}>
-                            <div style={{color:(item.v>0&&item.l!=="Mins")?A:"#111",
-                              fontWeight:900,fontSize:15,lineHeight:1,
-                              fontFamily:"'Oswald',sans-serif"}}>
-                              {item.v}
+
+                      {/* Expanded ESPN-style breakdown */}
+                      {isExpanded&&(
+                        <div style={{borderTop:"1px solid #f0f0f0"}}>
+
+                          {/* Rating ring header */}
+                          <div style={{padding:"14px 16px",background:"#fafafa",
+                            display:"flex",alignItems:"center",gap:14,
+                            borderBottom:"1px solid #f0f0f0"}}>
+                            <div style={{position:"relative",width:56,height:56,flexShrink:0}}>
+                              <svg viewBox="0 0 56 56" style={{width:56,height:56,transform:"rotate(-90deg)"}}>
+                                <circle cx="28" cy="28" r="22" fill="none" stroke="#eee" strokeWidth="4.5"/>
+                                <circle cx="28" cy="28" r="22" fill="none"
+                                  stroke={rColor(rat.rating)} strokeWidth="4.5"
+                                  strokeDasharray={Math.round(2*Math.PI*22*rat.rating/10)+" 999"}
+                                  strokeLinecap="round"/>
+                              </svg>
+                              <div style={{position:"absolute",inset:0,display:"flex",
+                                alignItems:"center",justifyContent:"center",
+                                fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                                fontSize:16,color:rColor(rat.rating)}}>
+                                {rat.rating.toFixed(1)}
+                              </div>
                             </div>
-                            <div style={{color:"#bbb",fontSize:8,marginTop:2,
-                              fontWeight:700,letterSpacing:.5}}>
-                              {item.l.toUpperCase()}
+                            <div>
+                              <div style={{fontWeight:700,fontSize:15,color:"#111"}}>{rat.label} Performance</div>
+                              <div style={{color:"#aaa",fontSize:12,marginTop:2}}>
+                                {rat.rating>=avgRating?"Above your season avg":"Below your season avg"}
+                                {" · "+s.minutesPlayed||90+" mins played"}
+                              </div>
                             </div>
                           </div>
-                        );})}
-                      </div>
-                      {/* Possession bar if available */}
-                      {g.possession&&(g.possession.home+g.possession.away)>0&&(
-                        <div style={{padding:"6px 14px 8px",
-                          background:"#fff",borderTop:"1px solid #f5f5f5",
-                          display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{color:"#ccc",fontSize:9,fontWeight:700,
-                            letterSpacing:.5,flexShrink:0}}>POSS</div>
-                          <div style={{flex:1,height:4,background:"#f0f0f0",
-                            borderRadius:2,overflow:"hidden"}}>
-                            <div style={{height:"100%",background:A,
-                              width:Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)+"%",
-                              borderRadius:2}}/>
+
+                          {/* Attacking */}
+                          <div style={{padding:"8px 16px",background:"#f8f8f8",borderBottom:"0.5px solid #eee"}}>
+                            <div style={{fontSize:9,fontWeight:700,color:"#aaa",letterSpacing:1.5}}>ATTACKING</div>
                           </div>
-                          <div style={{color:A,fontSize:10,fontWeight:700,flexShrink:0}}>
-                            {Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)}%
+                          {StatRow("Goals", s.goals||0, Math.max(avgG*2,3), A, (s.goals||0)>0)}
+                          {StatRow("Assists", s.assists||0, Math.max(avgA*2,2), A, (s.assists||0)>0)}
+                          {StatRow("Shots", s.shots||0, Math.max(avgSh*2,5), "#f59e0b", false)}
+                          {StatRow("Shots on Target", s.shotsOnTarget||0, Math.max(avgSh,4), "#f59e0b", false)}
+                          {StatRow("Key Passes", s.keyPasses||0, Math.max((tots.keyPasses/gp)*2,3), "#8b5cf6", false)}
+
+                          {/* Passing */}
+                          <div style={{padding:"8px 16px",background:"#f8f8f8",borderBottom:"0.5px solid #eee",borderTop:"0.5px solid #eee"}}>
+                            <div style={{fontSize:9,fontWeight:700,color:"#aaa",letterSpacing:1.5}}>PASSING</div>
                           </div>
+                          {StatRow("Pass Accuracy", pacc+"%", 100, "#27a560", pacc>70)}
+                          {StatRow("Passes Completed", s.passesCompleted||0, Math.max((tots.passesCompleted/gp)*2,20), "#27a560", false)}
+
+                          {/* Defensive */}
+                          <div style={{padding:"8px 16px",background:"#f8f8f8",borderBottom:"0.5px solid #eee",borderTop:"0.5px solid #eee"}}>
+                            <div style={{fontSize:9,fontWeight:700,color:"#aaa",letterSpacing:1.5}}>DEFENSIVE</div>
+                          </div>
+                          {StatRow("Tackles", s.tackles||0, Math.max(avgTac*2,4), "#3b82f6", false)}
+                          {StatRow("Interceptions", s.interceptions||0, Math.max((tots.interceptions/gp)*2,3), "#3b82f6", false)}
+                          {StatRow("Aerial Duels Won", s.aerialDuelsWon||0, Math.max((tots.aerialDuelsWon/gp)*2,3), "#3b82f6", false)}
+
+                          {/* Discipline */}
+                          <div style={{padding:"8px 16px",background:"#f8f8f8",borderBottom:"0.5px solid #eee",borderTop:"0.5px solid #eee"}}>
+                            <div style={{fontSize:9,fontWeight:700,color:"#aaa",letterSpacing:1.5}}>DISCIPLINE</div>
+                          </div>
+                          {StatRow("Fouls", s.fouls||0, 5, "#f59e0b", false)}
+                          {StatRow("Bad Turnovers", s.dangerousTurnovers||0, 5, "#ef4444", false)}
+
+                          {/* Coach note */}
+                          {rat.coachNote&&(
+                            <div style={{padding:"12px 16px",background:"#fff8f3",
+                              borderTop:"1px solid "+A+"22"}}>
+                              <div style={{color:A,fontSize:9,fontWeight:700,
+                                letterSpacing:1.5,marginBottom:5}}>COACH NOTE</div>
+                              <div style={{color:"#555",fontSize:13,lineHeight:1.6,fontStyle:"italic"}}>
+                                "{rat.coachNote}"
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Possession if available */}
+                          {g.possession&&(g.possession.home+g.possession.away)>0&&(
+                            <div style={{padding:"12px 16px",borderTop:"1px solid #f0f0f0",
+                              display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{color:"#aaa",fontSize:10,fontWeight:700,
+                                letterSpacing:.5,flexShrink:0}}>TEAM POSSESSION</div>
+                              <div style={{flex:1,height:6,background:"#f0f0f0",
+                                borderRadius:3,overflow:"hidden"}}>
+                                <div style={{height:"100%",background:A,borderRadius:3,
+                                  width:Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)+"%"}}/>
+                              </div>
+                              <div style={{color:A,fontSize:12,fontWeight:700,flexShrink:0}}>
+                                {Math.round(g.possession.home/(g.possession.home+g.possession.away)*100)}%
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -10714,154 +10780,83 @@ function PlayerPortalPage(){
           </div>
         )}
 
-        {/* RECRUITING */}
-        {tab==="recruiting"&&(
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            {player.coachScoutNotes&&(
-              <div style={{background:"#fff8f3",border:"1px solid "+A+"33",
-                borderLeft:"3px solid "+A,borderRadius:"0 12px 12px 0",padding:"14px 16px"}}>
-                <div style={{color:A,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:6}}>COACH PROFILE</div>
-                <div style={{color:"#333",fontSize:14,lineHeight:1.7}}>{player.coachScoutNotes}</div>
+        {/* ══ SCHEDULE TAB ══ */}
+        {tab==="schedule"&&(
+          <div>
+            {upcomingEvents.length===0?(
+              <div style={{textAlign:"center",padding:"60px 0",color:"#bbb"}}>
+                <div style={{fontSize:32,marginBottom:10}}>📅</div>
+                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No upcoming games</div>
+                <div style={{fontSize:13}}>Check back when your coach adds fixtures</div>
               </div>
-            )}
-            {(player.gpa||player.height||player.weight)&&(
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                {[{l:"GPA",v:player.gpa},{l:"Height",v:player.height},
-                  {l:"Weight",v:player.weight&&player.weight+" lbs"}
-                ].filter(function(x){return x.v;}).map(function(x){return(
-                  <div key={x.l} style={{background:"#fff",border:"1px solid #eee",
-                    borderRadius:10,padding:12,textAlign:"center"}}>
-                    <div style={{color:"#111",fontWeight:900,fontSize:18,
-                      fontFamily:"'Oswald',sans-serif"}}>{x.v}</div>
-                    <div style={{color:"#bbb",fontSize:10,fontWeight:700,
-                      letterSpacing:1,marginTop:2}}>{x.l}</div>
-                  </div>
-                );})}
-              </div>
-            )}
-            {player.highlightsUrl&&(
-              <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
-                style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
-                  background:"#fff",border:"1px solid #eee",borderRadius:12,textDecoration:"none"}}>
-                <div style={{width:40,height:40,borderRadius:10,background:A+"18",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  color:A,fontSize:18,flexShrink:0}}>▶</div>
-                <div>
-                  <div style={{color:"#111",fontWeight:700,fontSize:14}}>Watch Highlights</div>
-                  <div style={{color:"#aaa",fontSize:11,marginTop:2,overflow:"hidden",
-                    textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:240}}>
-                    {player.highlightsUrl}
-                  </div>
-                </div>
-              </a>
-            )}
-            {(player.recruitingSchools||[]).length>0&&(
-              <div>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:10,paddingLeft:2}}>INTERESTED SCHOOLS</div>
-                {(player.recruitingSchools||[]).map(function(s){
-                  var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
-                  var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {upcomingEvents.map(function(e){
+                  var isGame = e.type==="game"||e.opponent;
+                  var typeColor = {game:A,practice:"#27a560",tournament:"#7c6af5",other:"#42a5f5"}[e.type]||A;
+                  var dLeft = Math.ceil((new Date(e.date)-new Date(today))/(1000*60*60*24));
                   return(
-                    <div key={s.id} style={{background:"#fff",border:"1px solid #eee",
-                      borderRadius:12,padding:"12px 16px",marginBottom:8,
+                    <div key={e.id} style={{background:"#fff",border:"1px solid #eee",
+                      borderRadius:12,padding:"14px 16px",
                       display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{color:"#111",fontWeight:700,fontSize:14}}>{s.school}</div>
-                        {s.contact&&<div style={{color:"#999",fontSize:12,marginTop:2}}>Contact: {s.contact}</div>}
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                          <div style={{width:8,height:8,borderRadius:"50%",
+                            background:typeColor,flexShrink:0}}/>
+                          <div style={{color:"#111",fontWeight:700,fontSize:14}}>
+                            {isGame?"vs "+(e.opponent||""):(e.title||"Event")}
+                          </div>
+                        </div>
+                        <div style={{color:"#aaa",fontSize:11,paddingLeft:16}}>
+                          {e.date}{e.time?" · "+e.time:""}{e.location?" · "+e.location:""}
+                        </div>
                       </div>
-                      <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
-                        <div style={{background:sc+"18",color:sc,fontSize:11,fontWeight:700,
-                          padding:"4px 10px",borderRadius:20,marginBottom:3}}>{sl}</div>
-                        <div style={{color:"#ccc",fontSize:11}}>{s.division}</div>
+                      <div style={{flexShrink:0,textAlign:"right"}}>
+                        {dLeft===0?(
+                          <span style={{background:A+"18",color:A,fontSize:10,
+                            fontWeight:700,padding:"4px 10px",borderRadius:20}}>TODAY</span>
+                        ):dLeft===1?(
+                          <span style={{background:"#f0f0f0",color:"#555",fontSize:10,
+                            fontWeight:700,padding:"4px 10px",borderRadius:20}}>TOMORROW</span>
+                        ):(
+                          <span style={{color:"#bbb",fontSize:12,fontWeight:700}}>in {dLeft}d</span>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-            {!player.coachScoutNotes&&!(player.recruitingSchools||[]).length&&!player.gpa&&!player.highlightsUrl&&(
-              <div style={{textAlign:"center",padding:"48px 0",color:"#bbb"}}>
-                <div style={{fontSize:32,marginBottom:10}}>🎓</div>
-                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>Recruiting info coming soon</div>
-                <div style={{fontSize:13}}>Your coach will add this</div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* VIDEOS */}
-        {tab==="videos"&&(
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>MY VIDEOS</div>
-              <button onClick={function(){setAddingVid(true);}}
-                style={{padding:"7px 14px",background:A,border:"none",borderRadius:8,
-                  color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Add Link</button>
-            </div>
-            {addingVid&&(
-              <div style={{background:"#fff",border:"1px solid "+A+"33",borderRadius:12,
-                padding:16,marginBottom:12}}>
-                <input value={newVideo.label}
-                  onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{label:e.target.value});});}}
-                  placeholder="Label e.g. Junior Year Highlights"
-                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",border:"1px solid #eee",
-                    borderRadius:8,color:"#111",fontSize:13,outline:"none",
-                    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
-                <input value={newVideo.url}
-                  onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{url:e.target.value});});}}
-                  placeholder="YouTube, Hudl, or any video URL"
-                  style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",border:"1px solid #eee",
-                    borderRadius:8,color:"#111",fontSize:13,outline:"none",
-                    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:10}}/>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={addVideo} disabled={savingVid||!newVideo.url.trim()}
-                    style={{flex:1,padding:"9px",background:A,border:"none",borderRadius:8,
-                      color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                    {savingVid?"Saving...":"Save Link"}
-                  </button>
-                  <button onClick={function(){setAddingVid(false);setNewVideo({label:"",url:""}); }}
-                    style={{padding:"9px 14px",background:"#f0f0f0",border:"none",
-                      borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>Cancel</button>
-                </div>
-              </div>
-            )}
-            {videos.length===0&&!addingVid&&(
-              <div style={{textAlign:"center",padding:"48px 0",color:"#bbb"}}>
-                <div style={{fontSize:22,marginBottom:10}}>▶</div>
-                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No videos yet</div>
-                <div style={{fontSize:13}}>Add your highlight links for college coaches</div>
-              </div>
-            )}
-            {videos.map(function(v){return(
-              <div key={v.id} style={{background:"#fff",border:"1px solid #eee",borderRadius:12,
-                padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-                <div style={{width:40,height:40,borderRadius:9,background:A+"15",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  color:A,fontSize:16,flexShrink:0}}>▶</div>
-                <div style={{flex:1,overflow:"hidden"}}>
-                  <div style={{color:"#111",fontWeight:700,fontSize:13}}>{v.label}</div>
-                  <a href={v.url} target="_blank" rel="noopener noreferrer"
-                    style={{color:A,fontSize:11,textDecoration:"none",display:"block",
-                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.url}</a>
-                </div>
-                <button onClick={function(){saveVideos(videos.filter(function(x){return x.id!==v.id;}));}}
-                  style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",
-                    fontSize:18,padding:4,flexShrink:0,lineHeight:1}}>×</button>
-              </div>
-            );})}
-          </div>
-        )}
-
-        {/* ABOUT */}
-        {tab==="about"&&(
+        {/* ══ RECRUIT TAB ══ */}
+        {tab==="recruit"&&(
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Share card */}
+            <div style={{background:A,borderRadius:12,padding:"16px 18px"}}>
+              <div style={{color:"rgba(0,0,0,.6)",fontSize:10,fontWeight:700,
+                letterSpacing:1.5,marginBottom:4}}>RECRUITING PROFILE LINK</div>
+              <div style={{color:"#000",fontWeight:700,fontSize:14,marginBottom:10}}>
+                Share this link with college coaches — it only shows your stats, bio and highlights.
+              </div>
+              <button onClick={function(){copyLink("recruit");}}
+                style={{width:"100%",padding:"10px",background:"rgba(0,0,0,.15)",
+                  border:"none",borderRadius:8,color:"#000",fontWeight:800,
+                  fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                {recruitCopied?"✓ LINK COPIED!":"⎘ COPY RECRUITING LINK"}
+              </button>
+            </div>
+
+            {/* Bio */}
             <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,padding:"14px 16px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{color:"#bbb",fontSize:10,fontWeight:700,letterSpacing:2}}>ABOUT ME</div>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>ABOUT ME</div>
                 {!editBio&&(
                   <button onClick={function(){setEditBio(true);}}
                     style={{background:"none",border:"1px solid #eee",borderRadius:6,
-                      padding:"4px 10px",color:"#aaa",fontSize:11,cursor:"pointer",fontWeight:700}}>
+                      padding:"3px 10px",color:"#aaa",fontSize:11,cursor:"pointer",fontWeight:700}}>
                     {player.playerBio?"Edit":"+ Add Bio"}
                   </button>
                 )}
@@ -10869,7 +10864,7 @@ function PlayerPortalPage(){
               {editBio?(
                 <div>
                   <textarea value={bio} onChange={function(e){setBio(e.target.value);}}
-                    placeholder="Tell college coaches about yourself..."
+                    placeholder="Tell college coaches about yourself — your playing style, strengths, goals..."
                     rows={4}
                     style={{width:"100%",padding:"10px 12px",background:"#f8f8f8",
                       border:"1px solid #eee",borderRadius:8,color:"#111",fontSize:13,
@@ -10889,31 +10884,168 @@ function PlayerPortalPage(){
               ):(
                 <div style={{color:player.playerBio?"#444":"#ccc",fontSize:14,
                   lineHeight:1.7,fontStyle:player.playerBio?"normal":"italic"}}>
-                  {player.playerBio||"No bio yet — tap Edit to introduce yourself"}
+                  {player.playerBio||"No bio yet — tap Edit to introduce yourself to college coaches"}
                 </div>
               )}
             </div>
+
+            {/* Recruiting stats */}
             <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,overflow:"hidden"}}>
-              {[{l:"Position",v:allPos(player).join(", ")},{l:"Jersey",v:"#"+player.number},
-                {l:"Graduation Year",v:player.gradYear},{l:"Height",v:player.height},
-                {l:"Weight",v:player.weight&&player.weight+" lbs"},{l:"GPA",v:player.gpa},
-                {l:"Attendance",v:attendPct!==null?(attendPct+"% ("+attended+"/"+totalPractices+" sessions)"):null},
-              ].filter(function(item){return item.v;}).map(function(item,i){return(
+              <div style={{padding:"12px 16px",borderBottom:"1px solid #f5f5f5",
+                background:"#fafafa"}}>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>SEASON STATS</div>
+              </div>
+              {[
+                {l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},
+                {l:"Games Played",v:gp},{l:"Avg Rating",v:avgRating>0?avgRating.toFixed(1):"—"},
+                {l:"Pass Accuracy",v:passAcc>0?passAcc+"%":"—"},
+                {l:"Shot Conversion",v:shotConv>0?shotConv+"%":"—"},
+              ].map(function(item,i){return(
                 <div key={item.l} style={{display:"flex",justifyContent:"space-between",
-                  alignItems:"center",padding:"13px 16px",borderBottom:"1px solid #f5f5f5"}}>
-                  <div style={{color:"#999",fontSize:13}}>{item.l}</div>
+                  alignItems:"center",padding:"11px 16px",
+                  borderBottom:i<5?"1px solid #f5f5f5":"none"}}>
+                  <div style={{color:"#888",fontSize:13}}>{item.l}</div>
                   <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
                 </div>
               );})}
             </div>
+
+            {/* Player info */}
+            <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid #f5f5f5",background:"#fafafa"}}>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>PLAYER INFO</div>
+              </div>
+              {[
+                {l:"Position",v:allPos(player).join(", ")},
+                {l:"Jersey Number",v:"#"+player.number},
+                {l:"Graduation Year",v:player.gradYear},
+                {l:"Height",v:player.height},
+                {l:"Weight",v:player.weight&&player.weight+" lbs"},
+                {l:"GPA",v:player.gpa},
+              ].filter(function(x){return x.v;}).map(function(item,i,arr){return(
+                <div key={item.l} style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",padding:"11px 16px",
+                  borderBottom:i<arr.length-1?"1px solid #f5f5f5":"none"}}>
+                  <div style={{color:"#888",fontSize:13}}>{item.l}</div>
+                  <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
+                </div>
+              );})}
+            </div>
+
+            {/* Highlights */}
+            {player.highlightsUrl&&(
+              <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
+                style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
+                  background:"#fff",border:"1px solid #eee",borderRadius:12,textDecoration:"none"}}>
+                <div style={{width:44,height:44,borderRadius:10,background:A+"18",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  color:A,fontSize:20,flexShrink:0}}>▶</div>
+                <div>
+                  <div style={{color:"#111",fontWeight:700,fontSize:14}}>Watch Highlights</div>
+                  <div style={{color:"#aaa",fontSize:11,marginTop:2,overflow:"hidden",
+                    textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:240}}>
+                    {player.highlightsUrl}
+                  </div>
+                </div>
+              </a>
+            )}
+
+            {/* Videos */}
+            {videos.length>0&&(
+              <div>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,
+                  marginBottom:8,paddingLeft:2}}>MY VIDEOS</div>
+                {videos.map(function(v){return(
+                  <div key={v.id} style={{background:"#fff",border:"1px solid #eee",
+                    borderRadius:12,padding:"12px 14px",marginBottom:8,
+                    display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:40,height:40,borderRadius:9,background:A+"15",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      color:A,fontSize:18,flexShrink:0}}>▶</div>
+                    <div style={{flex:1,overflow:"hidden"}}>
+                      <div style={{color:"#111",fontWeight:700,fontSize:13}}>{v.label}</div>
+                      <a href={v.url} target="_blank" rel="noopener noreferrer"
+                        style={{color:A,fontSize:11,textDecoration:"none",display:"block",
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {v.url}
+                      </a>
+                    </div>
+                    <button onClick={function(){saveVideos(videos.filter(function(x){return x.id!==v.id;}));}}
+                      style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",
+                        fontSize:18,padding:4,flexShrink:0}}>×</button>
+                  </div>
+                );})}
+                {!addingVid&&(
+                  <button onClick={function(){setAddingVid(true);}}
+                    style={{width:"100%",padding:"10px",background:"#f5f5f5",border:"none",
+                      borderRadius:10,color:"#aaa",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                    + Add Video Link
+                  </button>
+                )}
+                {addingVid&&(
+                  <div style={{background:"#fff",border:"1px solid "+A+"33",borderRadius:12,padding:14}}>
+                    <input value={newVideo.label}
+                      onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{label:e.target.value});});}}
+                      placeholder="Label e.g. Junior Year Highlights"
+                      style={{width:"100%",padding:"9px 12px",background:"#f8f8f8",border:"1px solid #eee",
+                        borderRadius:8,color:"#111",fontSize:13,outline:"none",
+                        fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:8}}/>
+                    <input value={newVideo.url}
+                      onChange={function(e){setNewVideo(function(v){return Object.assign({},v,{url:e.target.value});});}}
+                      placeholder="YouTube, Hudl, or any video URL"
+                      style={{width:"100%",padding:"9px 12px",background:"#f8f8f8",border:"1px solid #eee",
+                        borderRadius:8,color:"#111",fontSize:13,outline:"none",
+                        fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:10}}/>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={function(){if(!newVideo.url.trim())return;saveVideos(videos.concat([{id:"v"+Date.now(),label:newVideo.label.trim()||"Highlights",url:newVideo.url.trim()}]));}}
+                        disabled={savingVid}
+                        style={{flex:1,padding:"9px",background:A,border:"none",borderRadius:8,
+                          color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                        {savingVid?"Saving...":"Save Link"}
+                      </button>
+                      <button onClick={function(){setAddingVid(false);}}
+                        style={{padding:"9px 14px",background:"#f0f0f0",border:"none",
+                          borderRadius:8,color:"#666",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Schools */}
+            {(player.recruitingSchools||[]).length>0&&(
+              <div>
+                <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,
+                  marginBottom:8,paddingLeft:2}}>INTERESTED SCHOOLS</div>
+                {(player.recruitingSchools||[]).map(function(s){
+                  var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
+                  var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
+                  return(
+                    <div key={s.id} style={{background:"#fff",border:"1px solid #eee",
+                      borderRadius:12,padding:"12px 16px",marginBottom:8,
+                      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{color:"#111",fontWeight:700,fontSize:14}}>{s.school}</div>
+                        {s.contact&&<div style={{color:"#999",fontSize:12,marginTop:2}}>Contact: {s.contact}</div>}
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                        <div style={{background:sc+"18",color:sc,fontSize:11,fontWeight:700,
+                          padding:"4px 10px",borderRadius:20}}>{sl}</div>
+                        <div style={{color:"#ccc",fontSize:11,marginTop:3}}>{s.division}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{textAlign:"center",marginTop:8,display:"flex",
+              alignItems:"center",justifyContent:"center",gap:6}}>
+              <div style={{width:5,height:5,borderRadius:"50%",background:A,opacity:.35}}/>
+              <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
+            </div>
           </div>
         )}
-
-        <div style={{textAlign:"center",marginTop:36,display:"flex",
-          alignItems:"center",justifyContent:"center",gap:6}}>
-          <div style={{width:5,height:5,borderRadius:"50%",background:A,opacity:.35}}/>
-          <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
-        </div>
       </div>
     </div>
   );
@@ -12138,6 +12270,259 @@ function LiveJoinPage(){
           );})}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── RECRUIT PROFILE PAGE (public, college coach view) ───────────────────────
+// Accessible at #/recruit/[playerId] — no login, shows only recruiting-relevant info
+function RecruitProfilePage(){
+  var playerId = window.location.hash.replace("#/recruit/","").split("?")[0];
+  var [player, setPlayer] = useState(null);
+  var [teamName,setTeamName]=useState("");
+  var [games,  setGames]  = useState([]);
+  var [loading,setLoading]=useState(true);
+  var [error,  setError]  =useState(null);
+  var A = "#ff6b00";
+
+  useEffect(function(){
+    async function load(){
+      try{
+        var {data:rosters}=await supabase.from("rosters").select("*");
+        var found=null,tid=null;
+        for(var i=0;i<(rosters||[]).length;i++){
+          var p=(rosters[i].players||[]).find(function(p){return p.id===playerId;});
+          if(p){found=p;tid=rosters[i].team_id;break;}
+        }
+        if(!found){setError("Profile not found.");setLoading(false);return;}
+        setPlayer(Object.assign({},found,{teamId:tid}));
+        var {data:teams}=await supabase.from("teams").select("name").eq("id",tid);
+        setTeamName(teams?.[0]?.name||"");
+        var {data:gData}=await supabase.from("games").select("*").eq("team_id",tid);
+        setGames((gData||[]).map(function(x){return x.data;}).filter(function(g){return g.status==="completed";}));
+      }catch(e){setError("Failed to load.");}
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"'Outfit',sans-serif",flexDirection:"column",gap:12}}>
+      <div style={{width:28,height:28,borderRadius:"50%",border:"3px solid "+A,
+        borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
+      <div style={{color:A,fontSize:13,fontWeight:600}}>Loading...</div>
+    </div>
+  );
+  if(error) return(
+    <div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{color:"#c00",fontSize:14}}>{error}</div>
+    </div>
+  );
+
+  var pos=primaryPos(player);
+  var posCol=posColor(pos);
+  var playerGames=(games||[]).filter(function(g){return (g.stats||[]).some(function(s){return s.playerId===playerId;});});
+  var gp=playerGames.length||1;
+  var allStats=playerGames.flatMap(function(g){return (g.stats||[]).filter(function(s){return s.playerId===playerId;});});
+  var tots=allStats.reduce(function(acc,s){
+    return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
+      shots:acc.shots+(s.shots||0),tackles:acc.tackles+(s.tackles||0),
+      passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
+      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
+      saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0)};
+  },{goals:0,assists:0,shots:0,tackles:0,passesCompleted:0,passesAttempted:0,saves:0,goalsConceded:0});
+  var passAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):0;
+  var shotConv=tots.shots>0?Math.round(tots.goals/tots.shots*100):0;
+  var ratings=playerGames.map(function(g){
+    var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
+    return s?calcRating(s,pos,g.theirScore===0).rating:null;
+  }).filter(Boolean);
+  var avgR=ratings.length?(ratings.reduce(function(a,b){return a+b;},0)/ratings.length):0;
+  var recLabel={open:"Open to Offers",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
+    committed:"Committed",not_recruiting:"Not Recruiting"}[player.recruitingStatus]||"";
+  var recColor={open:A,d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",
+    committed:"#2e7d32",not_recruiting:"#888"}[player.recruitingStatus]||A;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f7f7f7",fontFamily:"'Outfit',sans-serif"}}>
+      {/* Header */}
+      <div style={{background:A,padding:"20px 20px 0"}}>
+        <div style={{maxWidth:560,margin:"0 auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:14}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,.5)"}}/>
+            <span style={{color:"rgba(255,255,255,.75)",fontSize:11,fontWeight:700,letterSpacing:2}}>COACHIQ · RECRUITING PROFILE</span>
+          </div>
+          <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+            {player.photoUrl?(
+              <img src={player.photoUrl} alt={player.name}
+                style={{width:72,height:72,borderRadius:14,objectFit:"cover",
+                  border:"2px solid rgba(255,255,255,.3)",flexShrink:0}}/>
+            ):(
+              <div style={{width:72,height:72,borderRadius:14,background:"rgba(0,0,0,.2)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",
+                fontSize:26,flexShrink:0}}>#{player.number}</div>
+            )}
+            <div style={{flex:1,paddingTop:4}}>
+              <h1 style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:26,
+                fontWeight:900,margin:"0 0 3px"}}>{player.name}</h1>
+              <div style={{color:"rgba(255,255,255,.75)",fontSize:12,marginBottom:8}}>
+                {allPos(player).join(" · ")}{player.gradYear&&" · Class of "+player.gradYear}
+                {teamName&&" · "+teamName}
+              </div>
+              {recLabel&&<span style={{display:"inline-block",padding:"4px 12px",
+                background:"rgba(0,0,0,.2)",borderRadius:20,color:"rgba(255,255,255,.9)",
+                fontSize:11,fontWeight:700}}>{recLabel}</span>}
+            </div>
+            <div style={{textAlign:"right",flexShrink:0,paddingTop:4}}>
+              <div style={{color:"#fff",fontFamily:"'Oswald',sans-serif",
+                fontWeight:900,fontSize:32,lineHeight:1}}>{avgR>0?avgR.toFixed(1):"—"}</div>
+              <div style={{color:"rgba(255,255,255,.6)",fontSize:9,fontWeight:700,marginTop:2}}>AVG RTG</div>
+            </div>
+          </div>
+          {/* Stat strip */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:0,
+            marginTop:16,background:"rgba(0,0,0,.18)",borderRadius:10,overflow:"hidden"}}>
+            {(player.recruitingStatus!=="not_recruiting"
+              ?[{l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},{l:"Games",v:gp},{l:"Pass Acc",v:passAcc>0?passAcc+"%":"—"}]
+              :[{l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},{l:"Games",v:gp},{l:"Avg Rtg",v:avgR>0?avgR.toFixed(1):"—"}]
+            ).map(function(item,i){return(
+              <div key={item.l} style={{padding:"10px 0",textAlign:"center",
+                borderRight:i<3?"1px solid rgba(255,255,255,.15)":"none"}}>
+                <div style={{color:"#fff",fontFamily:"'Oswald',sans-serif",
+                  fontWeight:900,fontSize:20,lineHeight:1}}>{item.v}</div>
+                <div style={{color:"rgba(255,255,255,.55)",fontSize:9,
+                  fontWeight:700,marginTop:2,letterSpacing:.5}}>{item.l.toUpperCase()}</div>
+              </div>
+            );})}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:560,margin:"0 auto",padding:"20px 16px 48px",
+        display:"flex",flexDirection:"column",gap:12}}>
+
+        {/* Bio */}
+        {player.playerBio&&(
+          <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,padding:"14px 16px"}}>
+            <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>ABOUT</div>
+            <div style={{color:"#444",fontSize:14,lineHeight:1.7}}>{player.playerBio}</div>
+          </div>
+        )}
+
+        {/* Coach profile */}
+        {player.coachScoutNotes&&(
+          <div style={{background:"#fff8f3",border:"1px solid "+A+"33",
+            borderLeft:"3px solid "+A,borderRadius:"0 12px 12px 0",padding:"14px 16px"}}>
+            <div style={{color:A,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>COACH PROFILE</div>
+            <div style={{color:"#333",fontSize:14,lineHeight:1.7}}>{player.coachScoutNotes}</div>
+          </div>
+        )}
+
+        {/* Player info */}
+        {(player.gpa||player.height||player.weight||player.gradYear)&&(
+          <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px",background:"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
+              <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>PLAYER INFO</div>
+            </div>
+            {[{l:"GPA",v:player.gpa},{l:"Height",v:player.height},
+              {l:"Weight",v:player.weight&&player.weight+" lbs"},
+              {l:"Grad Year",v:player.gradYear},
+            ].filter(function(x){return x.v;}).map(function(item,i,arr){return(
+              <div key={item.l} style={{display:"flex",justifyContent:"space-between",
+                padding:"11px 16px",borderBottom:i<arr.length-1?"1px solid #f5f5f5":"none"}}>
+                <div style={{color:"#888",fontSize:13}}>{item.l}</div>
+                <div style={{color:"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
+              </div>
+            );})}
+          </div>
+        )}
+
+        {/* Full stats */}
+        {playerGames.length>0&&(
+          <div style={{background:"#fff",border:"1px solid #eee",borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px",background:"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
+              <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5}}>SEASON STATISTICS</div>
+            </div>
+            {[{l:"Goals",v:tots.goals},{l:"Assists",v:tots.assists},
+              {l:"Shot Conversion",v:shotConv>0?shotConv+"%":"—"},
+              {l:"Pass Accuracy",v:passAcc>0?passAcc+"%":"—"},
+              {l:"Tackles",v:tots.tackles},{l:"Avg Match Rating",v:avgR>0?avgR.toFixed(1):"—"},
+              {l:"Games Played",v:gp},
+            ].map(function(item,i,arr){return(
+              <div key={item.l} style={{display:"flex",justifyContent:"space-between",
+                alignItems:"center",padding:"11px 16px",
+                borderBottom:i<arr.length-1?"1px solid #f5f5f5":"none"}}>
+                <div style={{color:"#888",fontSize:13}}>{item.l}</div>
+                <div style={{color:i<2?"#111":"#111",fontSize:14,fontWeight:700}}>{item.v}</div>
+              </div>
+            );})}
+          </div>
+        )}
+
+        {/* Highlights */}
+        {player.highlightsUrl&&(
+          <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
+            style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",
+              background:"#fff",border:"1px solid #eee",borderRadius:12,textDecoration:"none"}}>
+            <div style={{width:44,height:44,borderRadius:10,background:A+"18",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              color:A,fontSize:20,flexShrink:0}}>▶</div>
+            <div>
+              <div style={{color:"#111",fontWeight:700,fontSize:14}}>Watch Highlights</div>
+              <div style={{color:"#aaa",fontSize:11,marginTop:2}}>{player.highlightsUrl}</div>
+            </div>
+          </a>
+        )}
+
+        {/* Videos */}
+        {(player.videoLinks||[]).map(function(v){return(
+          <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer"
+            style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+              background:"#fff",border:"1px solid #eee",borderRadius:12,textDecoration:"none"}}>
+            <div style={{width:40,height:40,borderRadius:9,background:A+"15",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              color:A,fontSize:18,flexShrink:0}}>▶</div>
+            <div style={{flex:1,overflow:"hidden"}}>
+              <div style={{color:"#111",fontWeight:700,fontSize:13}}>{v.label}</div>
+              <div style={{color:"#aaa",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.url}</div>
+            </div>
+          </a>
+        );})}
+
+        {/* Schools */}
+        {(player.recruitingSchools||[]).length>0&&(
+          <div>
+            <div style={{color:"#bbb",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8,paddingLeft:2}}>INTERESTED SCHOOLS</div>
+            {(player.recruitingSchools||[]).map(function(s){
+              var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
+              var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
+              return(
+                <div key={s.id} style={{background:"#fff",border:"1px solid #eee",borderRadius:12,
+                  padding:"12px 16px",marginBottom:8,display:"flex",
+                  justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{color:"#111",fontWeight:700,fontSize:14}}>{s.school}</div>
+                    {s.contact&&<div style={{color:"#999",fontSize:12,marginTop:2}}>{s.contact}</div>}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                    <div style={{background:sc+"18",color:sc,fontSize:11,fontWeight:700,
+                      padding:"4px 10px",borderRadius:20}}>{sl}</div>
+                    <div style={{color:"#ccc",fontSize:11,marginTop:3}}>{s.division}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{textAlign:"center",marginTop:16,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:A,opacity:.35}}/>
+          <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
+        </div>
+      </div>
     </div>
   );
 }
