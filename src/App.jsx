@@ -2239,14 +2239,16 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
-    {k:"head",    label:"Head Coach",    desc:"Full access — all stats, score, subs, end game",    color:C.accent,
-     stats:["goals","assists","shots","shotsOnTarget","keyPasses","passesCompleted","passesIncomplete","tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"]},
-    {k:"attack",  label:"Attack Analyst",desc:"Goals, assists, shots, key passes",                color:"#ef4444",
-     stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
-    {k:"defence", label:"Defence Analyst",desc:"Tackles, interceptions, fouls, turnovers",        color:"#3b82f6",
-     stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
-    {k:"possession",label:"Possession Tracker",desc:"Possession timing + passing stats",          color:"#27a560",
-     stats:["passesCompleted","passesIncomplete","keyPasses"]},
+    {k:"head",      label:"Head Coach",  desc:"Full access — all stats, score, subs, end game",
+     color:C.accent, stats:["goals","assists","shots","shotsOnTarget","keyPasses","passesCompleted","passesIncomplete","tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"]},
+    {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots and key passes",
+     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
+    {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions and fouls",
+     color:"#3b82f6", stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
+    {k:"passing",   label:"Passing",     desc:"Track completed passes, incomplete passes and key passes",
+     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","keyPasses"]},
+    {k:"possession",label:"Possession",  desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
+     color:"#27a560", stats:[]},
   ];
 
   const STAT_GROUPS_LIVE = [
@@ -2525,12 +2527,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       coachName:userName, userId, teamId
     });
 
-    // Show share link immediately so coach can text it to assistants
-    const joinLink = window.location.origin+window.location.pathname+"#/live/"+sid;
-    if(window.confirm("Game created!\n\nShare this link with assistants:\n"+joinLink+"\n\nTap OK to copy it.")){
-      navigator.clipboard?.writeText(joinLink).catch(()=>{});
-    }
-
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
@@ -2649,18 +2645,29 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         vs {live.opponent}
       </h2>
       <div style={{color:C.muted,fontSize:13,marginBottom:isHost?10:24}}>
-        {isHost?"Pick your tracking role to get started":"Choose your tracking role for this session"}
+        {isHost?"Share the link below with assistants, then pick your own role":"Pick your role — you'll track this category live"}
       </div>
       {isHost&&sessionId&&(
-        <button onClick={()=>{
-          var link=window.location.origin+window.location.pathname+"#/live/"+sessionId;
-          navigator.clipboard?.writeText(link).then(()=>alert("Link copied! Send to your assistants.")).catch(()=>alert(link));
-        }}
-          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",
-            background:C.accent+"22",border:"1px solid "+C.accent+"44",borderRadius:9,
-            color:C.accent,fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:16,width:"100%"}}>
-          ⎘ Copy Join Link — share with assistants
-        </button>
+        <div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:10,
+          padding:"12px 14px",marginBottom:16}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>
+            SHARE WITH ASSISTANTS
+          </div>
+          <div style={{color:C.muted,fontSize:11,marginBottom:10,wordBreak:"break-all",
+            background:C.bg,padding:"8px 10px",borderRadius:7,fontFamily:"monospace"}}>
+            {window.location.origin+window.location.pathname+"#/live/"+sessionId}
+          </div>
+          <button onClick={()=>{
+            var link=window.location.origin+window.location.pathname+"#/live/"+sessionId;
+            navigator.clipboard?.writeText(link)
+              .then(()=>alert("Copied! Text it to your assistants."))
+              .catch(()=>alert(link));
+          }}
+            style={{width:"100%",padding:"10px",background:C.accent,border:"none",
+              borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+            ⎘ Copy Link
+          </button>
+        </div>
       )}
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {ROLES.map(r=>(
@@ -11618,12 +11625,14 @@ function LiveJoinPage(){
   var A = "#ff6b00";
 
   var ROLES = [
-    {k:"attack",   label:"Attack Analyst",   desc:"Goals, assists, shots, key passes",    color:"#ef4444",
-     stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
-    {k:"defence",  label:"Defence Analyst",  desc:"Tackles, interceptions, fouls, turnovers", color:"#3b82f6",
-     stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
-    {k:"possession",label:"Possession Tracker",desc:"Possession timing + passing stats",   color:"#27a560",
-     stats:["passesCompleted","passesIncomplete","keyPasses"]},
+    {k:"attack",    label:"Attacking",         desc:"Track goals, assists, shots and key passes",
+     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
+    {k:"defence",   label:"Defense",           desc:"Track tackles, interceptions and fouls",
+     color:"#3b82f6", stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
+    {k:"passing",   label:"Passing",           desc:"Track completed passes, incomplete passes and key passes",
+     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","keyPasses"]},
+    {k:"possession",label:"Possession",        desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
+     color:"#27a560", stats:[]},
   ];
 
   var STAT_BTNS = [
@@ -11803,6 +11812,53 @@ function LiveJoinPage(){
   var activeStat_def = STAT_BTNS.find(function(b){return b.k===activeStat;});
   var pct = possPct();
   var activePlayers = roster.filter(function(p){return true;});
+
+  // Possession full screen for possession role
+  if(role==="possession"){
+    var lp2 = possPct();
+    var homeT = possession.home + (possession.current==="home"&&possession.lastTs?Math.round((Date.now()-possession.lastTs)/1000):0);
+    var awayT = possession.away + (possession.current==="away"&&possession.lastTs?Math.round((Date.now()-possession.lastTs)/1000):0);
+    function fmtS(s){ var m=Math.floor(s/60); return m+"'"+String(s%60).padStart(2,"0")+'"'; }
+    return(
+      <div style={{height:"100vh",display:"flex",flexDirection:"column",background:"#000",userSelect:"none",overflow:"hidden"}}>
+        <div style={{background:"#0a0a0a",borderBottom:"1px solid #1a1a1a",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+          <span style={{color:"#ffffff44",fontSize:10,fontWeight:700,letterSpacing:2}}>POSSESSION</span>
+          <div style={{textAlign:"center"}}>
+            <div style={{color:"#ffffff44",fontSize:10}}>vs {(session&&session.game_setup&&session.game_setup.opponent)||""}</div>
+            <div style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:900}}>{score.our} – {score.their}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:rtStatus==="connected"?"#27a560":"#ef4444"}}/>
+            <span style={{color:"#ffffff44",fontSize:9}}>{connectedUsers.length} online</span>
+          </div>
+        </div>
+        <div style={{flex:1,display:"flex",gap:3,minHeight:0}}>
+          <button onClick={function(){togglePossession("home");}}
+            style={{flex:1,border:"none",cursor:"pointer",background:possession.current==="home"?"#ff6b00":"#0d0d0d",transition:"background .12s",position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+            {possession.current==="home"&&<div style={{position:"absolute",top:14,right:14,width:12,height:12,borderRadius:"50%",background:"rgba(0,0,0,.35)",animation:"pulse 1s infinite"}}/>}
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,letterSpacing:4,fontSize:"clamp(28px,6vw,52px)",color:possession.current==="home"?"#000":"#2a2a2a"}}>HOME</div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:"clamp(18px,4vw,32px)",color:possession.current==="home"?"rgba(0,0,0,.5)":"#1a1a1a"}}>{fmtS(homeT)}</div>
+          </button>
+          <div style={{width:3,background:"#000",flexShrink:0}}/>
+          <button onClick={function(){togglePossession("away");}}
+            style={{flex:1,border:"none",cursor:"pointer",background:possession.current==="away"?"#3b82f6":"#0d0d0d",transition:"background .12s",position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+            {possession.current==="away"&&<div style={{position:"absolute",top:14,right:14,width:12,height:12,borderRadius:"50%",background:"rgba(255,255,255,.3)",animation:"pulse 1s infinite"}}/>}
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,letterSpacing:4,fontSize:"clamp(28px,6vw,52px)",color:possession.current==="away"?"#fff":"#2a2a2a"}}>AWAY</div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:"clamp(18px,4vw,32px)",color:possession.current==="away"?"rgba(255,255,255,.5)":"#1a1a1a"}}>{fmtS(awayT)}</div>
+          </button>
+        </div>
+        <div style={{flexShrink:0}}>
+          <div style={{height:8,display:"flex",background:"#000"}}>
+            <div style={{width:lp2.home+"%",background:"#ff6b00",transition:"width .5s"}}/>
+          </div>
+          <div style={{background:"#0a0a0a",padding:"10px 20px",display:"flex",justifyContent:"space-between"}}>
+            <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:26}}>{lp2.home}%</div>
+            <div style={{color:"#3b82f6",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:26}}>{lp2.away}%</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return(
     <div style={{height:"100vh",display:"flex",flexDirection:"column",
