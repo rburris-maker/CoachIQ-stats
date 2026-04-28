@@ -2823,48 +2823,42 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       )}
 
       {/* ── POSSESSION BUTTONS ── */}
-      <div style={{background:"#0a0a0a",borderBottom:`1px solid ${C.border}`,padding:"10px 12px",display:"flex",gap:10,alignItems:"stretch",flexShrink:0}}>
+      <div style={{background:"#000",borderBottom:`1px solid ${C.border}`,
+        display:"flex",gap:3,flexShrink:0,height:90}}>
         <button onClick={()=>togglePossession("home")}
-          style={{flex:1,padding:"16px 8px",borderRadius:12,cursor:"pointer",fontWeight:900,
-            fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:1,
-            background:possession.current==="home"?C.accent:"#1a1000",
-            border:`3px solid ${possession.current==="home"?C.accent:C.border}`,
-            color:possession.current==="home"?"#000":C.muted,
-            transition:"all .15s",
-            boxShadow:possession.current==="home"?`0 0 20px ${C.accent}66`:"none",
-            display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-          <span style={{fontSize:22}}>🟠</span>
-          <span>HOME</span>
-          {possession.current==="home"&&<div style={{width:8,height:8,borderRadius:"50%",background:"#000",animation:"pulse 1s infinite"}}/>}
+          style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
+            fontSize:22,fontFamily:"'Oswald',sans-serif",letterSpacing:2,
+            background:possession.current==="home"?C.accent:"#111",
+            color:possession.current==="home"?"#000":"#444",
+            transition:"all .12s",position:"relative",
+            boxShadow:possession.current==="home"?`inset 0 -4px 0 rgba(0,0,0,.3)`:"none"}}>
+          {possession.current==="home"&&(
+            <div style={{position:"absolute",top:6,right:8,
+              width:10,height:10,borderRadius:"50%",background:"#000",
+              animation:"pulse 1s infinite"}}/>
+          )}
+          HOME
         </button>
-        <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-          <button onClick={()=>setShowNoteInput(s=>!s)}
-            style={{flex:1,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:11,
-              background:C.card,border:`1px solid ${C.border}`,color:C.muted,minWidth:44}}>
-            📝
-          </button>
-          {(()=>{var lp=possessionPct();return(
-            <div style={{textAlign:"center",padding:"4px 0"}}>
-              <div style={{color:C.accent,fontSize:11,fontWeight:800}}>{lp.home}%</div>
-              <div style={{width:44,height:4,background:C.border,borderRadius:2,margin:"3px 0",overflow:"hidden"}}>
-                <div style={{height:"100%",background:C.accent,width:lp.home+"%",transition:"width .5s"}}/>
-              </div>
-              <div style={{color:"#42a5f5",fontSize:11,fontWeight:800}}>{lp.away}%</div>
-            </div>
-          );})()}
-        </div>
+        <div style={{width:1,background:C.border,flexShrink:0}}/>
         <button onClick={()=>togglePossession("away")}
-          style={{flex:1,padding:"16px 8px",borderRadius:12,cursor:"pointer",fontWeight:900,
-            fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:1,
-            background:possession.current==="away"?"#42a5f5":"#0a1a2a",
-            border:`3px solid ${possession.current==="away"?"#42a5f5":C.border}`,
-            color:possession.current==="away"?"#000":C.muted,
-            transition:"all .15s",
-            boxShadow:possession.current==="away"?"0 0 20px #42a5f566":"none",
-            display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-          <span style={{fontSize:22}}>🔵</span>
-          <span>AWAY</span>
-          {possession.current==="away"&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff",animation:"pulse 1s infinite"}}/>}
+          style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
+            fontSize:22,fontFamily:"'Oswald',sans-serif",letterSpacing:2,
+            background:possession.current==="away"?"#3b82f6":"#111",
+            color:possession.current==="away"?"#fff":"#444",
+            transition:"all .12s",position:"relative",
+            boxShadow:possession.current==="away"?`inset 0 -4px 0 rgba(0,0,0,.3)`:"none"}}>
+          {possession.current==="away"&&(
+            <div style={{position:"absolute",top:6,right:8,
+              width:10,height:10,borderRadius:"50%",background:"rgba(255,255,255,.6)",
+              animation:"pulse 1s infinite"}}/>
+          )}
+          AWAY
+        </button>
+        <button onClick={()=>setShowNoteInput(s=>!s)}
+          style={{width:50,background:"#111",border:"none",
+            borderLeft:`1px solid ${C.border}`,cursor:"pointer",
+            color:C.muted,fontSize:18,flexShrink:0}}>
+          📝
         </button>
       </div>
 
@@ -11403,9 +11397,14 @@ function JoinActiveSession({teamId, onJoin, userId}){
   const [loading,  setLoading]  = useState(false);
 
   async function endSession(sid){
-    if(!window.confirm("End this session? This will remove it from the active games list.")) return;
     await supabase.from("live_sessions").update({status:"ended"}).eq("id",sid);
     setSessions(function(prev){return prev.filter(function(s){return s.id!==sid;});});
+  }
+
+  async function endAll(){
+    if(!window.confirm("End ALL active sessions? This cannot be undone.")) return;
+    await supabase.from("live_sessions").update({status:"ended"}).eq("team_id",teamId);
+    setSessions([]);
   }
 
   useEffect(function(){
@@ -11425,44 +11424,50 @@ function JoinActiveSession({teamId, onJoin, userId}){
   return(
     <div style={{marginTop:20,padding:"16px",background:C.accent+"15",
       border:"1px solid "+C.accent+"44",borderRadius:12}}>
-      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:10}}>
-        ACTIVE GAME IN PROGRESS
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>
+          ACTIVE SESSIONS ({sessions.length})
+        </div>
+        <button onClick={endAll}
+          style={{padding:"5px 12px",background:"transparent",
+            border:"1px solid "+C.danger+"55",borderRadius:7,
+            color:C.danger,fontWeight:700,fontSize:11,cursor:"pointer"}}>
+          End All
+        </button>
       </div>
-      {sessions.map(function(s){
-        var setup = s.game_setup||{};
-        var isOwner = s.user_id===userId;
-        return(
-          <div key={s.id} style={{display:"flex",justifyContent:"space-between",
-            alignItems:"center",gap:10}}>
-            <div style={{flex:1}}>
-              <div style={{color:C.text,fontWeight:700,fontSize:14}}>
-                vs {setup.opponent||"Unknown"}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {sessions.map(function(s){
+          var setup = s.game_setup||{};
+          return(
+            <div key={s.id} style={{display:"flex",justifyContent:"space-between",
+              alignItems:"center",gap:8,padding:"10px 12px",
+              background:C.card,borderRadius:9,border:"1px solid "+C.border}}>
+              <div style={{flex:1}}>
+                <div style={{color:C.text,fontWeight:700,fontSize:14}}>
+                  vs {setup.opponent||"Unknown"}
+                </div>
+                <div style={{color:C.muted,fontSize:11,marginTop:1}}>
+                  {setup.date||""} · {setup.location||""}
+                </div>
               </div>
-              <div style={{color:C.muted,fontSize:12,marginTop:2}}>
-                {setup.date||""} · {setup.location||""}
-                {isOwner&&<span style={{color:C.accent,marginLeft:6,fontSize:11,fontWeight:700}}>· You started this</span>}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
-              <button onClick={function(){onJoin(s.id);}}
-                style={{padding:"9px 14px",background:C.accent,border:"none",
-                  borderRadius:9,color:"#000",fontWeight:800,fontSize:13,
-                  cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-                Join →
-              </button>
-              {isOwner&&(
-                <button onClick={function(){endSession(s.id);}}
-                  style={{padding:"9px 12px",background:"transparent",
-                    border:"1px solid "+C.danger+"55",borderRadius:9,
-                    color:C.danger,fontWeight:700,fontSize:13,cursor:"pointer"}}
-                  title="End and remove this session">
-                  ✕ End
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button onClick={function(){onJoin(s.id);}}
+                  style={{padding:"8px 14px",background:C.accent,border:"none",
+                    borderRadius:8,color:"#000",fontWeight:800,fontSize:13,
+                    cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                  Join →
                 </button>
-              )}
+                <button onClick={function(){endSession(s.id);}}
+                  style={{padding:"8px 10px",background:"transparent",
+                    border:"1px solid "+C.danger+"44",borderRadius:8,
+                    color:C.danger,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  ✕
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -11711,24 +11716,34 @@ function LiveJoinPage(){
         </div>
       </div>
 
-      {/* Possession row */}
-      <div style={{background:"#0a0a0a",borderBottom:"1px solid #1a1a1a",
-        padding:"8px 12px",display:"flex",gap:8,flexShrink:0}}>
+      {/* Possession row - big buttons */}
+      <div style={{background:"#000",borderBottom:"1px solid #1a1a1a",
+        display:"flex",gap:2,flexShrink:0,height:90}}>
         <button onClick={function(){togglePossession("home");}}
-          style={{flex:1,padding:"9px",borderRadius:8,cursor:"pointer",fontWeight:800,fontSize:12,
-            fontFamily:"'Oswald',sans-serif",letterSpacing:.5,transition:"all .15s",
-            background:possession.current==="home"?A:"#1a1000",
-            border:"2px solid "+(possession.current==="home"?A:"#333"),
-            color:possession.current==="home"?"#000":"#666"}}>
-          🟠 HOME {possession.current==="home"?"●":""}
+          style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
+            fontSize:22,fontFamily:"'Outfit',sans-serif",letterSpacing:2,
+            background:possession.current==="home"?A:"#111",
+            color:possession.current==="home"?"#000":"#444",
+            transition:"all .12s",position:"relative",
+            boxShadow:possession.current==="home"?"inset 0 -4px 0 rgba(0,0,0,.3)":"none"}}>
+          {possession.current==="home"&&(
+            <div style={{position:"absolute",top:6,right:8,width:10,height:10,
+              borderRadius:"50%",background:"#000",animation:"pulse 1s infinite"}}/>
+          )}
+          HOME
         </button>
         <button onClick={function(){togglePossession("away");}}
-          style={{flex:1,padding:"9px",borderRadius:8,cursor:"pointer",fontWeight:800,fontSize:12,
-            fontFamily:"'Oswald',sans-serif",letterSpacing:.5,transition:"all .15s",
-            background:possession.current==="away"?"#3b82f6":"#0a1020",
-            border:"2px solid "+(possession.current==="away"?"#3b82f6":"#333"),
-            color:possession.current==="away"?"#fff":"#666"}}>
-          🔵 AWAY {possession.current==="away"?"●":""}
+          style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
+            fontSize:22,fontFamily:"'Outfit',sans-serif",letterSpacing:2,
+            background:possession.current==="away"?"#3b82f6":"#111",
+            color:possession.current==="away"?"#fff":"#444",
+            transition:"all .12s",position:"relative",
+            boxShadow:possession.current==="away"?"inset 0 -4px 0 rgba(0,0,0,.3)":"none"}}>
+          {possession.current==="away"&&(
+            <div style={{position:"absolute",top:6,right:8,width:10,height:10,
+              borderRadius:"50%",background:"rgba(255,255,255,.6)",animation:"pulse 1s infinite"}}/>
+          )}
+          AWAY
         </button>
       </div>
 
