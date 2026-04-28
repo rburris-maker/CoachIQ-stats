@@ -4285,6 +4285,7 @@ export default function CoachIQStats(){
   }
 
   async function deleteTeam(id){
+    if(teams.length<=1){ alert("You must have at least one team."); return; }
     const remaining = teams.filter(t=>t.id!==id);
     setTeamsState(remaining);
     await supabase.from("teams").delete().eq("id",id);
@@ -4624,15 +4625,13 @@ export default function CoachIQStats(){
                         {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:10}}>✓</span>}
                       </button>
                       <button onClick={()=>{var n=window.prompt("Rename:",t.name);if(n&&n.trim()&&n!==t.name)renameTeam(t.id,n.trim());}}
-                        style={{padding:"5px 6px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,255,255,.1)",color:"rgba(255,255,255,.25)",cursor:"pointer",fontSize:10,flexShrink:0}}>
+                        style={{padding:"6px 8px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,255,255,.15)",color:"rgba(255,255,255,.3)",cursor:"pointer",fontSize:11,flexShrink:0}}>
                         ✏
                       </button>
-                      {teams.length>1&&(
-                        <button onClick={()=>{if(window.confirm("Delete "+t.name+"? Cannot be undone."))deleteTeam(t.id);}}
-                          style={{padding:"5px 6px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,80,80,.2)",color:"rgba(255,80,80,.4)",cursor:"pointer",fontSize:10,flexShrink:0}}>
-                          ✕
-                        </button>
-                      )}
+                      <button onClick={()=>{if(window.confirm("Delete "+t.name+"?\nAll data for this team will be removed."))deleteTeam(t.id);}}
+                        style={{padding:"6px 8px",borderRadius:5,background:"transparent",border:"1px solid rgba(255,80,80,.35)",color:"rgba(255,80,80,.7)",cursor:"pointer",fontSize:11,flexShrink:0}}>
+                        ✕
+                      </button>
                     </div>
                   ))}
                   <button onClick={addTeam}
