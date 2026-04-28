@@ -11694,30 +11694,6 @@ function PublicSchedulePage(){
           </div>
         )}
 
-        {/* Add all to calendar */}
-        {upcoming.length>0&&(
-          <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
-            <button onClick={function(){downloadICS(upcoming, teamName);}}
-              style={{flex:1,padding:"10px 14px",background:"#fff",
-                border:"1px solid #ddd",borderRadius:9,color:"#555",
-                fontWeight:700,fontSize:12,cursor:"pointer",
-                display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-              ⬇ Apple / Outlook Calendar
-            </button>
-            {upcoming[0]&&(
-              <a href={makeGoogleCalUrl(upcoming[0], teamName)}
-                target="_blank" rel="noopener noreferrer"
-                style={{flex:1,padding:"10px 14px",background:"#fff",
-                  border:"1px solid #ddd",borderRadius:9,color:"#555",
-                  fontWeight:700,fontSize:12,cursor:"pointer",textDecoration:"none",
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                + Google Calendar
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Upcoming */}
         {upcoming.length>0&&(
           <div style={{marginBottom:28}}>
 
