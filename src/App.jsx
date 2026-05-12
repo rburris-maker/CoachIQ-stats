@@ -3729,7 +3729,21 @@ function LandingPage({onAuth}){
 
       </div>
 
-      {showAuth&&<AuthView mode={authMode} onAuth={onAuth} onClose={()=>setShowAuth(false)} onSwitch={m=>{setAuthMode(m);}}/>}
+      {showAuth&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:200,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+          backdropFilter:"blur(6px)"}}
+          onClick={()=>setShowAuth(false)}>
+          <div style={{position:"relative",width:"100%",maxWidth:440}}
+            onClick={e=>e.stopPropagation()}>
+            <button onClick={()=>setShowAuth(false)}
+              style={{position:"absolute",top:-40,right:0,background:"none",border:"none",
+                color:"rgba(255,255,255,.5)",fontSize:28,cursor:"pointer",lineHeight:1,
+                fontFamily:"'Outfit',sans-serif"}}>×</button>
+            <AuthView defaultMode={authMode} onAuth={e=>{setShowAuth(false);onAuth(e);}}/>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -3775,9 +3789,9 @@ function AuthView({ onAuth, defaultMode="login" }) {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",
+    <div style={{background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",
       backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)",
-      fontFamily:"'Outfit',sans-serif",padding:20}}>
+      fontFamily:"'Outfit',sans-serif",padding:20,borderRadius:16,overflow:"hidden"}}>
       <div style={{width:"100%",maxWidth:420}}>
 
         {/* Logo */}
