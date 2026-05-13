@@ -1,0 +1,91 @@
+Total lines: 12671
+
+── PlayerPortalPage at line 10180 ──
+  10180: function PlayerPortalPage(){
+  10181:   var playerId = window.location.hash.replace("#/player/","").split("?")[0];
+  10182:   var [player,    setPlayer]    = useState(null);
+  10183:   var [teamName,  setTeamName]  = useState("");
+  10184:   var [teamId,    setTeamId]    = useState(null);
+  10185:   var [games,     setGamesP]    = useState([]);
+  10186:   var [schedule,  setSchedule]  = useState([]);
+  10187:   var [practices, setPractices] = useState([]);
+  10188:   var [error,     setError]     = useState(null);
+  10189:   var [loading,   setLoading]   = useState(true);
+  10190:   var [tab,       setTab]       = useState("home");
+  10191:   var [expandedGame, setExpandedGame] = useState(null);
+  10192:   var [bio,       setBio]       = useState("");
+  10193:   var [editBio,   setEditBio]   = useState(false);
+  10194:   var [savingBio, setSavingBio] = useState(false);
+  10195:   var [copied,    setCopied]    = useState(false);
+  10196:   var [recruitCopied, setRecruitCopied] = useState(false);
+  10197:   var [photoUrl,  setPhotoUrl]  = useState("");
+  10198:   var [editPhoto, setEditPhoto] = useState(false);
+  10199:   var [photoInput,setPhotoInput]= useState("");
+  10200:   var [videos,    setVideos]    = useState([]);
+  10201:   var [addingVid, setAddingVid] = useState(false);
+  10202:   var [newVideo,  setNewVideo]  = useState({label:"",url:""});
+  10203:   var [savingVid, setSavingVid] = useState(false);
+  10204: 
+  10205:   var A = "#ff6b00";
+  10206: 
+  10207:   useEffect(function(){
+  10208:     async function load(){
+  10209:       setLoading(true);
+  10210:       try{
+  10211:         var {data:rosters} = await supabase.from("rosters").select("*");
+  10212:         var found=null, tid=null;
+  10213:         for(var i=0;i<(rosters||[]).length;i++){
+  10214:           var p=(rosters[i].players||[]).find(function(p){return p.id===playerId;});
+  10215:           if(p){found=p;tid=rosters[i].team_id;break;}
+  10216:         }
+  10217:         if(!found){setError("Player not found.");setLoading(false);return;}
+  10218:         setPlayer(Object.assign({},found,{teamId:tid}));
+  10219:         setTeamId(tid);
+  10220:         setBio(found.playerBio||"");
+  10221:         setPhotoUrl(found.photoUrl||"");
+  10222:         setVideos(found.videoLinks||[]);
+  10223:         var {data:teams} = await supabase.from("teams").select("name").eq("id",tid);
+  10224:         setTeamName(teams?.[0]?.name||"");
+  10225:         var {data:gData} = await supabase.from("games").select("*").eq("team_id",tid);
+  10226:         setGamesP((gData||[]).map(function(x){return x.data;}).filter(function(g){return g.status==="completed";}));
+  10227:         var {data:sData} = await supabase.from("schedule").select("*").eq("team_id",tid);
+  10228:         setSchedule((sData||[]).map(function(x){return x.data;}));
+  10229:         var {data:pData} = await supabase.from("practices").select("*").eq("team_id",tid);
+  10230:         setPractices((pData||[]).map(function(x){return x.data;}));
+  10231:       }catch(e){setError("Failed to load.");}
+  10232:       setLoading(false);
+  10233:     }
+  10234:     load();
+  10235:   },[]);
+  10236: 
+  10237:   async function saveField(field, value){
+  10238:     if(!player) return;
+  10239:     var {data:rosters} = await supabase.from("rosters").select("*").eq("team_id",player.teamId);
+  10240:     if(rosters&&rosters[0]){
+  10241:       var updated=(rosters[0].players||[]).map(function(p){
+  10242:         return p.id===playerId?Object.assign({},p,{[field]:value}):p;
+  10243:       });
+  10244:       await supabase.from("rosters").update({players:updated}).eq("id",rosters[0].id);
+  10245:     }
+  10246:   }
+  10247: 
+  10248:   async function saveBio(){
+  10249:     setSavingBio(true);
+  10250:     await saveField("playerBio",bio);
+  10251:     setEditBio(false);setSavingBio(false);
+  10252:     setPlayer(function(p){return Object.assign({},p,{playerBio:bio});});
+  10253:   }
+  10254: 
+  10255:   async function savePhoto(){
+  10256:     if(!photoInput.trim()) return;
+  10257:     await saveField("photoUrl",photoInput.trim());
+  10258:     setPhotoUrl(photoInput.trim());
+  10259:     setPlayer(function(p){return Object.assign({},p,{photoUrl:photoInput.trim()});});
+  ... (continues)
+
+── SquadPage / RosterPage: NOT FOUND ──
+
+── RosterPage: NOT FOUND ──
+
+── PlayersPage: NOT FOUND ──
+
