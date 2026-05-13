@@ -7034,6 +7034,17 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Calendar</h1>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button onClick={()=>{
+              if(!window.confirm("Clear all calendar events? This cannot be undone.")) return;
+              setSchedule([]);
+              setGames(prev=>prev.map(g=>({...g,calendarHidden:false,linkedCalEventId:undefined,fromCalendar:undefined})));
+              if(typeof setPractices==="function") setPractices(prev=>(prev||[]).map(p=>({...p,calendarHidden:false,linkedCalEventId:undefined})));
+            }}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.danger,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            🗑 Clear Calendar
+          </button>
           <button onClick={()=>downloadICS(allEvents,teamName)}
             style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
               background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
