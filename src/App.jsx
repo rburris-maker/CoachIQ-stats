@@ -3729,8 +3729,6 @@ function LandingPage({onAuth}){
 
       </div>
 
-    </div>
-
     {showAuth&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:200,
           display:"flex",alignItems:"center",justifyContent:"center",padding:20,
