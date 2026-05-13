@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, Trophy, Radio, BarChart2,
   Target, Award, MapPin, ChevronRight,
   Search, Calendar, AlertTriangle, RefreshCw, Cpu,
-  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft, CalendarDays, ClipboardCheck, Star, Mail
+  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft, CalendarDays, ClipboardCheck
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
