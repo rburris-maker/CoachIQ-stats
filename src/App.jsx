@@ -7037,8 +7037,9 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
           <button onClick={()=>{
               if(!window.confirm("Clear all calendar events? This cannot be undone.")) return;
               setSchedule([]);
-              setGames(prev=>prev.map(g=>({...g,calendarHidden:false,linkedCalEventId:undefined,fromCalendar:undefined})));
-              if(typeof setPractices==="function") setPractices(prev=>(prev||[]).map(p=>({...p,calendarHidden:false,linkedCalEventId:undefined})));
+              // Hide all auto-imports so nothing re-appears from games/practices tabs
+              setGames(prev=>prev.map(g=>({...g,calendarHidden:true,linkedCalEventId:undefined,fromCalendar:undefined})));
+              if(typeof setPractices==="function") setPractices(prev=>(prev||[]).map(p=>({...p,calendarHidden:true,linkedCalEventId:undefined})));
             }}
             style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
               background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
