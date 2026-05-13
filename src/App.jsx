@@ -7340,6 +7340,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                       {/* Colored top strip */}
                       <div style={{height:3,background:col}}/>
                       <div style={{padding:"8px 10px",background:C.surface}}>
+                      <button onClick={e=>{e.stopPropagation();if(evt.auto){if(evt.linkedGameId)setGames(prev=>prev.map(g=>g.id===evt.linkedGameId?{...g,calendarHidden:true}:g));if(evt.linkedPracticeId&&typeof setPractices==="function")setPractices(prev=>(prev||[]).map(p=>p.id===evt.linkedPracticeId?{...p,calendarHidden:true}:p));}else{deleteEvent(evt.id);}}} style={{position:"absolute",top:7,right:7,width:16,height:16,borderRadius:"50%",background:C.border,border:"none",color:C.muted,cursor:"pointer",fontSize:11,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}} title="Remove">×</button>
                         <div style={{display:"flex",justifyContent:"space-between",
                           alignItems:"flex-start",gap:6}}>
                           <div style={{flex:1,minWidth:0}}>
@@ -7378,12 +7379,18 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                           return(
                             <button onClick={e=>{
                                 e.stopPropagation();
-                                const newGame={id:"g"+Date.now(),opponent:evt.opponent,
-                                  date:evt.date,time:evt.time||"",location:evt.location||"Home",
-                                  ourScore:"",theirScore:"",
-                                  status:"upcoming",stats:[],coachNotes:"",formation:"4-3-3",
-                                  scheduledFromCalendar:true};
-                                setGames(prev=>[newGame,...prev]);
+                                const existingUpcoming=(games||[]).find(g=>
+                                  g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");
+                                if(existingUpcoming){
+                                  setGames(prev=>prev.map(g=>
+                                    g.id===existingUpcoming.id?{...g,status:"completed",calendarHidden:false}:g));
+                                }else{
+                                  setGames(prev=>[...prev,{
+                                    id:"g"+Date.now(),opponent:evt.opponent,
+                                    date:evt.date,time:evt.time||"",location:evt.location||"Home",
+                                    ourScore:0,theirScore:0,status:"completed",
+                                    stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);
+                                }
                                 setView("games");
                               }}
                               style={{marginTop:6,padding:"4px 10px",width:"100%",
