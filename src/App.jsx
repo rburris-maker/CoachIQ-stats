@@ -5026,7 +5026,7 @@ export default function CoachIQStats(){
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
-            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
+            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
@@ -6867,7 +6867,7 @@ function downloadICS(events, teamName){
 }
 
 
-function CalendarView({schedule, setSchedule, games, setGames, practices, setView, teamName, activeTeamId}){
+function CalendarView({schedule, setSchedule, games, setGames, practices, setPractices, setView, teamName, activeTeamId}){
   const today   = new Date();
   const [curMonth, setCurMonth] = useState(today.getMonth());
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -6888,16 +6888,39 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setVie
 
   const allEvents = useMemo(()=>{
     const evts = [...schedule];
-    games.filter(g=>g.status==="completed").forEach(g=>{
-      if(!schedule.find(e=>e.linkedGameId===g.id)){
-        evts.push({id:`auto_g_${g.id}`, type:"game", title:`vs ${g.opponent}`,
-          date:g.date, time:"", location:g.location||"",
+    // All games → calendar (completed + upcoming, dedup by opponent+date or linkedGameId)
+    (games||[]).forEach(g=>{
+      const inSched = schedule.some(e=>
+        e.linkedGameId===g.id ||
+        (e.type==="game" && e.opponent===g.opponent && e.date===g.date)
+      );
+      if(!inSched){
+        evts.push({
+          id:`auto_g_${g.id}`, type:"game",
+          title:`vs ${g.opponent}`,
+          date:g.date, time:g.time||"", location:g.location||"",
           opponent:g.opponent, linkedGameId:g.id, auto:true,
-          result:{our:g.ourScore, their:g.theirScore}});
+          result:g.status==="completed"?{our:g.ourScore,their:g.theirScore}:null
+        });
+      }
+    });
+    // All practices → calendar (dedup by date or linkedPracticeId)
+    (practices||[]).forEach(p=>{
+      const inSched = schedule.some(e=>
+        e.linkedPracticeId===p.id ||
+        (e.type==="practice" && e.date===p.date)
+      );
+      if(!inSched){
+        evts.push({
+          id:`auto_p_${p.id}`, type:"practice",
+          title:p.title||"Practice",
+          date:p.date, time:p.time||"", location:p.location||"",
+          linkedPracticeId:p.id, auto:true
+        });
       }
     });
     return evts;
-  },[schedule, games]);
+  },[schedule, games, practices]);
 
   const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
   const firstDay    = new Date(curYear, curMonth, 1).getDay();
@@ -6914,11 +6937,53 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setVie
 
   function saveEvent(){
     if(!form.date) return;
+    const evtId = editEvt||`ev${Date.now()}`;
     if(editEvt){
       setSchedule(prev=>prev.map(e=>e.id===editEvt?{...e,...form}:e));
       setEditEvt(null);
     } else {
-      setSchedule(prev=>[...prev,{id:`ev${Date.now()}`,...form,createdAt:new Date().toISOString()}]);
+      // Add to schedule
+      setSchedule(prev=>[...prev,{id:evtId,...form,createdAt:new Date().toISOString()}]);
+
+      // Sync game → Games tab (avoid duplicate by opponent+date)
+      if(form.type==="game"&&form.opponent){
+        const exists=(games||[]).some(g=>
+          g.opponent===form.opponent && g.date===form.date
+        );
+        if(!exists){
+          setGames(prev=>[...prev,{
+            id:`g${Date.now()}`,
+            opponent:form.opponent,
+            date:form.date,
+            time:form.time||"",
+            location:form.location||"Home",
+            formation:"4-3-3",
+            ourScore:"", theirScore:"",
+            status:form.date<todayStr?"completed":"upcoming",
+            stats:[], coachNotes:"",
+            linkedCalEventId:evtId
+          }]);
+        }
+      }
+
+      // Sync practice → Practice tab (avoid duplicate by date)
+      if(form.type==="practice"&&typeof setPractices==="function"){
+        const exists=(practices||[]).some(p=>p.date===form.date);
+        if(!exists){
+          setPractices(prev=>[...(prev||[]),{
+            id:`pr${Date.now()}`,
+            title:form.title||"Practice",
+            date:form.date,
+            time:form.time||"",
+            location:form.location||"",
+            notes:form.notes||"",
+            blocks:{warmup:[],technical:[],tactical:[],scrimmage:[],conditioning:[],cooldown:[]},
+            rating:0, attendance:{},
+            createdAt:new Date().toISOString(),
+            linkedCalEventId:evtId
+          }]);
+        }
+      }
     }
     setShowForm(false);
     setForm({type:"game",title:"",date:selDay||"",time:"",location:"",opponent:"",notes:""});
