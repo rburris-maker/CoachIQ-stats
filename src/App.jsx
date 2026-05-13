@@ -5526,11 +5526,6 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     return(
       <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
         {/* Async handlers extracted to avoid Babel async-in-JSX-prop error */}
-        {(function(){
-          window._gpShareFn = shareGamePlan;
-          window._gpViewFn  = viewGamePlan;
-          return null;
-        })()}
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
@@ -8925,11 +8920,6 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
         {/* Header */}
         {/* Async handlers extracted to avoid Babel async-in-JSX-prop error */}
-        {(function(){
-          window._gpShareFn = shareGamePlan;
-          window._gpViewFn  = viewGamePlan;
-          return null;
-        })()}
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}>
