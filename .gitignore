@@ -26,3 +26,19 @@ dist-ssr
 *.txt
 PlayerModal_improved.jsx
 *.bak
+
+# CoachIQ helper scripts (never commit these)
+*.py
+*.bak
+# Patch JSX files
+*_improved.jsx
+*_new.jsx
+event_card_new.jsx
+# Dump/output files
+*_dump.txt
+sync_check.txt
+creation_context.txt
+games_list.txt
+delete_dump.txt
+card_dump.txt
+*.txt
