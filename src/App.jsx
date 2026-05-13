@@ -6890,7 +6890,6 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     const evts = [...schedule];
     // All games → calendar (completed + upcoming, dedup by opponent+date or linkedGameId)
     (games||[]).forEach(g=>{
-      if(g.calendarHidden) return; // explicitly hidden by coach
       const inSched = schedule.some(e=>
         e.linkedGameId===g.id ||
         (e.type==="game" && e.opponent===g.opponent && e.date===g.date)
@@ -6907,7 +6906,6 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     });
     // All practices → calendar (dedup by date or linkedPracticeId)
     (practices||[]).forEach(p=>{
-      if(p.calendarHidden) return; // explicitly hidden by coach
       const inSched = schedule.some(e=>
         e.linkedPracticeId===p.id ||
         (e.type==="practice" && e.date===p.date)
@@ -6991,29 +6989,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     setForm({type:"game",title:"",date:selDay||"",time:"",location:"",opponent:"",notes:""});
   }
 
-  function deleteEvent(id){
-    // Find the event before removing it so we can check links
-    const removing = schedule.find(e=>e.id===id);
-    setSchedule(prev=>prev.filter(e=>e.id!==id));
-    // Remove any game/practice that was created FROM this calendar event
-    setGames(prev=>prev.filter(g=>g.linkedCalEventId!==id));
-    if(typeof setPractices==="function")
-      setPractices(prev=>(prev||[]).filter(p=>p.linkedCalEventId!==id));
-    // If this schedule event matched a game by opponent+date, mark that game
-    // as calendarHidden so allEvents won't auto-import it back
-    if(removing&&removing.type==="game"&&removing.opponent){
-      setGames(prev=>prev.map(g=>
-        g.opponent===removing.opponent&&g.date===removing.date
-          ? {...g,calendarHidden:true} : g
-      ));
-    }
-    if(removing&&removing.type==="practice"){
-      if(typeof setPractices==="function")
-        setPractices(prev=>(prev||[]).map(p=>
-          p.date===removing.date ? {...p,calendarHidden:true} : p
-        ));
-    }
-  }
+  function deleteEvent(id){ setSchedule(prev=>prev.filter(e=>e.id!==id)); }
 
   function openAdd(dateStr){
     setSelDay(dateStr);
@@ -7352,29 +7328,79 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                   const isUpcoming=evt.date>=todayStr;
                   const r=evt.result;
                   return(
-                    <div key={evt.id} style={{borderRadius:10,overflow:"hidden",border:`1px solid ${C.border}`,opacity:isPast?.7:1,transition:"border-color .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.style.borderColor=col} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                    <div key={evt.id}
+                      onClick={()=>!evt.auto&&openEdit(evt)}
+                      style={{borderRadius:10,overflow:"hidden",
+                        border:`1px solid ${C.border}`,
+                        opacity:isPast?.7:1,
+                        cursor:evt.auto?"default":"pointer",
+                        transition:"border-color .12s"}}
+                      onMouseEnter={e=>{if(!evt.auto)e.currentTarget.style.borderColor=col;}}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                      {/* Colored top strip */}
                       <div style={{height:3,background:col}}/>
-                      <div style={{padding:"8px 10px",background:C.surface,position:"relative"}}>
-                        <button onClick={e=>{e.stopPropagation();if(evt.auto){if(evt.linkedGameId)setGames(prev=>prev.map(g=>g.id===evt.linkedGameId?{...g,calendarHidden:true}:g));if(evt.linkedPracticeId&&typeof setPractices==="function")setPractices(prev=>(prev||[]).map(p=>p.id===evt.linkedPracticeId?{...p,calendarHidden:true}:p));}else{deleteEvent(evt.id);}}} title="Remove from calendar" style={{position:"absolute",top:7,right:7,width:16,height:16,borderRadius:"50%",background:C.border,border:"none",color:C.muted,cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>×</button>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,paddingRight:20}}>
-                          <div style={{flex:1,minWidth:0,cursor:evt.auto?"default":"pointer"}} onClick={()=>!evt.auto&&openEdit(evt)}>
-                            <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{evt.title||evt.opponent||"Event"}</div>
-                            <div style={{color:C.muted,fontSize:11,marginTop:2}}>{dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}</div>
-                            {evt.location&&<div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>}
+                      <div style={{padding:"8px 10px",background:C.surface}}>
+                        <div style={{display:"flex",justifyContent:"space-between",
+                          alignItems:"flex-start",gap:6}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{color:C.text,fontWeight:700,fontSize:13,
+                              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                              {evt.title||evt.opponent||"Event"}
+                            </div>
+                            <div style={{color:C.muted,fontSize:11,marginTop:2}}>
+                              {dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}
+                            </div>
+                            {evt.location&&(
+                              <div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>
+                            )}
                           </div>
                           <div style={{flexShrink:0,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
-                            {r&&<div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{r.our}–{r.their}</div>}
-                            <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,background:col+"22",color:col}}>{evt.type.toUpperCase()}</div>
-                            {evt.type==="game"&&evt.opponent&&(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed")&&<div style={{fontSize:9,fontWeight:700,color:"#27a560"}}>✓ in Games</div>}
+                            {r&&(
+                              <div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",
+                                fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>
+                                {r.our}–{r.their}
+                              </div>
+                            )}
+                            <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,
+                              background:col+"22",color:col}}>
+                              {evt.type.toUpperCase()}
+                            </div>
+                            {evt.type==="game"&&evt.opponent&&(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date)&&(
+                              <div style={{fontSize:9,fontWeight:700,color:"#27a560"}}>✓ in Games</div>
+                            )}
                           </div>
                         </div>
+                        {/* Log Result / Add to Games — inline pill always visible */}
                         {evt.type==="game"&&evt.opponent&&(()=>{
-                          const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
-                          if(already) return null;
-                          return(<button onClick={e=>{e.stopPropagation();const existing=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");if(existing){setGames(prev=>prev.map(g=>g.id===existing.id?{...g,status:"completed",calendarHidden:false}:g));}else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}setView("games");}} style={{marginTop:7,padding:"5px 10px",width:"100%",background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>+ Add to Games</button>);
+                          const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date);
+                          if(already) return null; // already shown via ✓ badge in header
+                          const isp=evt.date<todayStr;
+                          return(
+                            <button onClick={e=>{
+                                e.stopPropagation();
+                                const newGame={id:"g"+Date.now(),opponent:evt.opponent,
+                                  date:evt.date,time:evt.time||"",location:evt.location||"Home",
+                                  ourScore:"",theirScore:"",
+                                  status:"upcoming",stats:[],coachNotes:"",formation:"4-3-3",
+                                  scheduledFromCalendar:true};
+                                setGames(prev=>[newGame,...prev]);
+                                setView("games");
+                              }}
+                              style={{marginTop:6,padding:"4px 10px",width:"100%",
+                                background:C.accent+"18",
+                                border:`1px solid ${C.accent}33`,
+                                borderRadius:6,color:C.accent,
+                                fontSize:11,fontWeight:700,cursor:"pointer",
+                                textAlign:"center"}}>
+                              {isp?"Log Result →":"+ Add to Games"}
+                            </button>
+                          );
                         })()}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
