@@ -4545,7 +4545,7 @@ export default function CoachIQStats(){
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
   // ── Show onboarding if first time ────────────────────────────────────────
-  const showOnboarding = !dataLoading && hasLoadedOnce.current && teams.length===1 && roster.length===0 && games.length===0 && gamePlans.length===0;
+  const showOnboarding = !dataLoading && hasLoadedOnce.current && (teams.length===0 || (teams.length===1 && roster.length===0 && games.length===0)) && gamePlans.length===0;
 
   // ── Show loading spinner while data loads ─────────────────────────────────
   if(dataLoading) return(
@@ -10516,7 +10516,10 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
             <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:3}}>TEAMS</div>
             <div style={{color:C.text,fontSize:16,fontWeight:700}}>Manage Your Teams</div>
           </div>
-          <button onClick={addTeam}
+          <button onClick={()=>{
+              const n=window.prompt("Team name:","My Team");
+              if(n&&n.trim()) addTeam(n.trim());
+            }}
             style={{padding:"8px 16px",background:C.accent,border:"none",borderRadius:8,
               color:"#000",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
             + Add Team
