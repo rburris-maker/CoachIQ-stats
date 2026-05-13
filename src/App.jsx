@@ -6890,6 +6890,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     const evts = [...schedule];
     // All games → calendar (completed + upcoming, dedup by opponent+date or linkedGameId)
     (games||[]).forEach(g=>{
+      if(g.calendarHidden) return; // explicitly hidden by coach
       const inSched = schedule.some(e=>
         e.linkedGameId===g.id ||
         (e.type==="game" && e.opponent===g.opponent && e.date===g.date)
@@ -6906,6 +6907,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     });
     // All practices → calendar (dedup by date or linkedPracticeId)
     (practices||[]).forEach(p=>{
+      if(p.calendarHidden) return; // explicitly hidden by coach
       const inSched = schedule.some(e=>
         e.linkedPracticeId===p.id ||
         (e.type==="practice" && e.date===p.date)
@@ -6989,7 +6991,29 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     setForm({type:"game",title:"",date:selDay||"",time:"",location:"",opponent:"",notes:""});
   }
 
-  function deleteEvent(id){ setSchedule(prev=>prev.filter(e=>e.id!==id)); }
+  function deleteEvent(id){
+    // Find the event before removing it so we can check links
+    const removing = schedule.find(e=>e.id===id);
+    setSchedule(prev=>prev.filter(e=>e.id!==id));
+    // Remove any game/practice that was created FROM this calendar event
+    setGames(prev=>prev.filter(g=>g.linkedCalEventId!==id));
+    if(typeof setPractices==="function")
+      setPractices(prev=>(prev||[]).filter(p=>p.linkedCalEventId!==id));
+    // If this schedule event matched a game by opponent+date, mark that game
+    // as calendarHidden so allEvents won't auto-import it back
+    if(removing&&removing.type==="game"&&removing.opponent){
+      setGames(prev=>prev.map(g=>
+        g.opponent===removing.opponent&&g.date===removing.date
+          ? {...g,calendarHidden:true} : g
+      ));
+    }
+    if(removing&&removing.type==="practice"){
+      if(typeof setPractices==="function")
+        setPractices(prev=>(prev||[]).map(p=>
+          p.date===removing.date ? {...p,calendarHidden:true} : p
+        ));
+    }
+  }
 
   function openAdd(dateStr){
     setSelDay(dateStr);
@@ -7372,7 +7396,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                         </div>
                         {/* Log Result / Add to Games — inline pill always visible */}
                         {evt.type==="game"&&evt.opponent&&(()=>{
-                          const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date);
+                          const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
                           if(already) return null; // already shown via ✓ badge in header
                           const isp=evt.date<todayStr;
                           return(
