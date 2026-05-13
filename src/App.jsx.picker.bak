@@ -7960,8 +7960,8 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
                             {positions[0]}
                           </div>
                           <div style={{flex:1}}>
-                            <div style={{color:"rgba(255,255,255,.9)",fontWeight:700,fontSize:13}}>{c.name}</div>
-                            <div style={{color:"rgba(255,255,255,.45)",fontSize:11}}>{positions.join(" / ")}{c.grade?` · Gr.${c.grade}`:""}</div>
+                            <div style={{color:C.text,fontWeight:700,fontSize:13}}>{c.name}</div>
+                            <div style={{color:C.muted,fontSize:11}}>{positions.join(" / ")}{c.grade?` · Gr.${c.grade}`:""}</div>
                           </div>
                           {avg>0&&<span style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</span>}
                         </div>
