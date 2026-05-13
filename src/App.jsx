@@ -7252,43 +7252,72 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                     const label=evt.opponent||(evt.title&&evt.title.replace(/^vs /i,""))||evt.title;
                     return(
                       <div key={evt.id}
-                        onClick={e=>{e.stopPropagation();openEdit(evt);}}
-                        style={{display:"flex",alignItems:"center",gap:3,
-                          fontSize:10,fontWeight:700,padding:"3px 6px",
-                          borderRadius:5,marginBottom:3,
-                          background:col+"1a",
-                          borderLeft:`2.5px solid ${col}`,
-                          overflow:"hidden",cursor:evt.auto?"default":"pointer"}}>
-                        {evt.time&&(
-                          <span style={{color:col+"bb",fontSize:9,flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
-                            {evt.time.slice(0,5)}
-                          </span>
-                        )}
-                        <span style={{color:col,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {label}
-                        </span>
+                        style={{borderRadius:10,overflow:"hidden",
+                          border:`1px solid ${C.border}`,
+                          opacity:isPast?.7:1,
+                          transition:"border-color .12s",
+                          position:"relative"}}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor=col}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                        <div style={{height:3,background:col}}/>
+                        <div style={{padding:"8px 10px",background:C.surface,position:"relative"}}>
+                          <button
+                            onClick={e=>{
+                              e.stopPropagation();
+                              if(evt.auto){
+                                if(evt.linkedGameId) setGames(prev=>prev.map(g=>g.id===evt.linkedGameId?{...g,calendarHidden:true}:g));
+                                if(evt.linkedPracticeId&&typeof setPractices==="function") setPractices(prev=>(prev||[]).map(p=>p.id===evt.linkedPracticeId?{...p,calendarHidden:true}:p));
+                              } else { deleteEvent(evt.id); }
+                            }}
+                            title="Remove from calendar"
+                            style={{position:"absolute",top:7,right:7,width:16,height:16,borderRadius:"50%",
+                              background:C.border+"88",border:"none",color:C.muted,cursor:"pointer",
+                              fontSize:10,lineHeight:1,display:"flex",alignItems:"center",
+                              justifyContent:"center",zIndex:2}}>×</button>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,paddingRight:20}}>
+                            <div style={{flex:1,minWidth:0,cursor:evt.auto?"default":"pointer"}}
+                              onClick={()=>!evt.auto&&openEdit(evt)}>
+                              <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {evt.title||evt.opponent||"Event"}
+                              </div>
+                              <div style={{color:C.muted,fontSize:11,marginTop:2}}>
+                                {dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}
+                              </div>
+                              {evt.location&&<div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>}
+                            </div>
+                            <div style={{flexShrink:0,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                              {r&&<div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{r.our}–{r.their}</div>}
+                              <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,background:col+"22",color:col}}>{evt.type.toUpperCase()}</div>
+                              {evt.type==="game"&&evt.opponent&&(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed")&&(
+                                <div style={{fontSize:9,fontWeight:700,color:"#27a560"}}>✓ in Games</div>
+                              )}
+                            </div>
+                          </div>
+                          {evt.type==="game"&&evt.opponent&&(()=>{
+                            const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
+                            if(already) return null;
+                            return(
+                              <button onClick={e=>{
+                                  e.stopPropagation();
+                                  const existingUpcoming=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");
+                                  if(existingUpcoming){
+                                    setGames(prev=>prev.map(g=>g.id===existingUpcoming.id?{...g,status:"completed",calendarHidden:false}:g));
+                                  } else {
+                                    setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,
+                                      time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,
+                                      status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);
+                                  }
+                                  setView("games");
+                                }}
+                                style={{marginTop:7,padding:"5px 10px",width:"100%",background:C.accent+"18",
+                                  border:`1px solid ${C.accent}33`,borderRadius:6,color:C.accent,
+                                  fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
+                                + Add to Games
+                              </button>
+                            );
+                          })()}
+                        </div>
                       </div>
-                    );
-                  })}
-                  {dayEvts.length>2&&(
-                    <div style={{fontSize:9,color:C.muted,fontWeight:700,paddingLeft:6}}>
-                      +{dayEvts.length-2} more
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* Fill remaining cells to complete the last row */}
-            {(()=>{
-              const totalCells = firstDay + daysInMonth;
-              const remainder = totalCells % 7;
-              if(remainder===0) return null;
-              return Array(7-remainder).fill(null).map((_,i)=>(
-                <div key={`trail-${i}`}
-                  style={{minHeight:100,borderBottom:`1px solid ${C.border}`,
-                    background:C.surface+"44"}}/>
-              ));
-            })()}
           </div>
         </div>
 
