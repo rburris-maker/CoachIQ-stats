@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, Trophy, Radio, BarChart2,
   Target, Award, MapPin, ChevronRight,
   Search, Calendar, AlertTriangle, RefreshCw, Cpu,
-  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft, CalendarDays, ClipboardCheck
+  Check, Activity, Plus, Zap, Upload, Download, FileSpreadsheet, X, ClipboardList, UserPlus, Trash2, Pencil, Save, ChevronDown, Settings, BookOpen, Dumbbell, ChevronUp, AlignLeft, CalendarDays, ClipboardCheck, Star, Mail
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -3729,8 +3729,6 @@ function LandingPage({onAuth}){
 
       </div>
 
-    </div>
-
     {showAuth&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:200,
           display:"flex",alignItems:"center",justifyContent:"center",padding:20,
@@ -7106,7 +7104,7 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
   const [cForm, setCForm] = useState({name:"",primaryPos:"CM",secondaryPos:"",grade:"9",club:"",notes:""});
   const [newStatLabel, setNewStatLabel] = useState("");
   const [newStatUnit,  setNewStatUnit]  = useState("");
-  const [newStatIsTime,setNewStatIsTime]= useState(false); // NEW
+  const [newStatTimeFormat,setNewStatTimeFormat]= useState("none"); // "none"|"mmss"|"seconds"
 
   const POSITIONS = ["GK","CB","FB","DM","CM","W","ST"];
   const SCORE_CATS = [
@@ -7148,11 +7146,24 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
     return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
   }
 
-  // Detect time stat: explicit flag OR keyword in label/unit
+  // Detect MM:SS time stat
   function isTimeStat(stat){
-    if(stat.isTime) return true;
-    const lc=(stat.label+"|"+stat.unit).toLowerCase();
-    return /mile|run|time|sprint|speed|sec|min|40m|40y/.test(lc);
+    if(stat.timeFormat==="mmss") return true;
+    if(stat.isTime&&stat.timeFormat!=="seconds") return true;
+    if(!stat.timeFormat&&!stat.isTime){
+      const lc=(stat.label+"|"+stat.unit).toLowerCase();
+      return /mile|run|time|sprint|speed|min/.test(lc);
+    }
+    return false;
+  }
+  // Detect decimal-seconds stat (e.g. 40-yard dash: 4.97)
+  function isSecondsStat(stat){
+    if(stat.timeFormat==="seconds") return true;
+    if(!stat.timeFormat){
+      const lc=(stat.label+"|"+stat.unit).toLowerCase();
+      return /40|40m|40y|40yd/.test(lc);
+    }
+    return false;
   }
   function timeToSecs(str){
     if(!str) return 9999;
@@ -7211,12 +7222,12 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
 
   function addCustomStat(){
     if(!newStatLabel.trim()) return;
-    const stat={id:`st${Date.now()}`,label:newStatLabel.trim(),unit:newStatUnit.trim(),isTime:newStatIsTime};
+    const stat={id:`st${Date.now()}`,label:newStatLabel.trim(),unit:newStatUnit.trim(),isTime:newStatTimeFormat==="mmss",timeFormat:newStatTimeFormat};
     upd(t=>({
       customStats:[...(t.customStats||[]),stat],
       candidates:t.candidates.map(c=>({...c,customStats:{...c.customStats,[stat.id]:""}}))
     }));
-    setNewStatLabel(""); setNewStatUnit(""); setNewStatIsTime(false);
+    setNewStatLabel(""); setNewStatUnit(""); setNewStatTimeFormat("none");
   }
   function removeCustomStat(statId){
     upd(t=>({
@@ -7506,6 +7517,7 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                       <div>{stat.label.toUpperCase()}</div>
                       {stat.unit&&<div style={{color:C.border,fontWeight:400,fontSize:9}}>{stat.unit}</div>}
                       {isTimeStat(stat)&&<div style={{color:C.accent,fontSize:9,fontWeight:700,marginTop:1}}>⏱ MM:SS</div>}
+                      {isSecondsStat(stat)&&<div style={{color:"#42a5f5",fontSize:9,fontWeight:700,marginTop:1}}>⏱ Sec</div>}
                     </th>
                   ))}
                 </tr>
@@ -7537,7 +7549,6 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                         const key=c.id+"_"+stat.id;
                         const val=local[c.id]?.[stat.id]||"";
                         if(isTimeStat(stat)){
-                          // Wrap TimeInput so we can intercept keydown for grid navigation
                           return(
                             <td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>
                               <div onKeyDown={e=>handleKeyNav(e,c.id,stat.id)}>
@@ -7550,6 +7561,21 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                                   }}
                                 />
                               </div>
+                            </td>
+                          );
+                        }
+                        if(isSecondsStat(stat)){
+                          return(
+                            <td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>
+                              <input
+                                ref={el=>{ inputRefs.current[key]=el; }}
+                                type="number" step="0.01"
+                                value={val}
+                                onChange={e=>updateLocal(c.id,stat.id,e.target.value)}
+                                onKeyDown={e=>handleKeyNav(e,c.id,stat.id)}
+                                placeholder="4.97"
+                                style={cell}
+                              />
                             </td>
                           );
                         }
@@ -7894,18 +7920,28 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                               <label style={{color:C.muted,fontSize:12,fontWeight:600,flex:1}}>
                                 {stat.label}
                                 {stat.unit&&<span style={{color:C.border,fontWeight:400}}> ({stat.unit})</span>}
-                                {isTm&&<span style={{color:C.accent,fontSize:9,fontWeight:700,
+                                {isTimeStat(stat)&&<span style={{color:C.accent,fontSize:9,fontWeight:700,
                                   marginLeft:6,background:C.accent+"22",padding:"1px 5px",borderRadius:3}}>
                                   ⏱ MM:SS
                                 </span>}
+                                {isSecondsStat(stat)&&<span style={{color:"#42a5f5",fontSize:9,fontWeight:700,
+                                  marginLeft:6,background:"#42a5f522",padding:"1px 5px",borderRadius:3}}>
+                                  ⏱ Sec
+                                </span>}
                               </label>
-                              {isTm?(
+                              {isTimeStat(stat)?(
                                 <TimeInput
                                   value={selCandObj.customStats?.[stat.id]||""}
                                   onChange={v=>updateCustomStat(selCandObj.id,stat.id,v)}
                                   placeholder="0:00"
                                   style={iS({width:88,padding:"6px 8px",fontSize:16})}
                                 />
+                              ):isSecondsStat(stat)?(
+                                <input type="number" step="0.01"
+                                  value={selCandObj.customStats?.[stat.id]||""}
+                                  onChange={e=>updateCustomStat(selCandObj.id,stat.id,e.target.value)}
+                                  placeholder="4.97"
+                                  style={iS({width:88,textAlign:"center",fontWeight:700,fontSize:16,padding:"6px 8px"})}/>
                               ):(
                                 <input type="number" step="any"
                                   value={selCandObj.customStats?.[stat.id]||""}
@@ -8144,15 +8180,16 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                   onKeyDown={e=>e.key==="Enter"&&addCustomStat()}
                   placeholder="e.g. min, inches" style={iS()}/>
               </div>
-              {/* ── Time toggle ── */}
+              {/* ── Type toggle: Number → Seconds → MM:SS ── */}
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,whiteSpace:"nowrap"}}>TYPE</label>
-                <button onClick={()=>setNewStatIsTime(v=>!v)}
+                <button onClick={()=>setNewStatTimeFormat(f=>f==="none"?"seconds":f==="seconds"?"mmss":"none")}
                   style={{padding:"8px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
-                    whiteSpace:"nowrap",background:newStatIsTime?C.accent+"22":C.surface,
-                    border:`1.5px solid ${newStatIsTime?C.accent:C.border}`,
-                    color:newStatIsTime?C.accent:C.muted}}>
-                  {newStatIsTime?"⏱ MM:SS":"# Number"}
+                    whiteSpace:"nowrap",
+                    background:newStatTimeFormat==="mmss"?C.accent+"22":newStatTimeFormat==="seconds"?"#42a5f522":C.surface,
+                    border:`1.5px solid ${newStatTimeFormat==="mmss"?C.accent:newStatTimeFormat==="seconds"?"#42a5f5":C.border}`,
+                    color:newStatTimeFormat==="mmss"?C.accent:newStatTimeFormat==="seconds"?"#42a5f5":C.muted}}>
+                  {newStatTimeFormat==="mmss"?"⏱ MM:SS":newStatTimeFormat==="seconds"?"⏱ Seconds":"# Number"}
                 </button>
               </div>
               <button onClick={addCustomStat} disabled={!newStatLabel.trim()}
@@ -8178,6 +8215,7 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                     .map(c=>({name:c.name,val:c.customStats[stat.id]}));
                   const sorted2=[...entries].sort((a,b)=>
                     isTimeStat(stat)?timeToSecs(a.val)-timeToSecs(b.val)
+                    :isSecondsStat(stat)?parseFloat(a.val)-parseFloat(b.val)
                     :parseFloat(b.val)-parseFloat(a.val)
                   );
                   const medals=["🥇","🥈","🥉"];
@@ -8191,6 +8229,10 @@ function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamI
                           {isTimeStat(stat)&&(
                             <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,
                               background:C.accent+"22",color:C.accent}}>⏱ MM:SS</span>
+                          )}
+                          {isSecondsStat(stat)&&(
+                            <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,
+                              background:"#42a5f522",color:"#42a5f5"}}>⏱ Sec</span>
                           )}
                         </div>
                         {sorted2.length>0&&(

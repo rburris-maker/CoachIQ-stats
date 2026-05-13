@@ -7082,6 +7082,28 @@ function TimeInput({value, onChange, placeholder, style}){
   );
 }
 
+// ─── TIME INPUT ───────────────────────────────────────────────────────────────
+function TimeInput({value, onChange, placeholder, style}){
+  const [disp, setDisp] = useState(value||"");
+  useEffect(()=>{ setDisp(value||""); },[value]);
+  function fmt(raw){
+    const d=raw.replace(/\D/g,"");
+    if(!d) return "";
+    if(d.length<=2){ return "0:"+String(Math.min(parseInt(d,10),59)).padStart(2,"0"); }
+    return parseInt(d.slice(0,-2),10)+":"+String(Math.min(parseInt(d.slice(-2),10),59)).padStart(2,"0");
+  }
+  function commit(){ const f=fmt(disp); setDisp(f); onChange(f); }
+  return(
+    <input value={disp}
+      onChange={e=>setDisp(e.target.value.replace(/[^0-9:]/g,""))}
+      onBlur={commit}
+      onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();commit();} }}
+      placeholder={placeholder||"0:00"}
+      style={{textAlign:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,letterSpacing:1,...(style||{})}}
+    />
+  );
+}
+
 // ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
 function TryoutsView({tryouts, setTryouts, roster, setRoster, teams, activeTeamId, onSwitchTeam, addPlayerToTeam}){
   const [selTryout,  setSelTryout]  = useState(null);
