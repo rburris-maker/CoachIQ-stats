@@ -6959,7 +6959,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
             location:form.location||"Home",
             formation:"4-3-3",
             ourScore:"", theirScore:"",
-            status:form.date<todayStr?"completed":"upcoming",
+            status:"completed", // always completed so it shows in GamesView
             stats:[], coachNotes:"",
             linkedCalEventId:evtId
           }]);
@@ -7354,44 +7354,45 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               <div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>
                             )}
                           </div>
-                          <div style={{flexShrink:0,textAlign:"right"}}>
+                          <div style={{flexShrink:0,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
                             {r&&(
                               <div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",
                                 fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>
                                 {r.our}–{r.their}
                               </div>
                             )}
-                            {isUpcoming&&!r&&(
-                              <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,
-                                background:col+"22",color:col,marginTop:2}}>
-                                {evt.type.toUpperCase()}
-                              </div>
+                            <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,
+                              background:col+"22",color:col}}>
+                              {evt.type.toUpperCase()}
+                            </div>
+                            {evt.type==="game"&&evt.opponent&&(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date)&&(
+                              <div style={{fontSize:9,fontWeight:700,color:"#27a560"}}>✓ in Games</div>
                             )}
                           </div>
                         </div>
-                        {/* Log Result button */}
+                        {/* Log Result / Add to Games — inline pill always visible */}
                         {evt.type==="game"&&evt.opponent&&(()=>{
                           const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date);
+                          if(already) return null; // already shown via ✓ badge in header
                           const isp=evt.date<todayStr;
-                          if(already) return(
-                            <div style={{color:"#27a560",fontSize:10,fontWeight:700,marginTop:5}}>✓ Logged</div>
-                          );
                           return(
                             <button onClick={e=>{
                                 e.stopPropagation();
                                 const newGame={id:"g"+Date.now(),opponent:evt.opponent,
                                   date:evt.date,time:evt.time||"",location:evt.location||"Home",
-                                  ourScore:isp?0:"",theirScore:isp?0:"",
-                                  status:isp?"completed":"upcoming",stats:[],coachNotes:"",formation:"4-3-3"};
+                                  ourScore:"",theirScore:"",
+                                  status:"upcoming",stats:[],coachNotes:"",formation:"4-3-3",
+                                  scheduledFromCalendar:true};
                                 setGames(prev=>[newGame,...prev]);
                                 setView("games");
                               }}
                               style={{marginTop:6,padding:"4px 10px",width:"100%",
-                                background:isp?C.accent+"22":"#27a56022",
-                                border:"1px solid "+(isp?C.accent+"44":"#27a56044"),
-                                borderRadius:6,color:isp?C.accent:"#27a560",
-                                fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                              {isp?"Log Result →":"Add to Games →"}
+                                background:C.accent+"18",
+                                border:`1px solid ${C.accent}33`,
+                                borderRadius:6,color:C.accent,
+                                fontSize:11,fontWeight:700,cursor:"pointer",
+                                textAlign:"center"}}>
+                              {isp?"Log Result →":"+ Add to Games"}
                             </button>
                           );
                         })()}
