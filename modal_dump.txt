@@ -1,0 +1,213 @@
+PlayerModal: lines 1024–1234 (211 lines)
+
+  1024: function PlayerModal({player, onSave, onDelete, onClose}){
+  1025:   const isNew = !player.id;
+  1026:   const initPositions = (()=>{
+  1027:     const p = player.position || player.positions;
+  1028:     if(Array.isArray(p)&&p.length) return p;
+  1029:     if(typeof p==="string"&&p) return [p];
+  1030:     return [];
+  1031:   })();
+  1032: 
+  1033:   const [form, setForm] = useState({
+  1034:     id:        player.id       || ("p"+Date.now()),
+  1035:     name:      player.name     || "",
+  1036:     number:    player.number   ?? "",
+  1037:     positions: initPositions,
+  1038:     captain:   player.captain  || false,
+  1039:     email:     player.email    || "",
+  1040:     availability: player.availability || "available",
+  1041:     availNote:    player.availNote    || "",
+  1042:     returnDate:   player.returnDate   || "",
+  1043:     gradYear:     player.gradYear     || "",
+  1044:     height:       player.height       || "",
+  1045:     weight:       player.weight       || "",
+  1046:     gpa:          player.gpa          || "",
+  1047:     highlightsUrl:    player.highlightsUrl    || "",
+  1048:     recruitingStatus: player.recruitingStatus || "open",
+  1049:     recruitingSchools: player.recruitingSchools || [],
+  1050:     coachScoutNotes:   player.coachScoutNotes  || "",
+  1051:     videoLinks:        player.videoLinks        || [],
+  1052:     playerBio:         player.playerBio         || "",
+  1053:     initialTab:        player.initialTab        || "info",
+  1054:   });
+  1055:   const [err, setErr] = useState("");
+  1056:   const [activeTab, setActiveTab] = useState(player.initialTab||"info");
+  1057:   const [addingSchool, setAddingSchool] = useState(false);
+  1058:   const [newSchool, setNewSchool] = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
+  1059: 
+  1060:   const POSITIONS = ["GK","CB","FB","DM","CM","W","AM","ST"];
+  1061:   const primaryColor = posColor(form.positions[0]||"CM");
+  1062: 
+  1063:   function togglePos(p){
+  1064:     setForm(f=>({...f, positions: f.positions.includes(p) ? f.positions.filter(x=>x!==p) : [...f.positions,p]}));
+  1065:   }
+  1066: 
+  1067:   function addSchool(){
+  1068:     if(!newSchool.school.trim()) return;
+  1069:     setForm(f=>({...f, recruitingSchools:[...f.recruitingSchools,{...newSchool,id:"s"+Date.now()}]}));
+  1070:     setNewSchool({school:"",division:"D1",contact:"",status:"identified",notes:""});
+  1071:     setAddingSchool(false);
+  1072:   }
+  1073: 
+  1074:   function removeSchool(id){
+  1075:     setForm(f=>({...f, recruitingSchools:f.recruitingSchools.filter(s=>s.id!==id)}));
+  1076:   }
+  1077: 
+  1078:   function save(){
+  1079:     if(!form.name.trim()){ setErr("Name is required"); return; }
+  1080:     onSave({
+  1081:       ...form,
+  1082:       number: parseInt(form.number)||0,
+  1083:       position: form.positions,
+  1084:       positions: form.positions,
+  1085:     });
+  1086:   }
+  1087: 
+  1088:   const iStyle = (extra={})=>({
+  1089:     width:"100%", padding:"9px 12px", background:C.bg,
+  1090:     border:"1px solid "+C.border, borderRadius:7,
+  1091:     color:C.text, fontSize:13, outline:"none",
+  1092:     fontFamily:"'Outfit',sans-serif", boxSizing:"border-box", ...extra
+  1093:   });
+  1094: 
+  1095:   return(
+  1096:     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+  1097:       display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+  1098:       <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:16,
+  1099:         width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",padding:24}}>
+  1100: 
+  1101:         {/* Header */}
+  1102:         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+  1103:           <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>
+  1104:             {isNew?"Add Player":"Edit Player"}
+  1105:           </h2>
+  1106:           <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+  1107:         </div>
+  1108: 
+  1109:         {/* Tabs */}
+  1110:         {!isNew&&(
+  1111:           <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+C.border}}>
+  1112:             {[{t:"info",l:"Player Info"},{t:"recruiting",l:"Recruiting"}].map(item=>(
+  1113:               <button key={item.t} onClick={()=>setActiveTab(item.t)}
+  1114:                 style={{padding:"8px 16px",background:"none",border:"none",
+  1115:                   borderBottom:"2px solid "+(activeTab===item.t?C.accent:"transparent"),
+  1116:                   color:activeTab===item.t?C.accent:C.muted,cursor:"pointer",
+  1117:                   fontWeight:700,fontSize:13,marginBottom:-1}}>
+  1118:                 {item.l}
+  1119:               </button>
+  1120:             ))}
+  1121:           </div>
+  1122:         )}
+  1123: 
+  1124:         {(isNew||activeTab==="info")&&(
+  1125:           <>
+  1126:             {/* Jersey preview */}
+  1127:             <div style={{display:"flex",justifyContent:"center",marginBottom:18}}>
+  1128:               <div style={{width:64,height:64,borderRadius:14,background:primaryColor+"22",
+  1129:                 border:"3px solid "+primaryColor+"55",display:"flex",alignItems:"center",
+  1130:                 justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,
+  1131:                 color:primaryColor,fontSize:28}}>
+  1132:                 {form.number||"#"}
+  1133:               </div>
+  1134:             </div>
+  1135: 
+  1136:             <div style={{marginBottom:12}}>
+  1137:               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>NAME</label>
+  1138:               <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}
+  1139:                 placeholder="Full name" autoFocus style={iStyle()}/>
+  1140:             </div>
+  1141: 
+  1142:             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+  1143:               <div>
+  1144:                 <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>JERSEY #</label>
+  1145:                 <input type="number" value={form.number} onChange={e=>setForm(f=>({...f,number:e.target.value}))}
+  1146:                   placeholder="9" style={iStyle()}/>
+  1147:               </div>
+  1148:               <div>
+  1149:                 <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>EMAIL</label>
+  1150:                 <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+  1151:                   placeholder="player@email.com" style={iStyle()}/>
+  1152:               </div>
+  1153:             </div>
+  1154: 
+  1155:             <div style={{marginBottom:12}}>
+  1156:               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>POSITIONS</label>
+  1157:               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+  1158:                 {POSITIONS.map(p=>(
+  1159:                   <button key={p} onClick={()=>togglePos(p)}
+  1160:                     style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:700,
+  1161:                       background:form.positions.includes(p)?posColor(p)+"22":"transparent",
+  1162:                       border:"1px solid "+(form.positions.includes(p)?posColor(p):C.border),
+  1163:                       color:form.positions.includes(p)?posColor(p):C.muted}}>
+  1164:                     {p}
+  1165:                   </button>
+  1166:                 ))}
+  1167:               </div>
+  1168:             </div>
+  1169: 
+  1170:             <div style={{marginBottom:12}}>
+  1171:               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>AVAILABILITY</label>
+  1172:               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+  1173:                 {[["available","Available"],["injured","Injured"],["doubtful","Doubtful"],["suspended","Suspended"]].map(([k,l])=>(
+  1174:                   <button key={k} onClick={()=>setForm(f=>({...f,availability:k}))}
+  1175:                     style={{padding:"6px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:700,
+  1176:                       background:form.availability===k?C.accent+"22":"transparent",
+  1177:                       border:"1px solid "+(form.availability===k?C.accent:C.border),
+  1178:                       color:form.availability===k?C.accent:C.muted}}>
+  1179:                     {l}
+  1180:                   </button>
+  1181:                 ))}
+  1182:               </div>
+  1183:             </div>
+  1184: 
+  1185:             <div style={{marginBottom:12}}>
+  1186:               <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+  1187:                 <input type="checkbox" checked={form.captain}
+  1188:                   onChange={e=>setForm(f=>({...f,captain:e.target.checked}))}
+  1189:                   style={{width:16,height:16,accentColor:C.accent}}/>
+  1190:                 <span style={{color:C.text,fontSize:13,fontWeight:600}}>Team Captain</span>
+  1191:               </label>
+  1192:             </div>
+  1193: 
+  1194:             {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
+  1195:           </>
+  1196:         )}
+  1197: 
+  1198:         {!isNew&&activeTab==="recruiting"&&(
+  1199:           <RecruitingTab
+  1200:             form={form}
+  1201:             setForm={setForm}
+  1202:             addingSchool={addingSchool}
+  1203:             setAddingSchool={setAddingSchool}
+  1204:             newSchool={newSchool}
+  1205:             setNewSchool={setNewSchool}
+  1206:             addSchool={addSchool}
+  1207:             removeSchool={removeSchool}
+  1208:           />
+  1209:         )}
+  1210: 
+  1211:         {/* Actions */}
+  1212:         <div style={{display:"flex",gap:10,marginTop:20}}>
+  1213:           {!isNew&&(
+  1214:             <button onClick={()=>onDelete&&onDelete()}
+  1215:               style={{padding:"10px 14px",background:C.surface,border:"1px solid "+C.border,
+  1216:                 borderRadius:9,color:C.danger,cursor:"pointer",fontSize:13,fontWeight:700}}>
+  1217:               Delete
+  1218:             </button>
+  1219:           )}
+  1220:           <button onClick={onClose}
+  1221:             style={{flex:1,padding:"11px",background:C.surface,border:"1px solid "+C.border,
+  1222:               borderRadius:9,color:C.muted,cursor:"pointer",fontSize:14}}>
+  1223:             Cancel
+  1224:           </button>
+  1225:           <button onClick={save}
+  1226:             style={{flex:2,padding:"11px",background:C.accent,border:"none",borderRadius:9,
+  1227:               color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+  1228:             {isNew?"Add Player":"Save Changes"}
+  1229:           </button>
+  1230:         </div>
+  1231:       </div>
+  1232:     </div>
+  1233:   );
+  1234: }
