@@ -5989,6 +5989,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
   const [diagramCard, setDiagramCard] = useState(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft,   setTitleDraft]   = useState("");
 
   const FOCUS_TAGS   = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
   const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
@@ -6148,8 +6150,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     }};
     const focusCol=FOCUS_COLORS[session.focus]||C.accent;
     const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
-    const [editingTitle,setEditingTitle] = useState(false);
-    const [titleDraft,  setTitleDraft]   = useState(session.title||"");
+    // editingTitle and titleDraft declared at top of component
     const att=session.attendance||{};
     const pres=Object.values(att).filter(v=>v==="present").length;
     const abs=Object.values(att).filter(v=>v==="absent").length;
