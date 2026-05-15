@@ -11118,7 +11118,10 @@ function PortalCard({title, action, noPad, style, children}){
 function PlayerCard({player,A}){
   var pc=posColor(primaryPos(player));
   return(
-    <div onClick={function(){window.location.href=window.location.pathname+"#/player/"+player.id;}}
+    <div onClick={function(){
+      window.location.href=window.location.pathname+"#/player/"+player.id;
+      if(window.__onHashChange) window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }}
       style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
         padding:"16px 14px",cursor:"pointer",transition:"all .12s",
         display:"flex",alignItems:"center",gap:12}}
@@ -11305,6 +11308,7 @@ function PlayerPortalPage(){
   }
 
   function startEdit(){
+    if(isViewOnly) return;
     setDraft({
       playerBio:      player.playerBio||"",
       location:       player.location||"",
@@ -11426,8 +11430,13 @@ function PlayerPortalPage(){
     committed:"Committed",not_recruiting:"Not Recruiting"}[player.recruitingStatus]||"";
   var recColor  = {open:A,d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",committed:"#2e7d32",not_recruiting:"#888"}[player.recruitingStatus]||A;
 
-  var TABS = [{t:"about",l:"About"},{t:"highlights",l:"Highlights"},
-              {t:"schedule",l:"Schedule"},{t:"stats",l:"Stats"},{t:"recruit",l:"Recruit"}];
+  var TABS = [
+    {t:"about",     l:"👤 About"},
+    {t:"highlights",l:"🎥 Highlights"},
+    {t:"schedule",  l:"📅 Schedule"},
+    {t:"stats",     l:"📊 Stats"},
+    {t:"recruit",   l:"🏫 Recruit"},
+  ];
 
   // Card is defined as PortalCard outside this component — prevents focus loss
 
@@ -11598,7 +11607,7 @@ function PlayerPortalPage(){
             <div>
               {/* Highlights video */}
               {(player.highlightsUrl||(videos||[]).length>0)&&(
-                <PortalCard title="Highlights" noPad>
+                <PortalCard title="🎥 Highlights" noPad>
                   {player.highlightsUrl&&(
                     <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
                       style={{display:"block",padding:"12px 16px",textDecoration:"none",
@@ -11669,7 +11678,7 @@ function PlayerPortalPage(){
 
               {/* Next event */}
               {nextGame&&(
-                <PortalCard title="Next Game">
+                <PortalCard title="⚽ Next Game">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:14,color:"#111"}}>
@@ -11693,7 +11702,7 @@ function PlayerPortalPage(){
             {/* Main content */}
             <div>
               {/* Bio */}
-              <PortalCard title="Bio" action={!editMode&&<button onClick={startEdit}
+              <PortalCard title="📝 Bio" action={!editMode&&<button onClick={startEdit}
                 style={{background:"none",border:"1px solid #ddd",borderRadius:6,
                   padding:"4px 10px",color:"#888",fontSize:11,cursor:"pointer",fontWeight:600}}>
                 ✏ Edit
@@ -11712,7 +11721,7 @@ function PlayerPortalPage(){
               </PortalCard>
 
               {/* Academic */}
-              <PortalCard title="Academic">
+              <PortalCard title="🎓 Academic">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
                   {[
                     {key:"gpa",label:"GPA",placeholder:"3.9"},
@@ -11743,7 +11752,7 @@ function PlayerPortalPage(){
               </PortalCard>
 
               {/* Athleticism */}
-              <PortalCard title="Athleticism">
+              <PortalCard title="🏋️ Athleticism">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
                   {[
                     {key:"fortyYard",    label:"40 YARD DASH",   unit:"sec"},
@@ -11813,7 +11822,7 @@ function PlayerPortalPage(){
 
               {/* Team History */}
               {teamName&&(
-                <PortalCard title="Team History" noPad>
+                <PortalCard title="🏆 Team History" noPad>
                   <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
                     <div style={{width:44,height:44,borderRadius:8,background:posCol+"22",
                       display:"flex",alignItems:"center",justifyContent:"center",
@@ -11837,7 +11846,7 @@ function PlayerPortalPage(){
         {/* ══ HIGHLIGHTS TAB ══ */}
         {tab==="highlights"&&(
           <div style={{maxWidth:600}}>
-            <PortalCard title="My Videos" action={
+            <PortalCard title="🎬 My Videos" action={
               <button onClick={function(){setAddingVid(true);}}
                 style={{background:A,border:"none",borderRadius:7,padding:"6px 14px",
                   color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
@@ -11977,7 +11986,7 @@ function PlayerPortalPage(){
 
             {/* Recent results */}
             {sortedGames.length>0&&(
-              <PortalCard title="Recent Results" noPad style={{marginTop:0}}>
+              <PortalCard title="📈 Recent Results" noPad style={{marginTop:0}}>
                 {sortedGames.slice(0,5).map(function(g,i){
                   var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
                   var rc=win?A:loss?"#e53935":"#f57c00";
@@ -12017,7 +12026,7 @@ function PlayerPortalPage(){
         {tab==="stats"&&(
           <div style={{maxWidth:640}}>
             {/* Season summary */}
-            <PortalCard title="Season Summary">
+            <PortalCard title="📊 Season Summary">
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
@@ -12040,7 +12049,7 @@ function PlayerPortalPage(){
 
             {/* Game by game */}
             {sortedGames.length>0&&(
-              <PortalCard title="Game Log" noPad>
+              <PortalCard title="📋 Game Log" noPad>
                 {sortedGames.map(function(g,i){
                   var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
                   if(!s) return null;
@@ -12128,7 +12137,7 @@ function PlayerPortalPage(){
             </PortalCard>
 
             {/* Recruiting status */}
-            <PortalCard title="Recruiting Status">
+            <PortalCard title="📬 Recruiting Status">
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {["open","d1","d2","d3","committed","not_recruiting"].map(function(s){
                   var labels={open:"Open",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
@@ -12151,7 +12160,7 @@ function PlayerPortalPage(){
 
             {/* Schools */}
             {(player.recruitingSchools||[]).length>0&&(
-              <PortalCard title="Interested Schools" noPad>
+              <PortalCard title="🏛 Interested Schools" noPad>
                 {(player.recruitingSchools||[]).map(function(s,i){
                   var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
                   var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
