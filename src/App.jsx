@@ -6002,6 +6002,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   });
 
   const [form,setForm] = useState({
+    title:"",
     date:new Date().toISOString().split("T")[0],
     duration:"60", focus:"Mixed",
     objectives:"", linkedGame:"",
@@ -6080,6 +6081,13 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
       )}
 
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION NAME</label>
+        <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
+          placeholder="e.g. Pre-season fitness, Set piece work, Defensive shape..."
+          autoFocus style={{...iS(),background:C.card}}/>
+      </div>
+
       <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
         <div>
           <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
@@ -6140,6 +6148,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     }};
     const focusCol=FOCUS_COLORS[session.focus]||C.accent;
     const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
+    const [editingTitle,setEditingTitle] = useState(false);
+    const [titleDraft,  setTitleDraft]   = useState(session.title||"");
     const att=session.attendance||{};
     const pres=Object.values(att).filter(v=>v==="present").length;
     const abs=Object.values(att).filter(v=>v==="absent").length;
@@ -6178,6 +6188,50 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     const totalMins = SECTIONS.flatMap(s=>(blocks[s.key]||[]).map(c=>parseInt(c.duration)||0)).reduce((a,b)=>a+b,0);
 
     const ATT=[{k:"present",label:"✓",color:C.accent},{k:"absent",label:"✗",color:C.danger},{k:"injured",label:"⚕",color:C.warning}];
+
+    function saveTitle(){
+      const t=titleDraft.trim();
+      upd(()=>({title:t}));
+      setEditingTitle(false);
+    }
+
+    // ── Title editing JSX helper ──────────────────────────────────────────────
+    const TitleBlock = (
+      <div style={{marginBottom:4}}>
+        {editingTitle?(
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input value={titleDraft}
+              onChange={e=>setTitleDraft(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")saveTitle();if(e.key==="Escape")setEditingTitle(false);}}
+              autoFocus
+              style={{flex:1,padding:"6px 12px",background:C.surface,
+                border:`1px solid ${C.accent}`,borderRadius:8,
+                color:C.text,fontSize:20,fontWeight:700,outline:"none",
+                fontFamily:"'Oswald',sans-serif"}}/>
+            <button onClick={saveTitle}
+              style={{padding:"6px 14px",background:C.accent,border:"none",
+                borderRadius:8,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              Save
+            </button>
+            <button onClick={()=>setEditingTitle(false)}
+              style={{padding:"6px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
+              ✕
+            </button>
+          </div>
+        ):(
+          <div onClick={()=>{setTitleDraft(session.title||"");setEditingTitle(true);}}
+            style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",
+              color:session.title?C.text:C.muted,
+              fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,
+              padding:"4px 0"}}>
+            {session.title||"Untitled Session"}
+            <span style={{fontSize:11,color:C.muted,fontWeight:400,
+              fontFamily:"'Outfit',sans-serif",marginTop:2}}>✏ edit</span>
+          </div>
+        )}
+      </div>
+    );
 
     // ── PRINT MODE ─────────────────────────────────────────────────────────
     if(printMode){
