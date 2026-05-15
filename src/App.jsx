@@ -1929,7 +1929,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
             <div>
-              <div style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{game.date} · {game.location} · {game.formation}</div>
+              <div style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{fmtDate(game.date)} · {game.location} · {game.formation}</div>
               <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,margin:"6px 0"}}>vs {game.opponent}</h2>
               <Tag color={rc}>{res==="W"?"VICTORY":res==="L"?"DEFEAT":"DRAW"}</Tag>
             </div>
@@ -2338,7 +2338,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   )}
                 </div>
                 <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
-                  <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{game.date}</span>
+                  <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{fmtDate(game.date)}</span>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={11}/>{game.location}</span>
                   <span>{game.formation}</span>
                 </div>
@@ -5180,7 +5180,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
                   <div style={{color:C.text,fontWeight:600,fontSize:13}}>{evt.label}</div>
                   {evt.sub&&<div style={{color:C.muted,fontSize:11}}>{evt.sub}</div>}
                 </div>
-                <div style={{color:C.muted,fontSize:12,fontWeight:600,flexShrink:0}}>{evt.date}</div>
+                <div style={{color:C.muted,fontSize:12,fontWeight:600,flexShrink:0}}>{fmtDate(evt.date)}</div>
               </div>
             ))}
           </div>
@@ -6262,7 +6262,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         headerDiv.style.cssText = "margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #ff6b00;";
         headerDiv.innerHTML = `
           <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#cc4400;text-transform:uppercase;margin-bottom:6px;">
-            Training Session &nbsp;·&nbsp; ${session.date} &nbsp;·&nbsp; ${session.duration} mins
+            Training Session &nbsp;·&nbsp; ${fmtDate(session.date)} &nbsp;·&nbsp; ${session.duration} mins
           </div>
           <div style="font-size:28px;font-weight:900;color:#1a0d00;font-family:'Arial Black',Arial,sans-serif;margin-bottom:${session.objectives?"6px":"0"};">
             ${session.focus} Session
@@ -6400,7 +6400,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           {/* Toolbar — hidden when printing */}
           <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
             <div>
-              <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{session.date} · {session.duration} MINS</div>
+              <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{fmtDate(session.date)} · {session.duration} MINS</div>
               <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>
                 {session.focus} Session
               </h1>
@@ -6474,7 +6474,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           <div style={{flex:1}}>
             <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
               <Tag color={focusCol}>{session.focus}</Tag>
-              <span style={{color:C.muted,fontSize:12}}>{session.date} · {session.duration} mins</span>
+              <span style={{color:C.muted,fontSize:12}}>{fmtDate(session.date)} · {session.duration} mins</span>
               {linked&&<span style={{color:C.muted,fontSize:12}}>· Prep for vs {linked.opponent}</span>}
               {Object.keys(att).length>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{pres} present{abs>0?` · ${abs} absent`:""}  {inj>0?` · ${inj} injured`:""}</span>}
             </div>
@@ -6847,7 +6847,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                       <span style={{color:C.muted,fontSize:12}}>{session.duration} mins</span>
                       {linked&&<span style={{color:C.muted,fontSize:12}}>· {linked.opponent}</span>}
                     </div>
-                    <div style={{color:C.text,fontWeight:700,fontSize:14}}>{session.date}</div>
+                    <div style={{color:C.text,fontWeight:700,fontSize:14}}>{fmtDate(session.date)}</div>
                     {session.objectives&&<div style={{color:C.muted,fontSize:12,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{session.objectives}</div>}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",gap:3,alignItems:"flex-end"}}>
@@ -7581,7 +7581,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                           overflow:"hidden",cursor:evt.auto?"default":"pointer"}}>
                         {evt.time&&(
                           <span style={{color:col+"bb",fontSize:9,flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
-                            {evt.time.slice(0,5)}
+                            {fmtTime(evt.time)}
                           </span>
                         )}
                         <span style={{color:col,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -7693,7 +7693,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               {evt.title||evt.opponent||"Event"}
                             </div>
                             <div style={{color:C.muted,fontSize:11,marginTop:2}}>
-                              {dayLabel}{evt.time&&` · ${evt.time.slice(0,5)}`}
+                              {dayLabel}{evt.time&&` · ${fmtTime(evt.time)}`}
                             </div>
                             {evt.location&&(
                               <div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>
@@ -9343,7 +9343,7 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
                     <div key={p.id} style={{padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
                       display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
-                        <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.date} · {p.formation}</div>
+                        <div style={{color:C.text,fontWeight:600,fontSize:13}}>{fmtDate(p.date)} · {p.formation}</div>
                         <div style={{color:C.muted,fontSize:11}}>{p.location}</div>
                       </div>
                       <div style={{fontSize:11,color:C.accent,fontWeight:700}}>{p.location}</div>
@@ -9379,7 +9379,7 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
                           border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
                           fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
                         <div style={{flex:1}}>
-                          <div style={{color:C.text,fontSize:13,fontWeight:600}}>{g.date} · {g.location}</div>
+                          <div style={{color:C.text,fontSize:13,fontWeight:600}}>{fmtDate(g.date)} · {g.location}</div>
                           {g.formation&&<div style={{color:C.muted,fontSize:11}}>Formation: {g.formation}</div>}
                         </div>
                         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
@@ -11289,7 +11289,7 @@ function PlayerPortalPage(){
                       vs {nextGame.opponent||nextGame.title}
                     </div>
                     <div style={{color:"#aaa",fontSize:12,marginTop:3}}>
-                      {nextGame.date}{nextGame.time?" · "+nextGame.time:""}
+                      {fmtDate(nextGame.date)}{nextGame.time?" · "+nextGame.time:""}
                       {nextGame.location?" · "+nextGame.location:""}
                     </div>
                   </div>
@@ -11315,7 +11315,7 @@ function PlayerPortalPage(){
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <div style={{color:"#111",fontWeight:700,fontSize:14}}>vs {lastGame.opponent}</div>
-                      <div style={{color:"#aaa",fontSize:12,marginTop:2}}>{lastGame.date}</div>
+                      <div style={{color:"#aaa",fontSize:12,marginTop:2}}>{fmtDate(lastGame.date)}</div>
                       <div style={{color:lastGame.ourScore>lastGame.theirScore?A:"#e53935",
                         fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,marginTop:4}}>
                         {lastGame.ourScore}–{lastGame.theirScore}
@@ -11399,7 +11399,7 @@ function PlayerPortalPage(){
                                   background:e.value===stat.best?C.accent+"11":C.bg,
                                   border:`1px solid ${e.value===stat.best?C.accent+"44":C.border}`,
                                   borderRadius:5,padding:"3px 8px"}}>
-                                  <span style={{color:C.muted,fontSize:9}}>{e.date}</span>
+                                  <span style={{color:C.muted,fontSize:9}}>{fmtDate(e.date)}</span>
                                   <span style={{color:e.value===stat.best?C.accent:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:12}}>{e.value}</span>
                                 </div>
                               ))}
@@ -11515,7 +11515,7 @@ function PlayerPortalPage(){
                               vs {g.opponent}
                             </div>
                             <div style={{color:"#bbb",fontSize:10,marginTop:1}}>
-                              {g.date}{g.location?" · "+g.location:""}
+                              {fmtDate(g.date)}{g.location?" · "+g.location:""}
                             </div>
                           </div>
                         </div>
@@ -11665,7 +11665,7 @@ function PlayerPortalPage(){
                           </div>
                         </div>
                         <div style={{color:"#aaa",fontSize:11,paddingLeft:16}}>
-                          {e.date}{e.time?" · "+e.time:""}{e.location?" · "+e.location:""}
+                          {fmtDate(e.date)}{e.time?" · "+e.time:""}{e.location?" · "+e.location:""}
                         </div>
                       </div>
                       <div style={{flexShrink:0,textAlign:"right"}}>
@@ -12179,7 +12179,7 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
               {(editStats.stats||[]).every(function(s){return !Object.keys(s).some(function(k){return k!=="playerId"&&s[k]>0;})})?"ADD STATS":"EDIT STATS"}
             </div>
             <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,margin:"2px 0 0"}}>
-              vs {game.opponent} · {game.date}
+              vs {game.opponent} · {fmtDate(game.date)}
             </h3>
           </div>
           <button onClick={function(){setEditStats(null);}}
