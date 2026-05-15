@@ -1490,6 +1490,13 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
             style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
             + Add Player
           </button>
+          <button onClick={()=>{
+              var link=window.location.origin+window.location.pathname+"#/team/"+activeTeamId;
+              navigator.clipboard?.writeText(link).then(()=>alert("Team link copied!\nSend this to all your players.")).catch(()=>alert(link));
+            }}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"9px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            🔗 Player Link
+          </button>
         </div>
       </div>
 
@@ -4647,6 +4654,7 @@ export default function CoachIQStats(){
 
   // ── Show auth screen if not logged in ────────────────────────────────────
   // Public routes — render before auth check
+  if(window.location.hash.startsWith("#/team/"))      return <TeamPortalPage/>;
   if(window.location.hash.startsWith("#/player/"))   return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/live/"))      return <LiveJoinPage/>;
   if(window.location.hash.startsWith("#/recruit/"))   return <PlayerPortalPage/>;
