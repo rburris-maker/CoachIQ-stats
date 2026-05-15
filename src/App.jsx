@@ -11257,11 +11257,6 @@ function PlayerPortalPage(){
   var [copied,    setCopied]    = useState(false);
   var [recruitCopied, setRecruitCopied] = useState(false);
   var [editMode,  setEditMode]  = useState(false);
-  var [authState, setAuthState] = useState("idle"); // idle|prompted|sending|code_sent|verifying
-  var [authEmail, setAuthEmail] = useState("");
-  var [authCode,  setAuthCode]  = useState("");
-  var [authError, setAuthError] = useState("");
-  var [canEdit,   setCanEdit]   = useState(false);
   var [viewCopied,setViewCopied]= useState(false);
   var [draft,     setDraft]     = useState({});
   var [saving,    setSaving]    = useState(false);
@@ -11297,19 +11292,6 @@ function PlayerPortalPage(){
     }
     load();
   },[]);
-
-  // Check if player already authenticated this session
-  useEffect(function(){
-    if(!playerId) return;
-    try{
-      var stored=sessionStorage.getItem("coachiq_player_auth_"+playerId);
-      if(stored){
-        var parsed=JSON.parse(stored);
-        if(parsed.expires>Date.now()) setCanEdit(true);
-        else sessionStorage.removeItem("coachiq_player_auth_"+playerId);
-      }
-    }catch(e){}
-  },[playerId]);
 
   async function saveField(field, value){
     if(!player) return;
@@ -11359,50 +11341,6 @@ function PlayerPortalPage(){
     setVideos(list);
     setAddingVid(false);
     setNewVideo({label:"",url:""});
-  }
-
-  async function sendOTP(){
-    if(!authEmail.trim()) return;
-    setAuthState("sending"); setAuthError("");
-    if(player.email && authEmail.trim().toLowerCase()!==player.email.trim().toLowerCase()){
-      setAuthError("That email doesn't match what your coach has on file.");
-      setAuthState("prompted"); return;
-    }
-    try{
-      var res=await fetch(SUPABASE_URL+"/auth/v1/otp",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
-        body:JSON.stringify({email:authEmail.trim(),create_user:true})
-      });
-      if(res.ok||res.status===204){ setAuthState("code_sent"); }
-      else{
-        var err=await res.json().catch(function(){return {};});
-        setAuthError(err.msg||err.message||"Failed to send code. Try again.");
-        setAuthState("prompted");
-      }
-    }catch(e){ setAuthError("Network error. Please try again."); setAuthState("prompted"); }
-  }
-
-  async function verifyOTP(){
-    if(authCode.trim().length<6) return;
-    setAuthState("verifying"); setAuthError("");
-    try{
-      var res=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=otp",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
-        body:JSON.stringify({email:authEmail.trim(),token:authCode.trim(),type:"email"})
-      });
-      if(res.ok){
-        sessionStorage.setItem("coachiq_player_auth_"+playerId, JSON.stringify({
-          email:authEmail,expires:Date.now()+86400000
-        }));
-        setCanEdit(true); setAuthState("idle"); setEditMode(true);
-        setAuthEmail(""); setAuthCode("");
-      }else{
-        setAuthError("Incorrect code. Please try again.");
-        setAuthState("code_sent");
-      }
-    }catch(e){ setAuthError("Network error."); setAuthState("code_sent"); }
   }
 
   function copyViewLink(){
@@ -11617,27 +11555,16 @@ function PlayerPortalPage(){
                       display:"flex",alignItems:"center",gap:5}}>
                     {copied?"✓ Copied":"⎘ Share"}
                   </button>
-                  {canEdit?(
-                    <>
-                      <button onClick={startEdit}
-                        style={{padding:"8px 16px",background:A,border:"none",
-                          borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>
-                        ✏ Edit Profile
-                      </button>
-                      <button onClick={copyViewLink}
-                        style={{padding:"8px 14px",background:"#f5f5f5",border:"1px solid #ddd",
-                          borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
-                        {viewCopied?"✓ Copied":"📋 View Link"}
-                      </button>
-                    </>
-                  ):(
-                    <button onClick={function(){setAuthState("prompted");}}
-                      style={{padding:"8px 16px",background:A,border:"none",
-                        borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,
-                        display:"flex",alignItems:"center",gap:5}}>
-                      ✏ Edit Profile
-                    </button>
-                  )}
+                  <button onClick={startEdit}
+                    style={{padding:"8px 16px",background:A,border:"none",
+                      borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>
+                    ✏ Edit Profile
+                  </button>
+                  <button onClick={copyViewLink}
+                    style={{padding:"8px 14px",background:"#f5f5f5",border:"1px solid #ddd",
+                      borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
+                    {viewCopied?"✓ Copied":"📋 View Link"}
+                  </button>
                 </>
               ):null}
             </div>
@@ -11659,77 +11586,6 @@ function PlayerPortalPage(){
         </div>
       </div>
 
-      {/* ── AUTH MODAL ── */}
-      {(authState==="prompted"||authState==="sending"||authState==="code_sent"||authState==="verifying")&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:1000,
-          display:"flex",alignItems:"center",justifyContent:"center",padding:20,
-          fontFamily:"'Outfit',sans-serif"}}>
-          <div style={{background:"#fff",borderRadius:16,padding:32,width:"100%",maxWidth:400,
-            boxShadow:"0 20px 60px rgba(0,0,0,.25)"}}>
-            <div style={{textAlign:"center",marginBottom:24}}>
-              <div style={{fontSize:36,marginBottom:10}}>🔐</div>
-              <h3 style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontSize:22,
-                fontWeight:800,margin:0}}>Edit Your Profile</h3>
-              <p style={{color:"#888",fontSize:13,marginTop:8,lineHeight:1.6}}>
-                {authState==="code_sent"||authState==="verifying"
-                  ?"Check your email for a 6-digit code"
-                  :"Enter the email your coach has on file for you"}
-              </p>
-            </div>
-
-            {authState!=="code_sent"&&authState!=="verifying"?(
-              <>
-                <input value={authEmail} type="email"
-                  onChange={function(e){setAuthEmail(e.target.value);setAuthError("");}}
-                  onKeyDown={function(e){if(e.key==="Enter")sendOTP();}}
-                  placeholder="your@email.com" autoFocus
-                  style={{width:"100%",padding:"12px 14px",background:"#f8f9fa",
-                    border:"1px solid #e0e0e0",borderRadius:9,color:"#111",fontSize:14,
-                    outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",
-                    marginBottom:12}}/>
-                {authError&&<div style={{color:"#e53935",fontSize:12,marginBottom:12,textAlign:"center"}}>{authError}</div>}
-                <button onClick={sendOTP}
-                  disabled={authState==="sending"||!authEmail.trim()}
-                  style={{width:"100%",padding:"13px",background:A,border:"none",borderRadius:10,
-                    color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",
-                    fontFamily:"'Oswald',sans-serif",
-                    opacity:authState==="sending"||!authEmail.trim()?.6:1}}>
-                  {authState==="sending"?"Sending…":"Send Login Code →"}
-                </button>
-              </>
-            ):(
-              <>
-                <div style={{textAlign:"center",marginBottom:16,color:"#27a560",
-                  fontSize:13,fontWeight:600}}>✓ Code sent to {authEmail}</div>
-                <input value={authCode} type="text" maxLength={6}
-                  onChange={function(e){setAuthCode(e.target.value.replace(/\D/g,""));setAuthError("");}}
-                  onKeyDown={function(e){if(e.key==="Enter")verifyOTP();}}
-                  placeholder="000000" autoFocus
-                  style={{width:"100%",padding:"14px",background:"#f8f9fa",
-                    border:"2px solid "+(authError?"#e53935":"#e0e0e0"),borderRadius:9,
-                    color:"#111",fontSize:28,outline:"none",textAlign:"center",
-                    letterSpacing:10,fontFamily:"'Oswald',sans-serif",fontWeight:700,
-                    boxSizing:"border-box",marginBottom:12}}/>
-                {authError&&<div style={{color:"#e53935",fontSize:12,marginBottom:12,textAlign:"center"}}>{authError}</div>}
-                <button onClick={verifyOTP}
-                  disabled={authState==="verifying"||authCode.length<6}
-                  style={{width:"100%",padding:"13px",background:A,border:"none",borderRadius:10,
-                    color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",
-                    fontFamily:"'Oswald',sans-serif",
-                    opacity:authState==="verifying"||authCode.length<6?.5:1}}>
-                  {authState==="verifying"?"Verifying…":"✓ Verify Code"}
-                </button>
-                <button onClick={function(){setAuthState("prompted");setAuthCode("");setAuthError("");}}
-                  style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"none",
-                    color:"#888",fontSize:12,cursor:"pointer"}}>← Use a different email</button>
-              </>
-            )}
-            <button onClick={function(){setAuthState("idle");setAuthEmail("");setAuthCode("");setAuthError("");}}
-              style={{width:"100%",marginTop:6,padding:"9px",background:"none",border:"none",
-                color:"#bbb",fontSize:12,cursor:"pointer"}}>Cancel</button>
-          </div>
-        </div>
-      )}
 
       {/* ── CONTENT ── */}
       <div style={{maxWidth:960,margin:"0 auto",padding:"24px 24px 60px"}}>
