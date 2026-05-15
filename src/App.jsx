@@ -1681,6 +1681,106 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
 }
 
 
+// ── Schedule spreadsheet helpers ─────────────────────────────────────────────
+function downloadScheduleTemplate(){
+  const wb=XLSX.utils.book_new();
+  const wsData=[
+    ["Type","Date","Time","Opponent / Title","Location","Notes"],
+    ["Game","8/12/2026","7:00 PM","Teays Valley HS","Away","Conference game"],
+    ["Game","8/20/2026","7:00 PM","Granville HS","Home",""],
+    ["Game","8/27/2026","7:00 PM","Westerville South","Away",""],
+    ["Practice","8/14/2026","3:30 PM","Pre-Season Fitness","Home",""],
+    ["Practice","8/17/2026","3:30 PM","Defensive Shape","Home",""],
+    ["Scrimmage","8/10/2026","5:00 PM","Granville HS","Home","Warm-up scrimmage"],
+    ["Tournament","8/20/2026","9:00 AM","Summer Classic","Community Park","Day 1"],
+    ["Other","8/7/2026","6:00 PM","Team Meeting","School Gym","Pre-season kickoff"],
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws["!cols"]=[{wch:12},{wch:12},{wch:10},{wch:28},{wch:20},{wch:30}];
+  // Bold the header row
+  const headerStyle={font:{bold:true}};
+  ["A1","B1","C1","D1","E1","F1"].forEach(cell=>{
+    if(ws[cell]) ws[cell].s=headerStyle;
+  });
+  XLSX.utils.book_append_sheet(wb,ws,"Schedule");
+  XLSX.writeFile(wb,"CoachIQ_Schedule_Template.xlsx");
+}
+
+function parseScheduleSpreadsheet(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:"binary"});
+        const ws=wb.Sheets["Schedule"];
+        if(!ws) throw new Error("Missing 'Schedule' sheet — use the CoachIQ schedule template");
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+        const result=[];
+        for(let i=1;i<rows.length;i++){
+          const row=rows[i];
+          // Skip empty rows
+          if(!row[0]&&!row[1]&&!row[3]) continue;
+          const type=String(row[0]||"").toLowerCase().trim();
+          const validTypes=["game","practice","scrimmage","tournament","other"];
+          const mappedType=validTypes.includes(type)?type:"other";
+          // Parse date — handles Excel serial, M/D/YYYY, YYYY-MM-DD
+          let dateStr="";
+          const rawDate=row[1];
+          if(typeof rawDate==="number"){
+            // Excel date serial → JS date (Excel epoch is Dec 30 1899)
+            const d=new Date(Math.round((rawDate-25569)*86400*1000));
+            // Adjust for timezone offset
+            const local=new Date(d.getTime()+d.getTimezoneOffset()*60000);
+            dateStr=local.getFullYear()+"-"+
+              String(local.getMonth()+1).padStart(2,"0")+"-"+
+              String(local.getDate()).padStart(2,"0");
+          } else if(rawDate){
+            const s=String(rawDate).trim();
+            if(s.includes("/")){
+              const parts=s.split("/");
+              if(parts.length===3){
+                const yr=parts[2].length===2?"20"+parts[2]:parts[2];
+                dateStr=yr+"-"+String(parts[0]).padStart(2,"0")+"-"+String(parts[1]).padStart(2,"0");
+              }
+            } else if(/\d{4}-\d{2}-\d{2}/.test(s)){
+              dateStr=s;
+            }
+          }
+          // Parse time → 24hr HH:MM
+          let timeStr="";
+          const rawTime=String(row[2]||"").trim();
+          if(rawTime){
+            const tm=rawTime.match(/(\d+):(\d+)\s*(am|pm)?/i);
+            if(tm){
+              let h=parseInt(tm[1]);
+              const min=tm[2];
+              const ampm=(tm[3]||"").toUpperCase();
+              if(ampm==="PM"&&h!==12) h+=12;
+              if(ampm==="AM"&&h===12) h=0;
+              timeStr=String(h).padStart(2,"0")+":"+min;
+            }
+          }
+          const isGame=mappedType==="game"||mappedType==="scrimmage";
+          result.push({
+            id:"br"+Date.now()+i,
+            type:mappedType,
+            date:dateStr,
+            time:timeStr,
+            opponent:isGame?String(row[3]||"").trim():"",
+            title:!isGame?String(row[3]||"").trim():"",
+            location:String(row[4]||"").trim(),
+            notes:String(row[5]||"").trim(),
+          });
+        }
+        if(!result.length) throw new Error("No valid rows found — check the Type and Date columns");
+        resolve(result);
+      }catch(err){reject(err);}
+    };
+    reader.onerror=()=>reject(new Error("Failed to read file"));
+    reader.readAsBinaryString(file);
+  });
+}
+
 function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam,opponents,onViewOpponent,setOpponents}){
   const [sel,setSel]=useState(null);
   const [expanded,setExpanded]=useState(null);
@@ -6934,6 +7034,9 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
   });
   const [showBulk,  setShowBulk]  = useState(false);
   const [bulkRows,  setBulkRows]  = useState([]);
+  const [schedImporting, setSchedImporting] = useState(false);
+  const [schedMsg,       setSchedMsg]       = useState(null);
+  const schedFileRef = useRef(null);
   const [quickFill, setQuickFill] = useState({dow:1,type:"practice",time:"15:00",location:"Home",startDate:"",weeks:8});
 
   const EVENT_TYPES = [
@@ -7139,6 +7242,20 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     setShowBulk(false); setBulkRows([]);
   }
 
+    async function handleScheduleUpload(e){
+    const file=e.target.files?.[0]; if(!file) return;
+    setSchedImporting(true); setSchedMsg(null);
+    try{
+      const rows=await parseScheduleSpreadsheet(file);
+      setBulkRows(prev=>[...prev,...rows]);
+      setSchedMsg({type:"ok",text:"✓ Imported "+rows.length+" event"+(rows.length!==1?"s":"")+" — review below and click Save"});
+    }catch(err){
+      setSchedMsg({type:"err",text:err.message||"Import failed"});
+    }
+    setSchedImporting(false);
+    e.target.value="";
+  }
+
   const iStyle = (extra={}) => ({padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
     borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
     boxSizing:"border-box",width:"100%",...extra});
@@ -7216,19 +7333,59 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
             width:"100%",maxWidth:820,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
 
+            {/* Hidden file input */}
+            <input ref={schedFileRef} type="file" accept=".xlsx,.xls"
+              style={{display:"none"}} onChange={handleScheduleUpload}/>
+
             {/* Header */}
-            <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0,
-              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,margin:0}}>
-                  📅 Bulk Add Events
-                </h3>
-                <div style={{color:C.muted,fontSize:12,marginTop:3}}>
-                  Add multiple games, practices and scrimmages at once
+            <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                <div>
+                  <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,margin:0}}>
+                    📅 Schedule Builder
+                  </h3>
+                  <div style={{color:C.muted,fontSize:12,marginTop:3}}>
+                    Upload a spreadsheet or build manually below
+                  </div>
+                </div>
+                <button onClick={()=>{setShowBulk(false);setSchedMsg(null);}}
+                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+              </div>
+
+              {/* Upload strip */}
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                <button onClick={downloadScheduleTemplate}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                    background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+                    color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                  ⬇ Download Template
+                </button>
+                <button onClick={()=>schedFileRef.current?.click()}
+                  disabled={schedImporting}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                    background:C.accent,border:"none",borderRadius:9,
+                    color:"#000",cursor:"pointer",fontWeight:800,fontSize:12,
+                    fontFamily:"'Oswald',sans-serif",opacity:schedImporting?.6:1}}>
+                  {schedImporting?"Importing…":"⬆ Upload Spreadsheet"}
+                </button>
+                <div style={{color:C.muted,fontSize:11}}>
+                  or build manually using Quick Fill / Add Row below
                 </div>
               </div>
-              <button onClick={()=>setShowBulk(false)}
-                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+
+              {/* Import message */}
+              {schedMsg&&(
+                <div style={{marginTop:10,padding:"8px 14px",borderRadius:8,
+                  background:schedMsg.type==="ok"?C.accent+"18":C.danger+"18",
+                  border:`1px solid ${schedMsg.type==="ok"?C.accent+"44":C.danger+"44"}`,
+                  color:schedMsg.type==="ok"?C.accent:C.danger,
+                  fontSize:12,fontWeight:600,
+                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>{schedMsg.text}</span>
+                  <button onClick={()=>setSchedMsg(null)}
+                    style={{background:"none",border:"none",color:"inherit",cursor:"pointer",fontSize:16}}>×</button>
+                </div>
+              )}
             </div>
 
             {/* Quick Fill */}
