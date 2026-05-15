@@ -11118,7 +11118,7 @@ function PortalCard({title, action, noPad, style, children}){
 function PlayerCard({player,A}){
   var pc=posColor(primaryPos(player));
   return(
-    <div onClick={function(){window.location.hash="#/player/"+player.id;}}
+    <div onClick={function(){window.location.href=window.location.pathname+"#/player/"+player.id;}}
       style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
         padding:"16px 14px",cursor:"pointer",transition:"all .12s",
         display:"flex",alignItems:"center",gap:12}}
