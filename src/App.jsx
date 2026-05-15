@@ -4545,7 +4545,7 @@ export default function CoachIQStats(){
   if(!session) return <LandingPage onAuth={handleAuth}/>;
 
   // ── Show onboarding if first time ────────────────────────────────────────
-  const showOnboarding = !dataLoading && hasLoadedOnce.current && (teams.length===0 || (teams.length===1 && roster.length===0 && games.length===0)) && gamePlans.length===0;
+  const showOnboarding = !dataLoading && hasLoadedOnce.current && !localStorage.getItem('coachiq_onboarded') && (teams.length===0 || (teams.length===1 && roster.length===0 && games.length===0)) && gamePlans.length===0;
 
   // ── Show loading spinner while data loads ─────────────────────────────────
   if(dataLoading) return(
@@ -5017,7 +5017,7 @@ export default function CoachIQStats(){
             {showOnboarding&&<OnboardingWizard teamName={activeTeam?.name} onComplete={(name,player)=>{
               if(name&&name!==activeTeam?.name) renameTeam(safeTeamId,name);
               if(player) setRoster(prev=>[...prev,player]);
-              // onboarding dismissed - data now exists so it won't show again
+              localStorage.setItem('coachiq_onboarded','1'); // never show again on this device
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)}/>}
@@ -8927,6 +8927,12 @@ function OnboardingWizard({teamName, onComplete}){
                 color:name.trim()?"#000":"#4a2a10",fontWeight:900,fontSize:16,cursor:name.trim()?"pointer":"default",
                 fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
               NEXT →
+            </button>
+            <button onClick={()=>finish(true)}
+              style={{width:"100%",marginTop:8,padding:"10px",background:"none",
+                border:"none",color:"#7a4a2a",fontSize:13,cursor:"pointer",
+                fontFamily:"'Outfit',sans-serif"}}>
+              Skip setup — I'll add my team later
             </button>
           </div>
         )}
