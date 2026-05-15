@@ -11086,6 +11086,24 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
 
 // ─── FEEDBACK MODAL ───────────────────────────────────────────────────────────
 
+
+// PortalCard — defined OUTSIDE PlayerPortalPage to prevent focus loss on re-render
+function PortalCard({title, action, noPad, style, children}){
+  return(
+    <div style={Object.assign({background:"#fff",borderRadius:10,
+      border:"1px solid #e8eaed",marginBottom:16,overflow:"hidden"},style||{})}>
+      {title&&(
+        <div style={{padding:"14px 20px",borderBottom:"1px solid #f0f2f5",
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#111"}}>{title}</div>
+          {action}
+        </div>
+      )}
+      <div style={{padding:noPad?0:"16px 20px"}}>{children}</div>
+    </div>
+  );
+}
+
 function PlayerPortalPage(){
   var playerId = window.location.hash.replace("#/player/","").split("?")[0];
   var [player,    setPlayer]    = useState(null);
@@ -11265,37 +11283,25 @@ function PlayerPortalPage(){
   var TABS = [{t:"about",l:"About"},{t:"highlights",l:"Highlights"},
               {t:"schedule",l:"Schedule"},{t:"stats",l:"Stats"},{t:"recruit",l:"Recruit"}];
 
-  // ── Reusable card ──────────────────────────────────────────────────────────
-  function Card(props){
-    return(
-      <div style={Object.assign({background:"#fff",borderRadius:10,border:"1px solid #e8eaed",
-        marginBottom:16,overflow:"hidden"},props.style||{})}>
-        {props.title&&(
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #f0f2f5",
-            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontWeight:700,fontSize:14,color:"#111"}}>{props.title}</div>
-            {props.action}
-          </div>
-        )}
-        <div style={{padding:props.noPad?0:"16px 20px"}}>{props.children}</div>
-      </div>
-    );
-  }
+  // Card is defined as PortalCard outside this component — prevents focus loss
 
-  // ── Field row (editable) ───────────────────────────────────────────────────
-  function Field(props){
-    var val = editMode ? draft[props.field] : (player[props.field]||"");
+  // Field is inlined below to prevent focus loss
+  function renderField(fieldKey, label, placeholder){
+    var val = editMode ? (draft[fieldKey]||"") : (player[fieldKey]||"");
     return(
       <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:12,
         padding:"9px 0",borderBottom:"1px solid #f5f5f5",alignItems:"center"}}>
         <div style={{color:"#888",fontSize:12,fontWeight:600,textTransform:"uppercase",
-          letterSpacing:.5}}>{props.label}</div>
+          letterSpacing:.5}}>{label}</div>
         {editMode
-          ? <input value={draft[props.field]||""} placeholder={props.placeholder||""}
-              onChange={function(e){setDraft(function(d){return Object.assign({},d,{[props.field]:e.target.value});});}
-              } style={iS}/>
+          ? <input value={draft[fieldKey]||""} placeholder={placeholder||""}
+              onChange={function(e){
+                var k=fieldKey;
+                var v=e.target.value;
+                setDraft(function(d){return Object.assign({},d,{[k]:v});});
+              }} style={iS}/>
           : <div style={{color:val?"#111":"#bbb",fontSize:13,fontWeight:val?500:400}}>
-              {val||(props.placeholder||"—")}
+              {val||(placeholder||"—")}
             </div>
         }
       </div>
@@ -11439,7 +11445,7 @@ function PlayerPortalPage(){
             <div>
               {/* Highlights video */}
               {(player.highlightsUrl||(videos||[]).length>0)&&(
-                <Card title="Highlights" noPad>
+                <PortalCard title="Highlights" noPad>
                   {player.highlightsUrl&&(
                     <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
                       style={{display:"block",padding:"12px 16px",textDecoration:"none",
@@ -11470,11 +11476,11 @@ function PlayerPortalPage(){
                       </div>
                     </div>
                   );})}
-                </Card>
+                </PortalCard>
               )}
 
               {/* School */}
-              <Card noPad>
+              <PortalCard noPad>
                 <div style={{padding:"14px 16px",borderBottom:"1px solid #f5f5f5",
                   display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:36,height:36,borderRadius:8,background:"#f0f0f0",
@@ -11506,11 +11512,11 @@ function PlayerPortalPage(){
                     <span style={{color:"#111",fontWeight:600}}>{row.value}</span>
                   </div>
                 );})}
-              </Card>
+              </PortalCard>
 
               {/* Next event */}
               {nextGame&&(
-                <Card title="Next Game">
+                <PortalCard title="Next Game">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:14,color:"#111"}}>
@@ -11527,14 +11533,14 @@ function PlayerPortalPage(){
                       <div style={{color:A+"88",fontSize:9,fontWeight:700}}>DAYS</div>
                     </div>
                   </div>
-                </Card>
+                </PortalCard>
               )}
             </div>
 
             {/* Main content */}
             <div>
               {/* Bio */}
-              <Card title="Bio" action={!editMode&&<button onClick={startEdit}
+              <PortalCard title="Bio" action={!editMode&&<button onClick={startEdit}
                 style={{background:"none",border:"1px solid #ddd",borderRadius:6,
                   padding:"4px 10px",color:"#888",fontSize:11,cursor:"pointer",fontWeight:600}}>
                 ✏ Edit
@@ -11550,10 +11556,10 @@ function PlayerPortalPage(){
                     {player.playerBio||"No bio yet — click Edit Profile to tell your story."}
                   </div>
                 )}
-              </Card>
+              </PortalCard>
 
               {/* Academic */}
-              <Card title="Academic">
+              <PortalCard title="Academic">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
                   {[
                     {key:"gpa",label:"GPA",placeholder:"3.9"},
@@ -11580,11 +11586,11 @@ function PlayerPortalPage(){
                     );
                   })}
                 </div>
-                <Field field="transcriptUrl" label="Transcript" placeholder="Link to transcript"/>
-              </Card>
+                {renderField("transcriptUrl","Transcript","Link to transcript")}
+              </PortalCard>
 
               {/* Athleticism */}
-              <Card title="Athleticism">
+              <PortalCard title="Athleticism">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
                   {[
                     {key:"fortyYard",    label:"40 YARD DASH",   unit:"sec"},
@@ -11617,11 +11623,11 @@ function PlayerPortalPage(){
                     );
                   })}
                 </div>
-              </Card>
+              </PortalCard>
 
               {/* Coach Evaluation */}
               {scoreVals.length>0&&(
-                <Card title="Coach Evaluation" action={
+                <PortalCard title="Coach Evaluation" action={
                   <div style={{background:A+"18",border:"1px solid "+A+"33",borderRadius:20,
                     padding:"3px 12px",display:"flex",alignItems:"center",gap:5}}>
                     <span style={{color:A,fontSize:11,fontWeight:700}}>★</span>
@@ -11649,12 +11655,12 @@ function PlayerPortalPage(){
                       );
                     })}
                   </div>
-                </Card>
+                </PortalCard>
               )}
 
               {/* Team History */}
               {teamName&&(
-                <Card title="Team History" noPad>
+                <PortalCard title="Team History" noPad>
                   <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
                     <div style={{width:44,height:44,borderRadius:8,background:posCol+"22",
                       display:"flex",alignItems:"center",justifyContent:"center",
@@ -11669,7 +11675,7 @@ function PlayerPortalPage(){
                       </div>}
                     </div>
                   </div>
-                </Card>
+                </PortalCard>
               )}
             </div>
           </div>
@@ -11678,7 +11684,7 @@ function PlayerPortalPage(){
         {/* ══ HIGHLIGHTS TAB ══ */}
         {tab==="highlights"&&(
           <div style={{maxWidth:600}}>
-            <Card title="My Videos" action={
+            <PortalCard title="My Videos" action={
               <button onClick={function(){setAddingVid(true);}}
                 style={{background:A,border:"none",borderRadius:7,padding:"6px 14px",
                   color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
@@ -11733,7 +11739,7 @@ function PlayerPortalPage(){
                     style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:18}}>×</button>
                 </div>
               );})}
-            </Card>
+            </PortalCard>
           </div>
         )}
 
@@ -11742,7 +11748,7 @@ function PlayerPortalPage(){
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
               {/* Upcoming */}
-              <Card title={"Upcoming ("+upcoming.length+")"} noPad>
+              <PortalCard title={"Upcoming ("+upcoming.length+")"} noPad>
                 {upcoming.length===0?(
                   <div style={{textAlign:"center",padding:"32px 0",color:"#bbb"}}>
                     <div style={{fontSize:28,marginBottom:8}}>📅</div>
@@ -11776,10 +11782,10 @@ function PlayerPortalPage(){
                     );
                   })
                 )}
-              </Card>
+              </PortalCard>
 
               {/* Practices */}
-              <Card title={"Practices ("+practices.length+")"} noPad>
+              <PortalCard title={"Practices ("+practices.length+")"} noPad>
                 {practices.length===0?(
                   <div style={{textAlign:"center",padding:"32px 0",color:"#bbb"}}>
                     <div style={{fontSize:28,marginBottom:8}}>⚽</div>
@@ -11813,12 +11819,12 @@ function PlayerPortalPage(){
                     );
                   })
                 )}
-              </Card>
+              </PortalCard>
             </div>
 
             {/* Recent results */}
             {sortedGames.length>0&&(
-              <Card title="Recent Results" noPad style={{marginTop:0}}>
+              <PortalCard title="Recent Results" noPad style={{marginTop:0}}>
                 {sortedGames.slice(0,5).map(function(g,i){
                   var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
                   var rc=win?A:loss?"#e53935":"#f57c00";
@@ -11849,7 +11855,7 @@ function PlayerPortalPage(){
                     </div>
                   );
                 })}
-              </Card>
+              </PortalCard>
             )}
           </div>
         )}
@@ -11858,7 +11864,7 @@ function PlayerPortalPage(){
         {tab==="stats"&&(
           <div style={{maxWidth:640}}>
             {/* Season summary */}
-            <Card title="Season Summary">
+            <PortalCard title="Season Summary">
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
@@ -11877,11 +11883,11 @@ function PlayerPortalPage(){
                   Stats will appear after games are logged by your coach
                 </div>
               )}
-            </Card>
+            </PortalCard>
 
             {/* Game by game */}
             {sortedGames.length>0&&(
-              <Card title="Game Log" noPad>
+              <PortalCard title="Game Log" noPad>
                 {sortedGames.map(function(g,i){
                   var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
                   if(!s) return null;
@@ -11941,7 +11947,7 @@ function PlayerPortalPage(){
                     </div>
                   );
                 })}
-              </Card>
+              </PortalCard>
             )}
           </div>
         )}
@@ -11949,7 +11955,7 @@ function PlayerPortalPage(){
         {/* ══ RECRUIT TAB ══ */}
         {tab==="recruit"&&(
           <div style={{maxWidth:600}}>
-            <Card style={{background:A,border:"none"}}>
+            <PortalCard style={{background:A,border:"none"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{color:"rgba(0,0,0,.6)",fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:4}}>
@@ -11966,10 +11972,10 @@ function PlayerPortalPage(){
                   </button>
                 </div>
               </div>
-            </Card>
+            </PortalCard>
 
             {/* Recruiting status */}
-            <Card title="Recruiting Status">
+            <PortalCard title="Recruiting Status">
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {["open","d1","d2","d3","committed","not_recruiting"].map(function(s){
                   var labels={open:"Open",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
@@ -11988,11 +11994,11 @@ function PlayerPortalPage(){
                   );
                 })}
               </div>
-            </Card>
+            </PortalCard>
 
             {/* Schools */}
             {(player.recruitingSchools||[]).length>0&&(
-              <Card title="Interested Schools" noPad>
+              <PortalCard title="Interested Schools" noPad>
                 {(player.recruitingSchools||[]).map(function(s,i){
                   var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
                   var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
@@ -12010,7 +12016,7 @@ function PlayerPortalPage(){
                     </div>
                   );
                 })}
-              </Card>
+              </PortalCard>
             )}
 
             <div style={{textAlign:"center",padding:"16px 0",display:"flex",
@@ -12024,6 +12030,7 @@ function PlayerPortalPage(){
     </div>
   );
 }
+
 
 
 // ─── RECRUITING TAB COMPONENT ─────────────────────────────────────────────────
