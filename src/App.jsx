@@ -6975,7 +6975,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
             time:form.time||"",
             location:form.location||"",
             notes:form.notes||"",
-            blocks:{warmup:[],technical:[],tactical:[],scrimmage:[],conditioning:[],cooldown:[]},
+            blocks:{warmup:[],main:[],cooldown:[]}, playerNotes:[],
             rating:0, attendance:{},
             createdAt:new Date().toISOString(),
             linkedCalEventId:evtId
