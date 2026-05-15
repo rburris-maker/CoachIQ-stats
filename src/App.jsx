@@ -4649,7 +4649,7 @@ export default function CoachIQStats(){
   // Public routes — render before auth check
   if(window.location.hash.startsWith("#/player/"))   return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/live/"))      return <LiveJoinPage/>;
-  if(window.location.hash.startsWith("#/recruit/"))   return <RecruitProfilePage/>;
+  if(window.location.hash.startsWith("#/recruit/"))   return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/schedule/")) return <PublicSchedulePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
@@ -11105,7 +11105,7 @@ function PortalCard({title, action, noPad, style, children}){
 }
 
 function PlayerPortalPage(){
-  var playerId = window.location.hash.replace("#/player/","").split("?")[0];
+  var playerId = window.location.hash.replace("#/recruit/","").replace("#/player/","").split("?")[0];
   var [player,    setPlayer]    = useState(null);
   var [teamName,  setTeamName]  = useState("");
   var [games,     setGamesP]    = useState([]);
@@ -11113,7 +11113,7 @@ function PlayerPortalPage(){
   var [practices, setPractices] = useState([]);
   var [error,     setError]     = useState(null);
   var [loading,   setLoading]   = useState(true);
-  var [tab,       setTab]       = useState("about");
+  var [tab,       setTab]       = useState(window.location.hash.startsWith("#/recruit/")?"recruit":"about");
   var [expandedGame, setExpandedGame] = useState(null);
   var [photoUrl,  setPhotoUrl]  = useState("");
   var [videos,    setVideos]    = useState([]);
@@ -11325,7 +11325,7 @@ function PlayerPortalPage(){
         {/* Player row */}
         <div style={{maxWidth:960,margin:"0 auto",padding:"0 24px"}}>
           <div style={{display:"flex",alignItems:"flex-end",gap:20,
-            marginTop:-56,paddingBottom:16,flexWrap:"wrap"}}>
+            marginTop:-40,paddingBottom:16,flexWrap:"wrap"}}>
 
             {/* Photo */}
             <div style={{position:"relative",flexShrink:0}}>
@@ -11347,10 +11347,12 @@ function PlayerPortalPage(){
                 </div>
               )}
               {editMode&&(
-                <div style={{marginTop:6}}>
-                  <input value={draft.photoUrl||""} placeholder="Photo URL..."
+                <div style={{marginTop:8,maxWidth:130}}>
+                  <div style={{color:"#888",fontSize:9,fontWeight:700,
+                    letterSpacing:.5,marginBottom:3}}>PHOTO URL</div>
+                  <input value={draft.photoUrl||""} placeholder="Paste image URL..."
                     onChange={function(e){setDraft(function(d){return Object.assign({},d,{photoUrl:e.target.value});});}}
-                    style={{...iS,fontSize:11,padding:"4px 8px"}}/>
+                    style={{...iS,fontSize:10,padding:"4px 8px"}}/>
                 </div>
               )}
             </div>
