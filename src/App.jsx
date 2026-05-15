@@ -533,6 +533,24 @@ const GAMES = [
 // Caps: Attack ≤ 2.5 | Possession ≤ 1.5 | Defensive ≤ 2.0 | Bonus ≤ 1.0 | Errors ≥ −3.0
 // Scale: 9–10 Dominant | 8–8.9 Excellent | 7–7.9 Strong | 6–6.9 Solid | 5–5.9 Below Par | <5 Poor
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Date/time display helpers ─────────────────────────────────────────────────
+function fmtTime(t){
+  if(!t) return "";
+  try{
+    const [h,m]=String(t).split(":");
+    const hr=parseInt(h); if(isNaN(hr)) return t;
+    return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"AM");
+  }catch(e){return t;}
+}
+function fmtDate(d){
+  if(!d) return "";
+  try{
+    const dt=new Date(d+"T12:00:00");
+    return (dt.getMonth()+1)+"/"+(dt.getDate())+"/"+dt.getFullYear();
+  }catch(e){return d;}
+}
+
 function calcRating(s, position, cleanSheet = false) {
   if (!s) return { rating:6.0, label:"Solid", coachNote:"No data.", breakdown:{attack:0,possession:0,defensive:0,bonus:0,errors:0} };
 
@@ -7046,6 +7064,17 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     {k:"other",      label:"Other",      color:"#42a5f5"},
   ];
   const typeColor = k => EVENT_TYPES.find(t=>t.k===k)?.color || C.accent;
+  // Local fmt helpers (safe even if global not in scope)
+  const _fmtTime = typeof fmtTime==="function" ? fmtTime : t=>{
+    if(!t) return "";
+    try{ const [h,m]=String(t).split(":"); const hr=parseInt(h);
+      return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"AM"); }catch(e){return t;}
+  };
+  const _fmtDate = typeof fmtDate==="function" ? fmtDate : d=>{
+    if(!d) return "";
+    try{ const dt=new Date(d+"T12:00:00");
+      return (dt.getMonth()+1)+"/"+(dt.getDate())+"/"+dt.getFullYear(); }catch(e){return d;}
+  };
 
   const allEvents = useMemo(()=>{
     const evts = [...schedule];
@@ -7738,7 +7767,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                           overflow:"hidden",cursor:evt.auto?"default":"pointer"}}>
                         {evt.time&&(
                           <span style={{color:col+"bb",fontSize:9,flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
-                            {fmtTime(evt.time)}
+                            {_fmtTime(evt.time)}
                           </span>
                         )}
                         <span style={{color:col,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -7850,7 +7879,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               {evt.title||evt.opponent||"Event"}
                             </div>
                             <div style={{color:C.muted,fontSize:11,marginTop:2}}>
-                              {dayLabel}{evt.time&&` · ${fmtTime(evt.time)}`}
+                              {dayLabel}{evt.time&&` · ${_fmtTime(evt.time)}`}
                             </div>
                             {evt.location&&(
                               <div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>
