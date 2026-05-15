@@ -6872,6 +6872,9 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
   const [form, setForm] = useState({
     type:"game", title:"", date:"", time:"", location:"", opponent:"", notes:""
   });
+  const [showBulk,  setShowBulk]  = useState(false);
+  const [bulkRows,  setBulkRows]  = useState([]);
+  const [quickFill, setQuickFill] = useState({dow:1,type:"practice",time:"15:00",location:"Home",startDate:"",weeks:8});
 
   const EVENT_TYPES = [
     {k:"game",       label:"Game",       color:"#ff6b00"},
@@ -7001,6 +7004,81 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
     setShowForm(true);
   }
 
+  // ── Bulk add helpers ──────────────────────────────────────────────────────
+  const BULK_TYPES = [
+    {k:"game",       label:"Game",       color:"#ff6b00"},
+    {k:"practice",   label:"Practice",   color:"#66bb6a"},
+    {k:"scrimmage",  label:"Scrimmage",  color:"#f59e0b"},
+    {k:"tournament", label:"Tournament", color:"#7c6af5"},
+    {k:"other",      label:"Other",      color:"#42a5f5"},
+  ];
+
+  function addBlankRow(type){
+    setBulkRows(prev=>[...prev,{id:"br"+Date.now(),type:type||"game",date:"",time:"",location:"Home",opponent:"",title:""}]);
+  }
+
+  function generateQuickFill(){
+    if(!quickFill.startDate) return;
+    const start = new Date(quickFill.startDate+"T12:00:00");
+    const rows = [];
+    for(let w=0; w<Number(quickFill.weeks); w++){
+      const d = new Date(start);
+      d.setDate(d.getDate() + w*7);
+      rows.push({
+        id:"br"+Date.now()+w,
+        type:quickFill.type,
+        date:d.toISOString().split("T")[0],
+        time:quickFill.time,
+        location:quickFill.location,
+        opponent:"",
+        title:quickFill.type==="practice"?"Practice":quickFill.type==="scrimmage"?"Scrimmage":""
+      });
+    }
+    setBulkRows(prev=>[...prev,...rows]);
+  }
+
+  function saveBulkEvents(){
+    const valid = bulkRows.filter(r=>r.date);
+    if(!valid.length) return;
+    const now = Date.now();
+    const newEvts=[], newGames=[], newPracts=[];
+    valid.forEach((row,idx)=>{
+      const evtId = "ev"+(now+idx);
+      const isGame = row.type==="game"||row.type==="scrimmage";
+      const label  = isGame ? ("vs "+(row.opponent||"TBD")) : (row.title||row.type.charAt(0).toUpperCase()+row.type.slice(1));
+      newEvts.push({
+        id:evtId, type:isGame?"game":row.type==="tournament"?"tournament":row.type==="practice"?"practice":"other",
+        title:label, date:row.date, time:row.time||"",
+        location:row.location||"", opponent:row.opponent||"",
+        scrimmage:row.type==="scrimmage",
+        createdAt:new Date().toISOString()
+      });
+      if(isGame && row.opponent){
+        const dup=(games||[]).some(g=>g.opponent===row.opponent&&g.date===row.date);
+        if(!dup) newGames.push({
+          id:"g"+(now+idx), opponent:row.opponent, date:row.date,
+          time:row.time||"", location:row.location||"Home",
+          formation:"4-3-3", ourScore:0, theirScore:0,
+          status:"completed", stats:[], coachNotes:"",
+          scrimmage:row.type==="scrimmage", fromCalendar:true
+        });
+      }
+      if(row.type==="practice"){
+        const dup=(practices||[]).some(p=>p.date===row.date);
+        if(!dup) newPracts.push({
+          id:"pr"+(now+idx), title:row.title||"Practice",
+          date:row.date, time:row.time||"", location:row.location||"",
+          blocks:{warmup:[],technical:[],tactical:[],scrimmage:[],conditioning:[],cooldown:[]},
+          rating:0, attendance:{}, createdAt:new Date().toISOString(), linkedCalEventId:evtId
+        });
+      }
+    });
+    setSchedule(prev=>[...prev,...newEvts]);
+    if(newGames.length)  setGames(prev=>[...prev,...newGames]);
+    if(newPracts.length && typeof setPractices==="function") setPractices(prev=>[...(prev||[]),...newPracts]);
+    setShowBulk(false); setBulkRows([]);
+  }
+
   const iStyle = (extra={}) => ({padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
     borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
     boxSizing:"border-box",width:"100%",...extra});
@@ -7041,6 +7119,12 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
               color:C.danger,cursor:"pointer",fontWeight:700,fontSize:12}}>
             🗑 Clear Calendar
           </button>
+          <button onClick={()=>{setBulkRows([]);setShowBulk(true);}}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            📅 Bulk Add
+          </button>
           <button onClick={()=>downloadICS(allEvents,teamName)}
             style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
               background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
@@ -7064,6 +7148,199 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
           </button>
         </div>
       </div>
+
+      {/* Bulk Add Modal */}
+      {showBulk&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+            width:"100%",maxWidth:820,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
+
+            {/* Header */}
+            <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0,
+              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,margin:0}}>
+                  📅 Bulk Add Events
+                </h3>
+                <div style={{color:C.muted,fontSize:12,marginTop:3}}>
+                  Add multiple games, practices and scrimmages at once
+                </div>
+              </div>
+              <button onClick={()=>setShowBulk(false)}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+            </div>
+
+            {/* Quick Fill */}
+            <div style={{padding:"16px 24px",borderBottom:`1px solid ${C.border}`,
+              flexShrink:0,background:C.surface}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+                QUICK FILL — REPEATING EVENTS
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+                {[
+                  {label:"Type", node:(
+                    <select value={quickFill.type} onChange={e=>setQuickFill(q=>({...q,type:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}>
+                      {BULK_TYPES.map(t=><option key={t.k} value={t.k}>{t.label}</option>)}
+                    </select>
+                  )},
+                  {label:"Day of Week", node:(
+                    <select value={quickFill.dow} onChange={e=>setQuickFill(q=>({...q,dow:parseInt(e.target.value)}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}>
+                      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=>(
+                        <option key={i} value={i}>{d}</option>
+                      ))}
+                    </select>
+                  )},
+                  {label:"Start Date", node:(
+                    <input type="date" value={quickFill.startDate}
+                      onChange={e=>setQuickFill(q=>({...q,startDate:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                  )},
+                  {label:"Weeks", node:(
+                    <input type="number" min={1} max={52} value={quickFill.weeks}
+                      onChange={e=>setQuickFill(q=>({...q,weeks:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none",width:60}}/>
+                  )},
+                  {label:"Time", node:(
+                    <input type="time" value={quickFill.time}
+                      onChange={e=>setQuickFill(q=>({...q,time:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                  )},
+                  {label:"Location", node:(
+                    <input value={quickFill.location} placeholder="Home"
+                      onChange={e=>setQuickFill(q=>({...q,location:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none",width:90}}/>
+                  )},
+                ].map(({label,node})=>(
+                  <div key={label}>
+                    <div style={{color:C.muted,fontSize:10,fontWeight:600,marginBottom:4}}>{label.toUpperCase()}</div>
+                    {node}
+                  </div>
+                ))}
+                <button onClick={generateQuickFill} disabled={!quickFill.startDate}
+                  style={{padding:"8px 16px",background:quickFill.startDate?C.accent:"#333",
+                    border:"none",borderRadius:8,color:"#000",fontWeight:800,
+                    fontSize:12,cursor:quickFill.startDate?"pointer":"not-allowed",
+                    fontFamily:"'Oswald',sans-serif",alignSelf:"flex-end",marginBottom:1}}>
+                  Generate {quickFill.weeks} Rows ↓
+                </button>
+              </div>
+            </div>
+
+            {/* Row table */}
+            <div style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
+              {bulkRows.length===0?(
+                <div style={{textAlign:"center",padding:"32px 0",color:C.muted}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📋</div>
+                  <div style={{fontWeight:700,marginBottom:4}}>No events yet</div>
+                  <div style={{fontSize:12}}>Use Quick Fill above or add rows manually below</div>
+                </div>
+              ):(
+                <div>
+                  {/* Column headers */}
+                  <div style={{display:"grid",gridTemplateColumns:"100px 110px 80px 1fr 100px 28px",
+                    gap:6,marginBottom:6,padding:"0 4px"}}>
+                    {["Type","Date","Time","Opponent / Title","Location",""].map(h=>(
+                      <div key={h} style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:.5}}>{h}</div>
+                    ))}
+                  </div>
+                  {bulkRows.map((row,idx)=>{
+                    const bt = BULK_TYPES.find(t=>t.k===row.type)||BULK_TYPES[0];
+                    const isGame = row.type==="game"||row.type==="scrimmage";
+                    return(
+                      <div key={row.id} style={{display:"grid",
+                        gridTemplateColumns:"100px 110px 80px 1fr 100px 28px",
+                        gap:6,marginBottom:6,alignItems:"center"}}>
+                        {/* Type */}
+                        <select value={row.type}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,type:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:bt.color+"18",
+                            border:`1.5px solid ${bt.color}44`,borderRadius:7,
+                            color:bt.color,fontSize:11,fontWeight:700,outline:"none",cursor:"pointer"}}>
+                          {BULK_TYPES.map(t=><option key={t.k} value={t.k}>{t.label}</option>)}
+                        </select>
+                        {/* Date */}
+                        <input type="date" value={row.date}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,date:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Time */}
+                        <input type="time" value={row.time}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,time:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Opponent / Title */}
+                        <input value={isGame?row.opponent:row.title}
+                          placeholder={isGame?"Opponent name":"Practice / Event title"}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>
+                            i===idx?isGame?{...r,opponent:e.target.value}:{...r,title:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Location */}
+                        <input value={row.location} placeholder="Location"
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,location:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Remove */}
+                        <button onClick={()=>setBulkRows(prev=>prev.filter((_,i)=>i!==idx))}
+                          style={{background:"none",border:"none",color:C.muted,cursor:"pointer",
+                            fontSize:16,lineHeight:1,padding:0}}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add row buttons */}
+              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                {BULK_TYPES.map(t=>(
+                  <button key={t.k} onClick={()=>addBlankRow(t.k)}
+                    style={{padding:"6px 14px",background:t.color+"15",
+                      border:`1px solid ${t.color}33`,borderRadius:8,
+                      color:t.color,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                    + {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,
+              flexShrink:0,display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{flex:1,color:C.muted,fontSize:12}}>
+                {bulkRows.filter(r=>r.date).length} of {bulkRows.length} events ready
+                {bulkRows.filter(r=>!r.date).length>0&&(
+                  <span style={{color:C.danger,marginLeft:6}}>
+                    ({bulkRows.filter(r=>!r.date).length} missing date)
+                  </span>
+                )}
+              </div>
+              <button onClick={()=>setShowBulk(false)}
+                style={{padding:"10px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+                Cancel
+              </button>
+              <button onClick={saveBulkEvents}
+                disabled={bulkRows.filter(r=>r.date).length===0}
+                style={{padding:"10px 24px",
+                  background:bulkRows.filter(r=>r.date).length>0?C.accent:"#333",
+                  border:"none",borderRadius:9,color:"#000",fontWeight:900,fontSize:14,
+                  cursor:bulkRows.filter(r=>r.date).length>0?"pointer":"not-allowed",
+                  fontFamily:"'Oswald',sans-serif"}}>
+                ✓ Save {bulkRows.filter(r=>r.date).length} Events
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit form modal */}
       {showForm&&(
