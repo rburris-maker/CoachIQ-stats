@@ -6026,19 +6026,19 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   }
 
   function removeCard(block, cardId){
-    setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:p.blocks[block].filter(c=>c.id!==cardId)}}:p));
+    setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:(p.blocks[block]||[]).filter(c=>c.id!==cardId)}}:p));
   }
 
   function updateCard(block, cardId, key, val){
     setPractices(prev=>prev.map(p=>p.id===sel?{
-      ...p, blocks:{...p.blocks,[block]:p.blocks[block].map(c=>c.id===cardId?{...c,[key]:val}:c)}
+      ...p, blocks:{...p.blocks,[block]:(p.blocks[block]||[]).map(c=>c.id===cardId?{...c,[key]:val}:c)}
     }:p));
   }
 
   function moveCard(block, cardId, dir){
     setPractices(prev=>prev.map(p=>{
       if(p.id!==sel) return p;
-      const arr=[...p.blocks[block]];
+      const arr=[...(p.blocks[block]||[])];
       const i=arr.findIndex(c=>c.id===cardId);
       if(dir===-1&&i===0) return p;
       if(dir===1&&i===arr.length-1) return p;
@@ -6139,6 +6139,17 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     const pres=Object.values(att).filter(v=>v==="present").length;
     const abs=Object.values(att).filter(v=>v==="absent").length;
     const inj=Object.values(att).filter(v=>v==="injured").length;
+    // Normalize session — fix practices created with wrong structure
+    if(session){ 
+      if(!session.playerNotes) session = {...session, playerNotes:[]};
+      if(!session.blocks) session = {...session, blocks:{warmup:[],main:[],cooldown:[]}};
+      else session = {...session, blocks:{
+        warmup:  session.blocks.warmup  || [],
+        main:    session.blocks.main    || [],
+        cooldown:session.blocks.cooldown|| [],
+      }};
+      if(!session.attendance) session = {...session, attendance:{}};
+    }
     const blocks=session.blocks||EMPTY_BLOCKS();
 
     function upd(fn){ setPractices(prev=>prev.map(p=>p.id===sel?{...p,...fn(p)}:p)); }
