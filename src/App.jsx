@@ -11113,6 +11113,133 @@ function PortalCard({title, action, noPad, style, children}){
   );
 }
 
+
+// ── Team Portal Page ──────────────────────────────────────────────────────────
+function PlayerCard({player,A}){
+  var pc=posColor(primaryPos(player));
+  return(
+    <div onClick={function(){window.location.hash="#/player/"+player.id;}}
+      style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
+        padding:"16px 14px",cursor:"pointer",transition:"all .12s",
+        display:"flex",alignItems:"center",gap:12}}
+      onMouseEnter={function(e){e.currentTarget.style.borderColor="#ff6b00";e.currentTarget.style.boxShadow="0 2px 12px rgba(255,107,0,.15)";}}
+      onMouseLeave={function(e){e.currentTarget.style.borderColor="#e8eaed";e.currentTarget.style.boxShadow="none";}}>
+      {player.photoUrl?(
+        <img src={player.photoUrl} alt={player.name}
+          style={{width:48,height:48,borderRadius:"50%",objectFit:"cover",
+            border:"2px solid "+pc+"44",flexShrink:0}}/>
+      ):(
+        <div style={{width:48,height:48,borderRadius:"50%",flexShrink:0,
+          background:pc+"18",border:"2px solid "+pc+"33",
+          display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:16}}>#{player.number}</div>
+        </div>
+      )}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{color:"#111",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.name}</div>
+        <div style={{color:"#888",fontSize:12,marginTop:2}}>{allPos(player).join(" · ")}{player.gradYear&&<span style={{color:"#bbb"}}> · {player.gradYear}</span>}</div>
+      </div>
+      <div style={{color:"#ccc",fontSize:16,flexShrink:0}}>›</div>
+    </div>
+  );
+}
+
+function TeamPortalPage(){
+  var teamId=window.location.hash.replace("#/team/","").split("?")[0];
+  var A="#ff6b00";
+  var [teamName,setTeamName]=React.useState("");
+  var [players,setPlayers]=React.useState([]);
+  var [loading,setLoading]=React.useState(true);
+  var [error,setError]=React.useState(null);
+  var [search,setSearch]=React.useState("");
+
+  React.useEffect(function(){
+    async function load(){
+      try{
+        var {data:teams}=await supabase.from("teams").select("name").eq("id",teamId);
+        setTeamName(teams?.[0]?.name||"");
+        var {data:rosters}=await supabase.from("rosters").select("*").eq("team_id",teamId);
+        var all=(rosters||[]).flatMap(function(r){return r.players||[];})
+          .sort(function(a,b){return (a.name||"").localeCompare(b.name||"");});
+        setPlayers(all);
+      }catch(e){setError("Failed to load team roster.");}
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  var POS_GROUPS=[
+    {label:"Goalkeepers",keys:["GK"]},
+    {label:"Defenders",  keys:["CB","FB"]},
+    {label:"Midfielders",keys:["DM","CM","W","AM"]},
+    {label:"Forwards",   keys:["ST","FW"]},
+  ];
+
+  var filtered=search
+    ?players.filter(function(p){return (p.name||"").toLowerCase().includes(search.toLowerCase())||allPos(p).some(function(x){return x.toLowerCase().includes(search.toLowerCase());});})
+    :players;
+
+  if(loading)return(
+    <div style={{minHeight:"100vh",background:"#f5f7fa",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:14,fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{width:32,height:32,borderRadius:"50%",border:"3px solid "+A,borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
+      <div style={{color:A,fontWeight:600,fontSize:13}}>Loading roster…</div>
+    </div>
+  );
+  if(error)return(
+    <div style={{minHeight:"100vh",background:"#f5f7fa",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{color:"#c00",fontSize:14}}>{error}</div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f5f7fa",fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{background:"#fff",borderBottom:"1px solid #eee",padding:"24px",textAlign:"center"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginBottom:10}}>
+          <div style={{width:8,height:8,borderRadius:"50%",background:A}}/>
+          <span style={{color:A,fontSize:12,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
+        </div>
+        <h1 style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,margin:"0 0 6px"}}>{teamName}</h1>
+        <p style={{color:"#888",fontSize:14,margin:0}}>Select your name to view and edit your player profile</p>
+      </div>
+      <div style={{maxWidth:760,margin:"0 auto",padding:"24px 20px"}}>
+        {players.length>8&&(
+          <div style={{marginBottom:20}}>
+            <input value={search} onChange={function(e){setSearch(e.target.value);}}
+              placeholder="Search players…"
+              style={{width:"100%",padding:"11px 16px",background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,color:"#111",fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+          </div>
+        )}
+        {search?(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:12}}>
+            {filtered.map(function(p){return <PlayerCard key={p.id} player={p} A={A}/>;  })}
+          </div>
+        ):(
+          POS_GROUPS.map(function(group){
+            var grpPlayers=players.filter(function(p){return group.keys.some(function(k){return allPos(p).includes(k);});});
+            var ungrouped=group.label==="Forwards"?players.filter(function(p){return !POS_GROUPS.some(function(g){return g.keys.some(function(k){return allPos(p).includes(k);});});}):[];
+            var list=[...grpPlayers,...ungrouped];
+            if(!list.length)return null;
+            return(
+              <div key={group.label} style={{marginBottom:24}}>
+                <div style={{color:"#aaa",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:10}}>
+                  {group.label.toUpperCase()} ({list.length})
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:10}}>
+                  {list.map(function(p){return <PlayerCard key={p.id} player={p} A={A}/>;  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div style={{textAlign:"center",marginTop:32,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:A,opacity:.35}}/>
+          <span style={{color:"#ccc",fontSize:11,fontWeight:700,letterSpacing:1}}>COACHIQ</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlayerPortalPage(){
   var playerId = window.location.hash.replace("#/recruit/","").replace("#/player/","").replace("#/view/","").split("?")[0];
   var [player,    setPlayer]    = useState(null);
