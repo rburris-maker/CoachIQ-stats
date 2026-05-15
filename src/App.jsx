@@ -11147,13 +11147,13 @@ function PlayerCard({player,A}){
 function TeamPortalPage(){
   var teamId=window.location.hash.replace("#/team/","").split("?")[0];
   var A="#ff6b00";
-  var [teamName,setTeamName]=React.useState("");
-  var [players,setPlayers]=React.useState([]);
-  var [loading,setLoading]=React.useState(true);
-  var [error,setError]=React.useState(null);
-  var [search,setSearch]=React.useState("");
+  var [teamName,setTeamName]=useState("");
+  var [players,setPlayers]=useState([]);
+  var [loading,setLoading]=useState(true);
+  var [error,setError]=useState(null);
+  var [search,setSearch]=useState("");
 
-  React.useEffect(function(){
+  useEffect(function(){
     async function load(){
       try{
         var {data:teams}=await supabase.from("teams").select("name").eq("id",teamId);
