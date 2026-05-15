@@ -314,8 +314,8 @@ let C = {...THEMES.dark};
 const POS_META = {
   GK:{ label:"GK", color:"#ffb300", group:"Goalkeeper" },
   CB:{ label:"CB", color:"#ff6b00", group:"Defender"   },
-  FB:{ label:"FB", color:"#ff8c00", group:"Defender"   },
-  DM:{ label:"DM", color:"#ff4500", group:"Midfielder" },
+  FB:{ label:"LB", color:"#ff8c00", group:"Defender"   },
+  DM:{ label:"CDM", color:"#ff4500", group:"Midfielder" },
   CM:{ label:"CM", color:"#ffa040", group:"Midfielder" },
   W: { label:"W",  color:"#ffcc00", group:"Midfielder" },
   ST:{ label:"ST", color:"#ff2200", group:"Forward"    },
@@ -328,13 +328,13 @@ const allPos     = p => Array.isArray(p?.position) ? p.position : (p?.position ?
 // ─── SQUAD ────────────────────────────────────────────────────────────────────
 const DEFAULT_PLAYERS = [
   { id:"p1",  name:"James Mitchell", number:1,  position:["GK"], captain:false },
-  { id:"p2",  name:"Carlos Rivera",  number:2,  position:["FB"], captain:false },
+  { id:"p2",  name:"Carlos Rivera",  number:2,  position:["LB"], captain:false },
   { id:"p3",  name:"Tom Bradley",    number:5,  position:["CB"], captain:false },
   { id:"p4",  name:"Kai Johnson",    number:6,  position:["CB"], captain:false },
-  { id:"p5",  name:"Marcus Webb",    number:3,  position:["FB"], captain:false },
-  { id:"p6",  name:"Diego Santos",   number:8,  position:["DM","CM"], captain:false },
+  { id:"p5",  name:"Marcus Webb",    number:3,  position:["LB"], captain:false },
+  { id:"p6",  name:"Diego Santos",   number:8,  position:["CDM","CM"], captain:false },
   { id:"p7",  name:"Liam Chen",      number:10, position:["CM","W"], captain:false },
-  { id:"p8",  name:"Noah Patel",     number:4,  position:["CM","DM"], captain:true  },
+  { id:"p8",  name:"Noah Patel",     number:4,  position:["CM","CDM"], captain:true  },
   { id:"p9",  name:"Ethan Brooks",   number:7,  position:["W","CM"], captain:false },
   { id:"p10", name:"Alex Torres",    number:9,  position:["ST","W"], captain:false },
   { id:"p11", name:"Ryan Murphy",    number:11, position:["W","ST"], captain:false },
@@ -367,7 +367,7 @@ function parseRosterSpreadsheet(file){
         // Rows start at row 6 (0-indexed row 5) after title/subtitle/spacer/header/hint
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
         const players=[];
-        const VALID_POS=["GK","CB","FB","DM","CM","W","ST"];
+        const VALID_POS=["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
         for(let ri=5;ri<rows.length;ri++){
           const row=rows[ri];
           const num=parseInt(row[0]);
@@ -540,7 +540,7 @@ function fmtTime(t){
   try{
     const [h,m]=String(t).split(":");
     const hr=parseInt(h); if(isNaN(hr)) return t;
-    return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"AM");
+    return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"CAM");
   }catch(e){return t;}
 }
 function fmtDate(d){
@@ -611,7 +611,7 @@ function calcRating(s, position, cleanSheet = false) {
   // ─────────────────────────────────────────────────────────────────────────
   // FULLBACK / WINGBACK
   // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "FB") {
+  else if (position === "LB") {
     // Defending
     defensive += s.tackles       * 0.25;
     defensive += s.interceptions * 0.20;
@@ -634,7 +634,7 @@ function calcRating(s, position, cleanSheet = false) {
   // ─────────────────────────────────────────────────────────────────────────
   // DEFENSIVE MIDFIELDER
   // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "DM") {
+  else if (position === "CDM") {
     // Ball Winning
     defensive += s.tackles       * 0.25;
     defensive += s.interceptions * 0.20;
@@ -742,10 +742,10 @@ function calcRating(s, position, cleanSheet = false) {
 
   if (attack >= 1.5)      strengths.push("excellent attacking contribution");
   else if (attack >= 0.8) strengths.push("positive attacking presence");
-  else if (attack <= 0.2 && ["W","ST","CM","FB"].includes(position))
+  else if (attack <= 0.2 && ["W","ST","CM","LB"].includes(position))
     concerns.push("limited attacking impact this match");
 
-  if (cleanSheet && ["GK","CB","FB"].includes(position)) strengths.push("clean sheet kept");
+  if (cleanSheet && ["GK","CB","LB","RB"].includes(position)) strengths.push("clean sheet kept");
 
   if (dt >= 2)        concerns.push("reduce dangerous giveaways under pressure");
   if (errors <= -0.5) concerns.push("cut out costly mistakes");
@@ -775,7 +775,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function capitalise(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const isCS      = (game, pid) => ["GK","CB","FB"].includes(primaryPos(PLAYERS.find(p=>p.id===pid))) && game.theirScore === 0;
+const isCS      = (game, pid) => ["GK","CB","LB","RB"].includes(primaryPos(PLAYERS.find(p=>p.id===pid))) && game.theirScore === 0;
 const rColor    = r => r>=8.5?"#ff6b00":r>=7.5?"#ff8c00":r>=6.5?"#ffb300":r>=5.5?"#ff4500":"#cc1100";
 
 function getHistory(pid, games) {
@@ -1080,7 +1080,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   const [addingSchool, setAddingSchool] = useState(false);
   const [newSchool,    setNewSchool]    = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
 
-  const POSITIONS  = ["GK","CB","FB","DM","CM","W","AM","ST"];
+  const POSITIONS  = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
   const primaryColor = posColor(form.positions[0]||"CM");
 
   const SCORE_CATS = [
@@ -1434,7 +1434,7 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
     setImporting(false); e.target.value="";
   }
 
-  const posGroups = ["GK","CB","FB","DM","CM","W","AM","ST"];
+  const posGroups = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
   const searchLC = search.toLowerCase();
   const filteredPlayers = (players||[]).filter(p=>
     !search || p.name?.toLowerCase().includes(searchLC) ||
@@ -1781,7 +1781,7 @@ function parseScheduleSpreadsheet(file){
               const min=tm[2];
               const ampm=(tm[3]||"").toUpperCase();
               if(ampm==="PM"&&h!==12) h+=12;
-              if(ampm==="AM"&&h===12) h=0;
+              if(ampm==="CAM"&&h===12) h=0;
               timeStr=String(h).padStart(2,"0")+":"+min;
             }
           }
@@ -7077,7 +7077,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
   const _fmtTime = typeof fmtTime==="function" ? fmtTime : t=>{
     if(!t) return "";
     try{ const [h,m]=String(t).split(":"); const hr=parseInt(h);
-      return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"AM"); }catch(e){return t;}
+      return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"CAM"); }catch(e){return t;}
   };
   const _fmtDate = typeof fmtDate==="function" ? fmtDate : d=>{
     if(!d) return "";
@@ -8025,7 +8025,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
   const [newStatUnit,      setNewStatUnit]      =useState("");
   const [newStatTimeFormat,setNewStatTimeFormat]=useState("none");
 
-  const POSITIONS=["GK","CB","FB","DM","CM","W","ST"];
+  const POSITIONS=["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
   const SCORE_CATS=[
     {k:"technical", label:"Technical",  desc:"Ball control, passing, first touch",color:"#ff6b00"},
     {k:"athletic",  label:"Athletic",   desc:"Speed, stamina, physicality",       color:"#ef5350"},
@@ -8068,7 +8068,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
 
   const ZONES=[{key:"FWD",label:"Forwards",color:"#ff6b00"},{key:"MID",label:"Midfielders",color:"#66bb6a"},
                {key:"DEF",label:"Defenders",color:"#42a5f5"},{key:"GK",label:"Goalkeeper",color:"#ffb300"}];
-  const POS_GROUP={GK:"GK",CB:"DEF",FB:"DEF",DM:"MID",CM:"MID",W:"MID",AM:"MID",ST:"FWD"};
+  const POS_GROUP={GK:"GK",CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD"};
   const POS_FILTERS=["All","GK","DEF","MID","FWD"];
   const POS_FILTER_COL={All:C.accent,GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
 
@@ -9142,7 +9142,7 @@ function OnboardingWizard({teamName, onComplete}){
   const [name, setName]   = useState(teamName==="My Team"?"":teamName||"");
   const [player, setPlayer] = useState({name:"",number:"",primaryPos:"CM"});
 
-  const POSITIONS = ["GK","CB","FB","DM","CM","W","ST"];
+  const POSITIONS = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
 
   const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
     borderRadius:10,color:C.text,fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"};
@@ -9437,10 +9437,10 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
     const FORMATION_POSITIONS = {
       "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
       "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
-      "4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],
+      "4-2-3-1":["GK","RB","CB","CB","LB","CDM","CDM","RAM","CAM","LAM","ST"],
       "3-5-2":  ["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],
       "5-3-2":  ["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],
-      "4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],
+      "4-1-4-1":["GK","RB","CB","CB","LB","CDM","RM","CM","CM","LM","ST"],
       "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
     };
     const positions = FORMATION_POSITIONS[opp.formation] || [];
@@ -10124,7 +10124,7 @@ function GamePlanSharePage(){
   if(error)   return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>{error}</div>);
 
   // Build scout data
-  var FORM_POS={"4-3-3":["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],"4-4-2":["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],"4-2-3-1":["GK","RB","CB","CB","LB","DM","DM","RAM","CAM","LAM","ST"],"3-5-2":["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],"5-3-2":["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],"4-1-4-1":["GK","RB","CB","CB","LB","DM","RM","CM","CM","LM","ST"],"4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"]};
+  var FORM_POS={"4-3-3":["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],"4-4-2":["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],"4-2-3-1":["GK","RB","CB","CB","LB","CDM","CDM","RAM","CAM","LAM","ST"],"3-5-2":["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],"5-3-2":["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],"4-1-4-1":["GK","RB","CB","CB","LB","CDM","RM","CM","CM","LM","ST"],"4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"]};
   var oppPlayers2=opp&&opp.oppPlayers?opp.oppPlayers:{};
   var oppPos=opp&&opp.formation?(FORM_POS[opp.formation]||[]):[];
   var extras2=oppPlayers2["extra"]||[];
@@ -11173,8 +11173,8 @@ function TeamPortalPage(){
 
   var POS_GROUPS=[
     {label:"Goalkeepers",keys:["GK"]},
-    {label:"Defenders",  keys:["CB","FB"]},
-    {label:"Midfielders",keys:["DM","CM","W","AM"]},
+    {label:"Defenders",  keys:["CB","LB","RB"]},
+    {label:"Midfielders",keys:["CDM","CM","W","CAM"]},
     {label:"Forwards",   keys:["ST","FW"]},
   ];
 
@@ -11386,7 +11386,7 @@ function PlayerPortalPage(){
   var pos     = primaryPos(player);
   var posCol  = posColor(pos);
   var isGK    = allPos(player).includes("GK");
-  var isCB    = ["CB","FB"].some(function(p){return allPos(player).includes(p);});
+  var isCB    = ["CB","LB","RB"].some(function(p){return allPos(player).includes(p);});
 
   var playerGames = (games||[]).filter(function(g){
     return (g.stats||[]).some(function(s){return s.playerId===playerId;});
@@ -12690,7 +12690,7 @@ function PublicSchedulePage(){
     var parts = t.split(":");
     var h = parseInt(parts[0]);
     var m = parts[1];
-    var ampm = h>=12?"PM":"AM";
+    var ampm = h>=12?"PM":"CAM";
     h = h%12||12;
     return h+":"+m+" "+ampm;
   }
