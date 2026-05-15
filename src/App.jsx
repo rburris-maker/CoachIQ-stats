@@ -348,19 +348,17 @@ function downloadRosterTemplate(){
   const wb = XLSX.utils.book_new();
   const validPos = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
   const data = [
-    ["CoachIQ Roster Template","","","",""],
-    ["Positions: "+validPos.join(", ")+"  |  Captain: yes or no  |  Email is optional","","","",""],
+    ["CoachIQ Roster Template","","","","",""],
+    ["Positions: "+validPos.join(", ")+"  |  Captain: yes or no  |  Email & Grade are optional","","","","",""],
     [],
-    ["#","Name","Position","Captain","Email"],
-    ["1","e.g. John Smith","GK","no","player@email.com"],
+    ["#","Name","Position","Captain","Email","Grade"],
+    ["1","e.g. John Smith","GK","no","player@email.com","10"],
   ];
-  // 20 blank data rows
-  for(let i=0;i<20;i++) data.push(["","","","",""]);
+  for(let i=0;i<20;i++) data.push(["","","","","",""]);
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws["!cols"] = [{wch:5},{wch:22},{wch:10},{wch:10},{wch:28}];
-  // Bold the header row (row index 3)
-  ["A4","B4","C4","D4","E4"].forEach(function(cell){
-    if(!ws[cell]) ws[cell]={t:"s",v:["#","Name","Position","Captain","Email"][["A","B","C","D","E"].indexOf(cell[0])]};
+  ws["!cols"] = [{wch:5},{wch:22},{wch:10},{wch:10},{wch:28},{wch:8}];
+  ["A4","B4","C4","D4","E4","F4"].forEach(function(cell){
+    if(!ws[cell]) ws[cell]={t:"s",v:["#","Name","Position","Captain","Email","Grade"][["A","B","C","D","E","F"].indexOf(cell[0])]};
     ws[cell].s={font:{bold:true}};
   });
   XLSX.utils.book_append_sheet(wb, ws, "Roster");
@@ -386,6 +384,7 @@ function parseRosterSpreadsheet(file){
           const pos=String(row[2]||"").trim().toUpperCase();
           const cap=String(row[3]||"").trim().toLowerCase();
           const email=String(row[4]||"").trim().toLowerCase();
+          const grade=String(row[5]||"").trim();
           if(!name||!pos||!VALID_POS.includes(pos)) continue;
           players.push({
             id:`p${Date.now()}-${ri}`,
@@ -394,6 +393,7 @@ function parseRosterSpreadsheet(file){
             position: [pos],
             captain: cap==="yes"||cap==="true",
             email: email||"",
+            grade: grade||"",
           });
         }
         if(players.length===0) throw new Error("No valid players found — check that Name and Position columns are filled in");
@@ -1566,7 +1566,7 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                           background:pc+"22",border:`2px solid ${pc}44`,
                           display:"flex",alignItems:"center",justifyContent:"center",
                           fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:20}}>
-                          {player.number}
+                          {player.number||"#"}
                         </div>
                         <div style={{flex:1}}>
                           <div style={{color:C.text,fontWeight:700,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
