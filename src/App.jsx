@@ -11431,11 +11431,11 @@ function PlayerPortalPage(){
   var recColor  = {open:A,d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",committed:"#2e7d32",not_recruiting:"#888"}[player.recruitingStatus]||A;
 
   var TABS = [
-    {t:"about",     l:"👤 About"},
-    {t:"highlights",l:"🎥 Highlights"},
-    {t:"schedule",  l:"📅 Schedule"},
-    {t:"stats",     l:"📊 Stats"},
-    {t:"recruit",   l:"🏫 Recruit"},
+    {t:"about",     l:"About"},
+    {t:"highlights",l:"Highlights"},
+    {t:"schedule",  l:"Schedule"},
+    {t:"stats",     l:"Stats"},
+    {t:"recruit",   l:"Recruit"},
   ];
 
   // Card is defined as PortalCard outside this component — prevents focus loss
@@ -11558,21 +11558,15 @@ function PlayerPortalPage(){
                 </>
               ):!isViewOnly?(
                 <>
-                  <button onClick={function(){copyLink("player");}}
+                  <button onClick={copyViewLink}
                     style={{padding:"8px 16px",background:"#f5f5f5",border:"1px solid #ddd",
-                      borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12,
-                      display:"flex",alignItems:"center",gap:5}}>
-                    {copied?"✓ Copied":"⎘ Share"}
+                      borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
+                    {viewCopied?"✓ Link Copied":"Share Profile"}
                   </button>
                   <button onClick={startEdit}
                     style={{padding:"8px 16px",background:A,border:"none",
                       borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>
-                    ✏ Edit Profile
-                  </button>
-                  <button onClick={copyViewLink}
-                    style={{padding:"8px 14px",background:"#f5f5f5",border:"1px solid #ddd",
-                      borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
-                    {viewCopied?"✓ Copied":"📋 View Link"}
+                    Edit Profile
                   </button>
                 </>
               ):null}
@@ -11607,7 +11601,7 @@ function PlayerPortalPage(){
             <div>
               {/* Highlights video */}
               {(player.highlightsUrl||(videos||[]).length>0)&&(
-                <PortalCard title="🎥 Highlights" noPad>
+                <PortalCard title="Highlights" noPad>
                   {player.highlightsUrl&&(
                     <a href={player.highlightsUrl} target="_blank" rel="noopener noreferrer"
                       style={{display:"block",padding:"12px 16px",textDecoration:"none",
@@ -11678,7 +11672,7 @@ function PlayerPortalPage(){
 
               {/* Next event */}
               {nextGame&&(
-                <PortalCard title="⚽ Next Game">
+                <PortalCard title="Next Game">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:14,color:"#111"}}>
@@ -11702,7 +11696,7 @@ function PlayerPortalPage(){
             {/* Main content */}
             <div>
               {/* Bio */}
-              <PortalCard title="📝 Bio" action={!editMode&&!isViewOnly&&<button onClick={startEdit}
+              <PortalCard title="Bio" action={!editMode&&!isViewOnly&&<button onClick={startEdit}
                 style={{background:"none",border:"1px solid #ddd",borderRadius:6,
                   padding:"4px 10px",color:"#888",fontSize:11,cursor:"pointer",fontWeight:600}}>
                 ✏ Edit
@@ -11721,7 +11715,7 @@ function PlayerPortalPage(){
               </PortalCard>
 
               {/* Academic */}
-              <PortalCard title="🎓 Academic">
+              <PortalCard title="Academic">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
                   {[
                     {key:"gpa",label:"GPA",placeholder:"3.9"},
@@ -11752,7 +11746,7 @@ function PlayerPortalPage(){
               </PortalCard>
 
               {/* Athleticism */}
-              <PortalCard title="🏋️ Athleticism">
+              <PortalCard title="Athleticism">
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
                   {[
                     {key:"fortyYard",    label:"40 YARD DASH",   unit:"sec"},
@@ -11822,7 +11816,7 @@ function PlayerPortalPage(){
 
               {/* Team History */}
               {teamName&&(
-                <PortalCard title="🏆 Team History" noPad>
+                <PortalCard title="Team History" noPad>
                   <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
                     <div style={{width:44,height:44,borderRadius:8,background:posCol+"22",
                       display:"flex",alignItems:"center",justifyContent:"center",
@@ -11846,7 +11840,7 @@ function PlayerPortalPage(){
         {/* ══ HIGHLIGHTS TAB ══ */}
         {tab==="highlights"&&(
           <div style={{maxWidth:600}}>
-            <PortalCard title="🎬 My Videos" action={
+            <PortalCard title="My Videos" action={
               <button onClick={function(){setAddingVid(true);}}
                 style={{background:A,border:"none",borderRadius:7,padding:"6px 14px",
                   color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
@@ -11907,126 +11901,149 @@ function PlayerPortalPage(){
 
         {/* ══ SCHEDULE TAB ══ */}
         {tab==="schedule"&&(
-          <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
-              {/* Upcoming */}
-              <PortalCard title={"Upcoming ("+upcoming.length+")"} noPad>
-                {upcoming.length===0?(
-                  <div style={{textAlign:"center",padding:"32px 0",color:"#bbb"}}>
-                    <div style={{fontSize:28,marginBottom:8}}>📅</div>
-                    <div style={{fontWeight:700,color:"#999"}}>No upcoming events</div>
-                  </div>
-                ):(
-                  upcoming.map(function(e,i){
-                    var isGame=e.type==="game"||e.opponent;
-                    var col=isGame?A:e.type==="practice"?"#66bb6a":"#42a5f5";
-                    var dLeft=Math.max(0,Math.ceil((new Date(e.date)-new Date(todayStr))/(1000*60*60*24)));
-                    return(
-                      <div key={e.id||i} style={{padding:"12px 16px",
-                        borderBottom:i<upcoming.length-1?"1px solid #f5f5f5":"none",
-                        display:"flex",alignItems:"center",gap:12}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",
-                          background:col,flexShrink:0}}/>
-                        <div style={{flex:1}}>
-                          <div style={{color:"#111",fontWeight:600,fontSize:13}}>
-                            {isGame?"vs "+(e.opponent||""):(e.title||"Event")}
-                          </div>
-                          <div style={{color:"#888",fontSize:11,marginTop:2}}>
-                            {fmtDate(e.date)}{e.time&&" · "+fmtTime(e.time)}
-                            {e.location&&" · "+e.location}
-                          </div>
-                        </div>
-                        <div style={{flexShrink:0,fontSize:11,fontWeight:700,
-                          color:dLeft===0?A:"#999"}}>
-                          {dLeft===0?"TODAY":dLeft+"d"}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </PortalCard>
+          <div style={{maxWidth:640}}>
 
-              {/* Practices */}
-              <PortalCard title={"Practices ("+practices.length+")"} noPad>
-                {practices.length===0?(
-                  <div style={{textAlign:"center",padding:"32px 0",color:"#bbb"}}>
-                    <div style={{fontSize:28,marginBottom:8}}>⚽</div>
-                    <div style={{fontWeight:700,color:"#999"}}>No practices logged</div>
+            {/* Upcoming events - grouped */}
+            {(()=>{
+              var groups=[
+                {label:"This Week",  events:[]},
+                {label:"Next Week",  events:[]},
+                {label:"This Month", events:[]},
+                {label:"Later",      events:[]},
+              ];
+              var now  = new Date(todayStr);
+              var wEnd = new Date(now); wEnd.setDate(now.getDate()+(6-now.getDay()));
+              var nwEnd= new Date(wEnd); nwEnd.setDate(wEnd.getDate()+7);
+              var mEnd = new Date(now.getFullYear(),now.getMonth()+1,0);
+
+              upcoming.forEach(function(e){
+                var d=new Date(e.date+"T12:00:00");
+                if(d<=wEnd)       groups[0].events.push(e);
+                else if(d<=nwEnd) groups[1].events.push(e);
+                else if(d<=mEnd)  groups[2].events.push(e);
+                else              groups[3].events.push(e);
+              });
+
+              return groups.filter(function(g){return g.events.length>0;}).map(function(group){
+                return(
+                  <div key={group.label} style={{marginBottom:24}}>
+                    <div style={{fontSize:10,fontWeight:700,color:"#aaa",
+                      letterSpacing:1.5,marginBottom:10,textTransform:"uppercase"}}>
+                      {group.label}
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,
+                      border:"1px solid #e8eaed",overflow:"hidden"}}>
+                      {group.events.map(function(e,i){
+                        var isGame=e.type==="game"||e.opponent;
+                        var col=isGame?"#ff6b00":e.type==="practice"?"#27a560":"#42a5f5";
+                        var dLeft=Math.max(0,Math.ceil((new Date(e.date)-new Date(todayStr))/(1000*60*60*24)));
+                        return(
+                          <div key={e.id||i}
+                            style={{display:"flex",alignItems:"center",gap:14,
+                              padding:"12px 16px",
+                              borderBottom:i<group.events.length-1?"1px solid #f5f5f5":"none"}}>
+                            {/* Date block */}
+                            <div style={{flexShrink:0,width:40,textAlign:"center"}}>
+                              <div style={{fontSize:18,fontWeight:800,color:"#111",
+                                fontFamily:"'Oswald',sans-serif",lineHeight:1}}>
+                                {new Date(e.date+"T12:00:00").getDate()}
+                              </div>
+                              <div style={{fontSize:10,color:"#aaa",fontWeight:600,marginTop:2}}>
+                                {new Date(e.date+"T12:00:00").toLocaleDateString("en-US",{month:"short"})}
+                              </div>
+                            </div>
+                            {/* Color bar */}
+                            <div style={{width:3,height:36,borderRadius:2,
+                              background:col,flexShrink:0}}/>
+                            {/* Event info */}
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{color:"#111",fontWeight:600,fontSize:14}}>
+                                {isGame?"vs "+(e.opponent||""):(e.title||"Practice")}
+                              </div>
+                              <div style={{color:"#888",fontSize:12,marginTop:2}}>
+                                {e.time&&fmtTime(e.time)}{e.location&&" · "+e.location}
+                              </div>
+                            </div>
+                            {/* Days away */}
+                            <div style={{flexShrink:0,textAlign:"right"}}>
+                              <div style={{fontSize:13,fontWeight:700,
+                                color:dLeft===0?"#ff6b00":"#bbb"}}>
+                                {dLeft===0?"Today":dLeft+"d"}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ):(
-                  [].concat(practices).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");})
-                    .slice(0,8).map(function(p,i){
-                    var att = p.attendance||{};
-                    var myAtt = att[playerId];
-                    var attColor = myAtt==="present"?A:myAtt==="absent"?"#e53935":myAtt==="injured"?"#f59e0b":"#ccc";
-                    var attLabel = myAtt==="present"?"Present":myAtt==="absent"?"Absent":myAtt==="injured"?"Injured":"—";
-                    return(
-                      <div key={p.id||i} style={{padding:"11px 16px",
-                        borderBottom:i<7?"1px solid #f5f5f5":"none",
-                        display:"flex",alignItems:"center",gap:12}}>
-                        <div style={{flex:1}}>
-                          <div style={{color:"#111",fontWeight:600,fontSize:13}}>
-                            {p.title||"Practice"}
-                          </div>
-                          <div style={{color:"#888",fontSize:11,marginTop:2}}>
-                            {fmtDate(p.date)}{p.time&&" · "+fmtTime(p.time)}
-                          </div>
-                        </div>
-                        <div style={{flexShrink:0,fontSize:11,fontWeight:700,
-                          color:attColor,background:attColor+"18",
-                          padding:"2px 8px",borderRadius:10}}>
-                          {attLabel}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </PortalCard>
-            </div>
+                );
+              });
+            })()}
+
+            {upcoming.length===0&&(
+              <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8eaed",
+                padding:"48px 24px",textAlign:"center"}}>
+                <div style={{fontSize:32,marginBottom:8}}>📅</div>
+                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No upcoming events</div>
+                <div style={{fontSize:12,color:"#bbb"}}>Check back with your coach for the schedule</div>
+              </div>
+            )}
 
             {/* Recent results */}
             {sortedGames.length>0&&(
-              <PortalCard title="📈 Recent Results" noPad style={{marginTop:0}}>
-                {sortedGames.slice(0,5).map(function(g,i){
-                  var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
-                  var rc=win?A:loss?"#e53935":"#f57c00";
-                  var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
-                  var rat=s?calcRating(s,pos,g.theirScore===0):null;
-                  return(
-                    <div key={g.id||i} style={{padding:"12px 20px",
-                      borderBottom:i<4?"1px solid #f5f5f5":"none",
-                      display:"flex",alignItems:"center",gap:14}}>
-                      <div style={{width:28,height:28,borderRadius:6,
-                        background:rc+"18",display:"flex",alignItems:"center",
-                        justifyContent:"center",fontWeight:900,fontSize:11,
-                        color:rc,fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
-                        {win?"W":loss?"L":"D"}
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={{color:"#111",fontWeight:600,fontSize:13}}>
-                          vs {g.opponent}
+              <div>
+                <div style={{fontSize:10,fontWeight:700,color:"#aaa",
+                  letterSpacing:1.5,marginBottom:10,textTransform:"uppercase"}}>
+                  Recent Results
+                </div>
+                <div style={{background:"#fff",borderRadius:10,
+                  border:"1px solid #e8eaed",overflow:"hidden"}}>
+                  {sortedGames.slice(0,4).map(function(g,i){
+                    var win=g.ourScore>g.theirScore, loss=g.ourScore<g.theirScore;
+                    var rc=win?"#27a560":loss?"#e53935":"#f57c00";
+                    return(
+                      <div key={g.id||i}
+                        style={{display:"flex",alignItems:"center",gap:14,
+                          padding:"12px 16px",
+                          borderBottom:i<3?"1px solid #f5f5f5":"none"}}>
+                        <div style={{flexShrink:0,width:40,textAlign:"center"}}>
+                          <div style={{fontSize:18,fontWeight:800,
+                            fontFamily:"'Oswald',sans-serif",lineHeight:1,
+                            color:"#111"}}>
+                            {new Date((g.date||"")+"T12:00:00").getDate()}
+                          </div>
+                          <div style={{fontSize:10,color:"#aaa",fontWeight:600,marginTop:2}}>
+                            {new Date((g.date||"")+"T12:00:00").toLocaleDateString("en-US",{month:"short"})}
+                          </div>
                         </div>
-                        <div style={{color:"#888",fontSize:11,marginTop:2}}>{fmtDate(g.date)}</div>
+                        <div style={{width:3,height:36,borderRadius:2,background:rc,flexShrink:0}}/>
+                        <div style={{flex:1}}>
+                          <div style={{color:"#111",fontWeight:600,fontSize:14}}>vs {g.opponent}</div>
+                          <div style={{color:"#888",fontSize:12,marginTop:2}}>{fmtDate(g.date)}</div>
+                        </div>
+                        <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                          fontSize:16,color:rc,flexShrink:0}}>
+                          {g.ourScore}–{g.theirScore}
+                        </div>
+                        <div style={{width:28,height:28,borderRadius:6,
+                          background:rc+"15",display:"flex",alignItems:"center",
+                          justifyContent:"center",fontWeight:900,fontSize:11,
+                          color:rc,fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
+                          {win?"W":loss?"L":"D"}
+                        </div>
                       </div>
-                      <div style={{color:rc,fontFamily:"'Oswald',sans-serif",
-                        fontWeight:900,fontSize:16}}>{g.ourScore}–{g.theirScore}</div>
-                      {rat&&<div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
-                        fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
-                        {rat.rating.toFixed(1)}
-                      </div>}
-                    </div>
-                  );
-                })}
-              </PortalCard>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}
-
         {/* ══ STATS TAB ══ */}
         {tab==="stats"&&(
           <div style={{maxWidth:640}}>
             {/* Season summary */}
-            <PortalCard title="📊 Season Summary">
+            <PortalCard title="Season Summary">
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
@@ -12049,7 +12066,7 @@ function PlayerPortalPage(){
 
             {/* Game by game */}
             {sortedGames.length>0&&(
-              <PortalCard title="📋 Game Log" noPad>
+              <PortalCard title="Game Log" noPad>
                 {sortedGames.map(function(g,i){
                   var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
                   if(!s) return null;
@@ -12137,7 +12154,7 @@ function PlayerPortalPage(){
             </PortalCard>
 
             {/* Recruiting status */}
-            <PortalCard title="📬 Recruiting Status">
+            <PortalCard title="Recruiting Status">
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {["open","d1","d2","d3","committed","not_recruiting"].map(function(s){
                   var labels={open:"Open",d1:"D1 Target",d2:"D2 Target",d3:"D3 Target",
@@ -12160,7 +12177,7 @@ function PlayerPortalPage(){
 
             {/* Schools */}
             {(player.recruitingSchools||[]).length>0&&(
-              <PortalCard title="🏛 Interested Schools" noPad>
+              <PortalCard title="Interested Schools" noPad>
                 {(player.recruitingSchools||[]).map(function(s,i){
                   var sc={identified:"#aaa",contacted:"#f57c00",visit:A,committed:"#2e7d32"}[s.status]||"#aaa";
                   var sl={identified:"Identified",contacted:"Contacted",visit:"Official Visit",committed:"Committed"}[s.status]||s.status;
