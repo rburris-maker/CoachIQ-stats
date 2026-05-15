@@ -6132,24 +6132,18 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
 
   // ─── SESSION DETAIL ────────────────────────────────────────────────────────
   if(sel){
-    const session=practices.find(p=>p.id===sel); if(!session) return null;
+    const _raw=practices.find(p=>p.id===sel); if(!_raw) return null;
+    const session={playerNotes:[],attendance:{},..._raw,blocks:{
+      warmup:  (_raw.blocks?.warmup   ||[]),
+      main:    (_raw.blocks?.main     ||[]),
+      cooldown:(_raw.blocks?.cooldown ||[]),
+    }};
     const focusCol=FOCUS_COLORS[session.focus]||C.accent;
     const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
     const att=session.attendance||{};
     const pres=Object.values(att).filter(v=>v==="present").length;
     const abs=Object.values(att).filter(v=>v==="absent").length;
     const inj=Object.values(att).filter(v=>v==="injured").length;
-    // Normalize session — fix practices created with wrong structure
-    if(session){ 
-      if(!session.playerNotes) session = {...session, playerNotes:[]};
-      if(!session.blocks) session = {...session, blocks:{warmup:[],main:[],cooldown:[]}};
-      else session = {...session, blocks:{
-        warmup:  session.blocks.warmup  || [],
-        main:    session.blocks.main    || [],
-        cooldown:session.blocks.cooldown|| [],
-      }};
-      if(!session.attendance) session = {...session, attendance:{}};
-    }
     const blocks=session.blocks||EMPTY_BLOCKS();
 
     function upd(fn){ setPractices(prev=>prev.map(p=>p.id===sel?{...p,...fn(p)}:p)); }
