@@ -11120,7 +11120,7 @@ function PlayerCard({player,A}){
   return(
     <div onClick={function(){
       window.location.href=window.location.pathname+"#/player/"+player.id;
-      if(window.__onHashChange) window.dispatchEvent(new HashChangeEvent("hashchange"));
+      window.location.reload();
     }}
       style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
         padding:"16px 14px",cursor:"pointer",transition:"all .12s",
@@ -11702,7 +11702,7 @@ function PlayerPortalPage(){
             {/* Main content */}
             <div>
               {/* Bio */}
-              <PortalCard title="📝 Bio" action={!editMode&&<button onClick={startEdit}
+              <PortalCard title="📝 Bio" action={!editMode&&!isViewOnly&&<button onClick={startEdit}
                 style={{background:"none",border:"1px solid #ddd",borderRadius:6,
                   padding:"4px 10px",color:"#888",fontSize:11,cursor:"pointer",fontWeight:600}}>
                 ✏ Edit
