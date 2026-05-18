@@ -7851,6 +7851,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [showTemplates,setShowTemplates] = useState(false);
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
+  const [fullAttSel,setFullAttSel]  = useState(null);
   const [diagramCard, setDiagramCard] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft,   setTitleDraft]   = useState("");
