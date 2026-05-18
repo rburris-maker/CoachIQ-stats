@@ -1987,45 +1987,77 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
 
       {/* ── Print overlay ── */}
       {showPrint&&active&&(()=>{
-        const FSLOTS_PRINT={"4-3-3":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LB"},{zone:"DEF",idx:1,lbl:"LCB"},
-          {zone:"DEF",idx:2,lbl:"RCB"},{zone:"DEF",idx:3,lbl:"RB"},{zone:"MID",idx:0,lbl:"LCM"},
-          {zone:"MID",idx:1,lbl:"CM"},{zone:"MID",idx:2,lbl:"RCM"},{zone:"FWD",idx:0,lbl:"LW"},
-          {zone:"FWD",idx:1,lbl:"ST"},{zone:"FWD",idx:2,lbl:"RW"},
-        ],"4-4-2":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LB"},{zone:"DEF",idx:1,lbl:"LCB"},
-          {zone:"DEF",idx:2,lbl:"RCB"},{zone:"DEF",idx:3,lbl:"RB"},{zone:"MID",idx:0,lbl:"LM"},
-          {zone:"MID",idx:1,lbl:"LCM"},{zone:"MID",idx:2,lbl:"RCM"},{zone:"MID",idx:3,lbl:"RM"},
-          {zone:"FWD",idx:0,lbl:"ST"},{zone:"FWD",idx:1,lbl:"ST"},
-        ],"4-2-3-1":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LB"},{zone:"DEF",idx:1,lbl:"LCB"},
-          {zone:"DEF",idx:2,lbl:"RCB"},{zone:"DEF",idx:3,lbl:"RB"},{zone:"MID",idx:0,lbl:"CDM"},
-          {zone:"MID",idx:1,lbl:"CDM"},{zone:"MID",idx:2,lbl:"LAM"},{zone:"MID",idx:3,lbl:"CAM"},
-          {zone:"MID",idx:4,lbl:"RAM"},{zone:"FWD",idx:0,lbl:"ST"},
-        ],"3-5-2":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LCB"},{zone:"DEF",idx:1,lbl:"CB"},
-          {zone:"DEF",idx:2,lbl:"RCB"},{zone:"MID",idx:0,lbl:"LWM"},{zone:"MID",idx:1,lbl:"LCM"},
-          {zone:"MID",idx:2,lbl:"CM"},{zone:"MID",idx:3,lbl:"RCM"},{zone:"MID",idx:4,lbl:"RWM"},
-          {zone:"FWD",idx:0,lbl:"ST"},{zone:"FWD",idx:1,lbl:"ST"},
-        ],"5-3-2":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LB"},{zone:"DEF",idx:1,lbl:"LCB"},
-          {zone:"DEF",idx:2,lbl:"CB"},{zone:"DEF",idx:3,lbl:"RCB"},{zone:"DEF",idx:4,lbl:"RB"},
-          {zone:"MID",idx:0,lbl:"LCM"},{zone:"MID",idx:1,lbl:"CM"},{zone:"MID",idx:2,lbl:"RCM"},
-          {zone:"FWD",idx:0,lbl:"ST"},{zone:"FWD",idx:1,lbl:"ST"},
-        ],"4-1-4-1":[
-          {zone:"GK",idx:0,lbl:"GK"},{zone:"DEF",idx:0,lbl:"LB"},{zone:"DEF",idx:1,lbl:"LCB"},
-          {zone:"DEF",idx:2,lbl:"RCB"},{zone:"DEF",idx:3,lbl:"RB"},{zone:"MID",idx:0,lbl:"CDM"},
-          {zone:"MID",idx:1,lbl:"LM"},{zone:"MID",idx:2,lbl:"LCM"},{zone:"MID",idx:3,lbl:"RCM"},
-          {zone:"MID",idx:4,lbl:"RM"},{zone:"FWD",idx:0,lbl:"ST"},
-        ]}[active.formation]||[];
+        // Full formation slot data with x,y coordinates for SVG pitch
+        const FPRINT={
+          "4-3-3":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LB", x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},
+            {zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB", x:88,y:70},
+            {zone:"MID",idx:0,lbl:"LCM",x:22,y:48},{zone:"MID",idx:1,lbl:"CM", x:50,y:43},
+            {zone:"MID",idx:2,lbl:"RCM",x:78,y:48},
+            {zone:"FWD",idx:0,lbl:"LW", x:16,y:22},{zone:"FWD",idx:1,lbl:"ST", x:50,y:14},
+            {zone:"FWD",idx:2,lbl:"RW", x:84,y:22},
+          ],
+          "4-4-2":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LB", x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},
+            {zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB", x:88,y:70},
+            {zone:"MID",idx:0,lbl:"LM", x:12,y:48},{zone:"MID",idx:1,lbl:"LCM",x:38,y:46},
+            {zone:"MID",idx:2,lbl:"RCM",x:62,y:46},{zone:"MID",idx:3,lbl:"RM", x:88,y:48},
+            {zone:"FWD",idx:0,lbl:"ST", x:34,y:16},{zone:"FWD",idx:1,lbl:"ST", x:66,y:16},
+          ],
+          "4-2-3-1":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LB", x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},
+            {zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB", x:88,y:70},
+            {zone:"MID",idx:0,lbl:"CDM",x:34,y:56},{zone:"MID",idx:1,lbl:"CDM",x:66,y:56},
+            {zone:"MID",idx:2,lbl:"LAM",x:16,y:36},{zone:"MID",idx:3,lbl:"CAM",x:50,y:32},
+            {zone:"MID",idx:4,lbl:"RAM",x:84,y:36},
+            {zone:"FWD",idx:0,lbl:"ST", x:50,y:14},
+          ],
+          "3-5-2":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},{zone:"DEF",idx:1,lbl:"CB", x:50,y:75},
+            {zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},
+            {zone:"MID",idx:0,lbl:"LWM",x:8, y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},
+            {zone:"MID",idx:2,lbl:"CM", x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},
+            {zone:"MID",idx:4,lbl:"RWM",x:92,y:50},
+            {zone:"FWD",idx:0,lbl:"ST", x:34,y:16},{zone:"FWD",idx:1,lbl:"ST", x:66,y:16},
+          ],
+          "5-3-2":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LB", x:8, y:68},{zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},
+            {zone:"DEF",idx:2,lbl:"CB", x:50,y:74},{zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},
+            {zone:"DEF",idx:4,lbl:"RB", x:92,y:68},
+            {zone:"MID",idx:0,lbl:"LCM",x:22,y:46},{zone:"MID",idx:1,lbl:"CM", x:50,y:42},
+            {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},
+            {zone:"FWD",idx:0,lbl:"ST", x:34,y:16},{zone:"FWD",idx:1,lbl:"ST", x:66,y:16},
+          ],
+          "4-1-4-1":[
+            {zone:"GK", idx:0,lbl:"GK", x:50,y:88},
+            {zone:"DEF",idx:0,lbl:"LB", x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},
+            {zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB", x:88,y:70},
+            {zone:"MID",idx:0,lbl:"CDM",x:50,y:58},
+            {zone:"MID",idx:1,lbl:"LM", x:10,y:40},{zone:"MID",idx:2,lbl:"LCM",x:36,y:38},
+            {zone:"MID",idx:3,lbl:"RCM",x:64,y:38},{zone:"MID",idx:4,lbl:"RM", x:90,y:40},
+            {zone:"FWD",idx:0,lbl:"ST", x:50,y:14},
+          ],
+        }[active.formation]||[];
+
+        const zoneCol={GK:"#f59e0b",DEF:"#3b82f6",MID:"#22c55e",FWD:"#ef4444"};
+        // SVG pitch dimensions
+        const W=500, H=700;
+        const px=x=>(x/100)*W;
+        const py=y=>(y/100)*H;
+
         return(
           <div style={{position:"fixed",inset:0,background:"#fff",zIndex:1100,
-            display:"flex",flexDirection:"column",fontFamily:"'Outfit',sans-serif",
-            color:"#111",overflowY:"auto"}}>
-            {/* Print toolbar - hidden on print */}
+            overflowY:"auto",fontFamily:"'Outfit',sans-serif",color:"#111"}}>
+
+            {/* Toolbar — hidden on print */}
             <div className="no-print" style={{display:"flex",justifyContent:"space-between",
               alignItems:"center",padding:"12px 24px",background:"#f5f5f5",
-              borderBottom:"1px solid #ddd",flexShrink:0}}>
+              borderBottom:"1px solid #ddd",position:"sticky",top:0,zIndex:10}}>
               <div style={{fontWeight:700,fontSize:16}}>{active.name} — {active.formation}</div>
               <div style={{display:"flex",gap:10}}>
                 <button onClick={()=>window.print()}
@@ -2036,119 +2068,213 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                 <button onClick={()=>setShowPrint(false)}
                   style={{padding:"8px 16px",background:"#eee",border:"none",borderRadius:8,
                     color:"#555",fontWeight:600,fontSize:13,cursor:"pointer"}}>
-                  Close
+                  ✕ Close
                 </button>
               </div>
             </div>
 
-            {/* Print content */}
-            <div style={{maxWidth:680,margin:"0 auto",padding:"32px 24px",width:"100%"}}>
+            {/* Print page */}
+            <div style={{maxWidth:680,margin:"0 auto",padding:"24px 24px 40px"}}>
+
               {/* Header */}
-              <div style={{textAlign:"center",marginBottom:24,borderBottom:"2px solid #111",paddingBottom:16}}>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:3,color:"#888",marginBottom:4}}>
-                  {teamName?.toUpperCase()||"LINEUP SHEET"}
+              <div style={{textAlign:"center",marginBottom:20,
+                borderBottom:"2px solid #111",paddingBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:3,color:"#888",marginBottom:4}}>
+                  {(teamName||"LINEUP SHEET").toUpperCase()}
                 </div>
-                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900}}>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900}}>
                   {active.name}
                 </div>
-                {active.note&&<div style={{fontSize:13,color:"#555",marginTop:4}}>{active.note}</div>}
-                <div style={{fontSize:13,color:"#888",marginTop:4}}>Formation: {active.formation}</div>
+                {active.note&&<div style={{fontSize:13,color:"#555",marginTop:3}}>{active.note}</div>}
+                <div style={{fontSize:12,color:"#888",marginTop:3}}>
+                  {active.formation} · {new Date().toLocaleDateString()}
+                </div>
               </div>
 
-              {/* Two column layout */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:32}}>
-                {/* Starters */}
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:2,
-                    color:"#888",marginBottom:12,borderBottom:"1px solid #ddd",paddingBottom:4}}>
-                    STARTING XI
-                  </div>
-                  {FSLOTS_PRINT.map((slot,si)=>{
+              {/* SVG Pitch */}
+              <div style={{display:"flex",justifyContent:"center",marginBottom:24}}>
+                <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{maxWidth:420,display:"block"}}>
+                  {/* Field background */}
+                  <rect x="0" y="0" width={W} height={H} fill="#2d5a27" rx="8"/>
+                  {/* Alternating stripes */}
+                  {[0,1,2,3,4,5,6].map(i=>(
+                    <rect key={i} x={i*(W/7)} y="0" width={W/7} height={H}
+                      fill={i%2===0?"#2d5a27":"#275224"} opacity="0.6"/>
+                  ))}
+                  {/* Field border */}
+                  <rect x="16" y="16" width={W-32} height={H-32}
+                    fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2"/>
+                  {/* Center line */}
+                  <line x1="16" y1={H/2} x2={W-16} y2={H/2}
+                    stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>
+                  {/* Center circle */}
+                  <circle cx={W/2} cy={H/2} r="60"
+                    fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
+                  <circle cx={W/2} cy={H/2} r="4" fill="rgba(255,255,255,0.5)"/>
+                  {/* Penalty box top */}
+                  <rect x={W*0.25} y="16" width={W*0.5} height={H*0.14}
+                    fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/>
+                  {/* Penalty box bottom */}
+                  <rect x={W*0.25} y={H-16-H*0.14} width={W*0.5} height={H*0.14}
+                    fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/>
+                  {/* Goal top */}
+                  <rect x={W*0.38} y="8" width={W*0.24} height="12"
+                    fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+                  {/* Goal bottom */}
+                  <rect x={W*0.38} y={H-20} width={W*0.24} height="12"
+                    fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+
+                  {/* Players */}
+                  {FPRINT.map((slot,si)=>{
                     const pid=(active.slots?.[slot.zone]||[])[slot.idx]||null;
                     const player=pid?(roster||[]).find(p=>p.id===pid):null;
-                    const zoneColors={GK:"#f59e0b",DEF:"#3b82f6",MID:"#22c55e",FWD:"#f97316"};
-                    const zc=zoneColors[slot.zone]||"#888";
+                    const subPid=(active.subs?.[slot.zone]||[])[slot.idx]||null;
+                    const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
+                    const cx=px(slot.x), cy=py(slot.y);
+                    const col=zoneCol[slot.zone]||"#fff";
                     return(
-                      <div key={si} style={{display:"flex",alignItems:"center",gap:10,
-                        padding:"7px 0",borderBottom:"1px solid #f0f0f0"}}>
-                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                          background:zc+"18",border:"1px solid "+zc+"44",
+                      <g key={si}>
+                        {/* Player circle */}
+                        <circle cx={cx} cy={cy} r="22"
+                          fill={player?col+"cc":"rgba(255,255,255,0.15)"}
+                          stroke={player?col:"rgba(255,255,255,0.3)"}
+                          strokeWidth="2"/>
+                        {/* Jersey number */}
+                        {player?(
+                          <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle"
+                            fill="#fff" fontSize="13" fontWeight="900"
+                            fontFamily="'Oswald',sans-serif">
+                            {player.number||"?"}
+                          </text>
+                        ):(
+                          <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle"
+                            fill="rgba(255,255,255,0.4)" fontSize="9" fontWeight="700">
+                            {slot.lbl}
+                          </text>
+                        )}
+                        {/* Player name below circle */}
+                        {player&&(
+                          <text x={cx} y={cy+30} textAnchor="middle"
+                            fill="rgba(255,255,255,0.9)" fontSize="8.5" fontWeight="600"
+                            fontFamily="'Outfit',sans-serif">
+                            {player.name.split(" ").pop()}
+                          </text>
+                        )}
+                        {/* Sub indicator dot */}
+                        {sub&&(
+                          <g>
+                            <circle cx={cx+16} cy={cy+16} r="9"
+                              fill="#0ea5e9" stroke="#fff" strokeWidth="1.5"/>
+                            <text x={cx+16} y={cy+17} textAnchor="middle"
+                              dominantBaseline="middle" fill="#fff"
+                              fontSize="7" fontWeight="900">
+                              {sub.number||"S"}
+                            </text>
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Legend */}
+              <div style={{display:"flex",gap:16,justifyContent:"center",
+                marginBottom:20,flexWrap:"wrap"}}>
+                {[["GK","#f59e0b"],["DEF","#3b82f6"],["MID","#22c55e"],["FWD","#ef4444"]].map(([z,c])=>(
+                  <div key={z} style={{display:"flex",alignItems:"center",gap:5,fontSize:11}}>
+                    <div style={{width:12,height:12,borderRadius:"50%",background:c}}/>
+                    <span style={{color:"#555"}}>{z}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11}}>
+                  <div style={{width:12,height:12,borderRadius:"50%",background:"#0ea5e9"}}/>
+                  <span style={{color:"#555"}}>Sub</span>
+                </div>
+              </div>
+
+              {/* Starters + Subs list */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:20}}>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",
+                    marginBottom:8,borderBottom:"1px solid #ddd",paddingBottom:4}}>STARTING XI</div>
+                  {FPRINT.map((slot,si)=>{
+                    const pid=(active.slots?.[slot.zone]||[])[slot.idx]||null;
+                    const player=pid?(roster||[]).find(p=>p.id===pid):null;
+                    const col=zoneCol[slot.zone]||"#888";
+                    return(
+                      <div key={si} style={{display:"flex",alignItems:"center",gap:8,
+                        padding:"5px 0",borderBottom:"1px solid #f5f5f5"}}>
+                        <div style={{width:22,height:22,borderRadius:5,flexShrink:0,
+                          background:col+"20",border:"1px solid "+col+"50",
                           display:"flex",alignItems:"center",justifyContent:"center",
-                          fontSize:9,fontWeight:800,color:zc}}>
+                          fontSize:8,fontWeight:800,color:col}}>
                           {slot.lbl}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontWeight:700,fontSize:13,color:"#111"}}>
+                          <span style={{fontWeight:700,fontSize:12}}>
                             {player?`#${player.number} ${player.name}`:"—"}
-                          </div>
-                          {player&&<div style={{fontSize:10,color:"#888"}}>
-                            {allPos(player).join(" · ")}
-                            {player.grade?` · Gr. ${player.grade}`:""}
-                          </div>}
+                          </span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-
-                {/* Subs */}
                 <div>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:2,
-                    color:"#888",marginBottom:12,borderBottom:"1px solid #ddd",paddingBottom:4}}>
-                    SUBSTITUTES
-                  </div>
-                  {FSLOTS_PRINT.map((slot,si)=>{
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",
+                    marginBottom:8,borderBottom:"1px solid #ddd",paddingBottom:4}}>SUBSTITUTES</div>
+                  {FPRINT.map((slot,si)=>{
                     const subPid=(active.subs?.[slot.zone]||[])[slot.idx]||null;
                     const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
-                    const zoneColors={GK:"#f59e0b",DEF:"#3b82f6",MID:"#22c55e",FWD:"#f97316"};
-                    const zc=zoneColors[slot.zone]||"#888";
                     if(!sub) return null;
+                    const col=zoneCol[slot.zone]||"#888";
                     return(
-                      <div key={si} style={{display:"flex",alignItems:"center",gap:10,
-                        padding:"7px 0",borderBottom:"1px solid #f0f0f0"}}>
-                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                          background:"#0ea5e918",border:"1px solid #0ea5e944",
+                      <div key={si} style={{display:"flex",alignItems:"center",gap:8,
+                        padding:"5px 0",borderBottom:"1px solid #f5f5f5"}}>
+                        <div style={{width:22,height:22,borderRadius:5,flexShrink:0,
+                          background:"#0ea5e920",border:"1px solid #0ea5e950",
                           display:"flex",alignItems:"center",justifyContent:"center",
-                          fontSize:9,fontWeight:800,color:"#0ea5e9"}}>
+                          fontSize:8,fontWeight:800,color:"#0ea5e9"}}>
                           {slot.lbl}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontWeight:700,fontSize:13,color:"#111"}}>
-                            {`#${sub.number} ${sub.name}`}
-                          </div>
-                          <div style={{fontSize:10,color:"#888"}}>
-                            Sub for {slot.lbl} · {allPos(sub).join(" · ")}
-                          </div>
+                          <span style={{fontWeight:700,fontSize:12}}>
+                            #{sub.number} {sub.name}
+                          </span>
+                          <span style={{color:"#999",fontSize:10,marginLeft:4}}>
+                            ({allPos(sub)[0]})
+                          </span>
                         </div>
                       </div>
                     );
                   })}
-                  {FSLOTS_PRINT.every(s=>!(active.subs?.[s.zone]||[])[s.idx])&&(
-                    <div style={{color:"#bbb",fontSize:13,fontStyle:"italic",paddingTop:8}}>No subs assigned</div>
+                  {FPRINT.every(s=>!(active.subs?.[s.zone]||[])[s.idx])&&(
+                    <div style={{color:"#bbb",fontSize:12,fontStyle:"italic",paddingTop:4}}>
+                      No subs assigned
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Bench */}
+              {/* Available bench */}
               {bench.length>0&&(
-                <div style={{marginTop:28,paddingTop:16,borderTop:"1px solid #ddd"}}>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:10}}>
-                    AVAILABLE ({bench.length})
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                <div style={{paddingTop:12,borderTop:"1px solid #eee"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,
+                    color:"#888",marginBottom:8}}>AVAILABLE ({bench.length})</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                     {bench.map(p=>(
-                      <div key={p.id} style={{padding:"4px 10px",borderRadius:6,
-                        background:"#f5f5f5",border:"1px solid #e0e0e0",fontSize:12}}>
+                      <span key={p.id} style={{padding:"3px 8px",borderRadius:5,
+                        background:"#f5f5f5",border:"1px solid #e5e5e5",fontSize:11}}>
                         #{p.number} {p.name}
-                        <span style={{color:"#888",marginLeft:4}}>{allPos(p)[0]}</span>
-                      </div>
+                        <span style={{color:"#999",marginLeft:3}}>{allPos(p)[0]}</span>
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
 
               {/* Footer */}
-              <div style={{marginTop:32,paddingTop:12,borderTop:"1px solid #eee",
+              <div style={{marginTop:24,paddingTop:10,borderTop:"1px solid #eee",
                 display:"flex",justifyContent:"space-between",fontSize:10,color:"#bbb"}}>
                 <span>CoachIQ · {teamName}</span>
                 <span>{active.formation} · {new Date().toLocaleDateString()}</span>
@@ -2158,7 +2284,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
         );
       })()}
 
-      {/* ── Player picker modal ── */}
+            {/* ── Player picker modal ── */}
       {picking&&(
         <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
