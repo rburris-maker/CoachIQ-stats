@@ -8576,8 +8576,18 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
 
             {/* Attendance */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,flex:1}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>
-                ATTENDANCE <span style={{color:C.accent,fontWeight:700}}>{pres}</span>/{Object.keys(att).length}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>
+                  ATTENDANCE <span style={{color:C.accent,fontWeight:700}}>{pres}</span>/{Object.keys(att).length}
+                  {abs>0&&<span style={{color:C.danger,marginLeft:8}}>{abs} absent</span>}
+                  {inj>0&&<span style={{color:C.warning,marginLeft:8}}>{inj} inj</span>}
+                </div>
+                <button onClick={()=>setFullAttSel(session.id)}
+                  style={{padding:"4px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:6,color:C.text,cursor:"pointer",fontSize:11,fontWeight:700,
+                    display:"flex",alignItems:"center",gap:4}}>
+                  ⛶ Full Screen
+                </button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:360,overflowY:"auto"}}>
                 {roster.map(p=>{
@@ -8649,6 +8659,117 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
         </div>
       </div>
+
+      {/* ── Fullscreen Attendance Overlay ── */}
+      {fullAttSel&&(()=>{
+        const fSess=practices.find(p=>p.id===fullAttSel);
+        if(!fSess) return null;
+        const fAtt=fSess.attendance||{};
+        const fPres=Object.values(fAtt).filter(v=>v==="present").length;
+        const fAbs=Object.values(fAtt).filter(v=>v==="absent").length;
+        const fInj=Object.values(fAtt).filter(v=>v==="injured").length;
+        function fSetAtt(pid,status){
+          setPractices(prev=>prev.map(p=>p.id===fullAttSel
+            ?{...p,attendance:{...p.attendance,[pid]:status}}:p));
+        }
+        const ATT_FS=[
+          {k:"present",label:"✓ Present",color:"#27a560"},
+          {k:"absent", label:"✗ Absent", color:"#e53935"},
+          {k:"injured",label:"⚕ Injured",color:"#f59e0b"},
+        ];
+        return(
+          <div style={{position:"fixed",inset:0,background:C.bg,zIndex:1200,
+            display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"14px 20px",background:C.card,borderBottom:`1px solid ${C.border}`,
+              flexShrink:0}}>
+              <div>
+                <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:2}}>
+                  ATTENDANCE
+                </div>
+                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800}}>
+                  {fSess.title||fSess.focus||"Practice"}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:16}}>
+                {/* Summary chips */}
+                <div style={{display:"flex",gap:8}}>
+                  <div style={{padding:"4px 12px",borderRadius:20,background:"#27a56022",
+                    border:"1px solid #27a56044",color:"#27a560",fontWeight:700,fontSize:13}}>
+                    ✓ {fPres}
+                  </div>
+                  <div style={{padding:"4px 12px",borderRadius:20,background:C.danger+"22",
+                    border:`1px solid ${C.danger}44`,color:C.danger,fontWeight:700,fontSize:13}}>
+                    ✗ {fAbs}
+                  </div>
+                  {fInj>0&&<div style={{padding:"4px 12px",borderRadius:20,background:C.warning+"22",
+                    border:`1px solid ${C.warning}44`,color:C.warning,fontWeight:700,fontSize:13}}>
+                    ⚕ {fInj}
+                  </div>}
+                </div>
+                <button onClick={()=>setFullAttSel(null)}
+                  style={{padding:"8px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:8,color:C.text,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                  ✕ Done
+                </button>
+              </div>
+            </div>
+            {/* Player grid */}
+            <div style={{flex:1,overflowY:"auto",padding:16}}>
+              <div style={{display:"grid",
+                gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+                {(roster||[]).map(p=>{
+                  const status=fAtt[p.id]||"present";
+                  const pc=posColor(primaryPos(p));
+                  const statusCol=status==="present"?"#27a560":status==="absent"?C.danger:C.warning;
+                  return(
+                    <div key={p.id} style={{background:C.card,borderRadius:12,
+                      border:`2px solid ${statusCol}44`,overflow:"hidden",
+                      transition:"border-color .1s"}}>
+                      {/* Player info */}
+                      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,
+                        borderBottom:`1px solid ${C.border}`}}>
+                        <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                          background:pc+"22",border:`2px solid ${pc}44`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:16}}>
+                          {p.number}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:14,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {p.name}
+                          </div>
+                          <div style={{color:C.muted,fontSize:11}}>
+                            {allPos(p).join(" · ")}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Status buttons */}
+                      <div style={{display:"flex"}}>
+                        {ATT_FS.map(opt=>(
+                          <button key={opt.k} onClick={()=>fSetAtt(p.id,opt.k)}
+                            style={{flex:1,padding:"12px 4px",border:"none",
+                              borderRight:`1px solid ${C.border}`,
+                              background:status===opt.k?opt.color+"33":"transparent",
+                              color:status===opt.k?opt.color:C.muted,
+                              fontWeight:status===opt.k?800:500,
+                              fontSize:12,cursor:"pointer",transition:"all .1s",
+                              fontFamily:"'Outfit',sans-serif"}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
     );
   }
 
