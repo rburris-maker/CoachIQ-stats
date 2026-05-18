@@ -3772,6 +3772,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
+  const preloadRef    = useRef(null); // stores livePreload for startGame
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -3818,37 +3819,16 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Apply preload from game plan / calendar ─────────────────────────────────
   useEffect(()=>{
     if(!livePreload) return;
+    // Store in ref so startGame() can read it synchronously
+    preloadRef.current = livePreload;
     setForm({
       opponent: livePreload.opponent||"",
       location: livePreload.location||"Home",
       formation: livePreload.formation||"4-3-3",
       date: livePreload.date||new Date().toISOString().split("T")[0],
     });
-
-    // Apply game plan lineup if provided
-    if(livePreload.lineup&&roster&&roster.length){
-      // Starters = players in lineup slots
-      var starterIds=new Set(
-        Object.values(livePreload.lineup).flat().filter(Boolean)
-      );
-      // Excluded = not available for this game
-      var excludedIds=new Set(livePreload.benchExcluded||[]);
-
-      // Bench = in roster, not a starter, not excluded
-      var newBenched=new Set(
-        roster.filter(function(p){
-          return !starterIds.has(p.id)&&!excludedIds.has(p.id);
-        }).map(function(p){return p.id;})
-      );
-
-      setBenched(newBenched);
-      setExcluded(excludedIds);
-    } else if(livePreload.benchExcluded&&livePreload.benchExcluded.length){
-      setExcluded(new Set(livePreload.benchExcluded));
-    }
-
     onClearPreload&&onClearPreload();
-  },[livePreload,roster]);
+  },[livePreload]);
 
   // ── Join session from notification ─────────────────────────────────────────
   useEffect(()=>{
@@ -4082,11 +4062,35 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Session management ─────────────────────────────────────────────────────
   async function startGame(){
     if(!form.opponent) return;
+
+    // Apply lineup from game plan preload synchronously
+    const pl = preloadRef.current;
+    if(pl&&pl.lineup&&roster&&roster.length){
+      var starterIds=new Set(Object.values(pl.lineup).flat().filter(Boolean));
+      var excludedIds=new Set(pl.benchExcluded||[]);
+      var newBenched=new Set(
+        roster.filter(function(p){
+          return !starterIds.has(p.id)&&!excludedIds.has(p.id);
+        }).map(function(p){return p.id;})
+      );
+      setBenched(newBenched);
+      setExcluded(excludedIds);
+      // Use updated sets for init (can't await setState, use local vars)
+      var _benched = newBenched;
+      var _excluded = excludedIds;
+      preloadRef.current = null;
+    } else {
+      var _benched = benched;
+      var _excluded = excluded;
+    }
+
     const sid = "live_"+Date.now();
     sessionIdRef.current = sid;
     const init={};
     const initMins={};
-    PLAYERS.forEach(p=>{
+    // Use active players only (not benched, not excluded)
+    const initPlayers=(roster||[]).filter(function(p){return !_excluded.has(p.id);});
+    initPlayers.forEach(p=>{
       init[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,
         passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,
         interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,minutesPlayed:0};
@@ -4129,7 +4133,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Reconstruct state from events
     const initStats={};
     const initMins={};
-    PLAYERS.forEach(p=>{
+    initPlayers.forEach(p=>{
       initStats[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,
         passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,
         interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,minutesPlayed:0};
