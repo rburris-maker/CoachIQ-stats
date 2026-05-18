@@ -7212,8 +7212,6 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 </div>
               );
             })()}
-          </div>
-
 
             {/* Bench */}
             <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
