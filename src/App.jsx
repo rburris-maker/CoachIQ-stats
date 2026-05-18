@@ -6364,7 +6364,7 @@ export default function CoachIQStats(){
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
             {view==="settings"  &&<SettingsView isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
-            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
+            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="lineups"   &&<LineupsView  lineups={lineups} setLineups={setLineups} roster={roster} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
@@ -6668,7 +6668,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
   );
 }
 
-function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpponents}){
+function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpponents, lineups}){
   const [sel,setSel]       = useState(null);
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
@@ -6678,6 +6678,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
   const [showGamePicker,setShowGamePicker] = useState(true);
+  const [showImport,setShowImport] = useState(false);
 
   async function shareGamePlan(){
     if(!sel) return;
@@ -7001,6 +7002,11 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               padding:"8px 12px",color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600}}>
             ⬡ View / Print
           </button>
+          <button onClick={()=>setShowImport(true)}
+            style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+              padding:"8px 12px",color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⬇ Import Lineup
+          </button>
           <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Trash2 size={13}/>Delete
@@ -7108,9 +7114,106 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
         {/* ── GAME PLAN TAB ─────────────────────────────────── */}
         {gpTab==="gameplan"&&<div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
 
-          {/* ── Lineup builder ─────────────────────────────────────── */}
+          {/* ── Lineup builder — coordinate pitch ─────────────────────── */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>STARTING XI</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>STARTING XI — {plan.formation}</div>
+            </div>
+            {(()=>{
+              const GP_FSLOTS={
+                "4-3-3":[
+                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},
+                  {zone:"MID",idx:1,lbl:"CM",x:50,y:43},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},
+                  {zone:"FWD",idx:0,lbl:"LW",x:16,y:22},{zone:"FWD",idx:1,lbl:"ST",x:50,y:14},
+                  {zone:"FWD",idx:2,lbl:"RW",x:84,y:22},
+                ],
+                "4-4-2":[
+                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LM",x:12,y:48},
+                  {zone:"MID",idx:1,lbl:"LCM",x:38,y:46},{zone:"MID",idx:2,lbl:"RCM",x:62,y:46},
+                  {zone:"MID",idx:3,lbl:"RM",x:88,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+                ],
+                "4-2-3-1":[
+                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:34,y:56},
+                  {zone:"MID",idx:1,lbl:"CDM",x:66,y:56},{zone:"MID",idx:2,lbl:"LAM",x:16,y:36},
+                  {zone:"MID",idx:3,lbl:"CAM",x:50,y:32},{zone:"MID",idx:4,lbl:"RAM",x:84,y:36},
+                  {zone:"FWD",idx:0,lbl:"ST",x:50,y:14},
+                ],
+                "3-5-2":[
+                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},
+                  {zone:"DEF",idx:1,lbl:"CB",x:50,y:75},{zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},
+                  {zone:"MID",idx:0,lbl:"LWM",x:8,y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},
+                  {zone:"MID",idx:2,lbl:"CM",x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},
+                  {zone:"MID",idx:4,lbl:"RWM",x:92,y:50},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+                ],
+                "5-3-2":[
+                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:8,y:68},
+                  {zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},{zone:"DEF",idx:2,lbl:"CB",x:50,y:74},
+                  {zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},{zone:"DEF",idx:4,lbl:"RB",x:92,y:68},
+                  {zone:"MID",idx:0,lbl:"LCM",x:22,y:46},{zone:"MID",idx:1,lbl:"CM",x:50,y:42},
+                  {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+                ],
+              };
+              const slots=GP_FSLOTS[plan.formation]||GP_FSLOTS["4-3-3"];
+              const zc={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
+              return(
+                <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 50%,#162e16 100%)",
+                  borderRadius:12,border:"2px solid #2a522a",
+                  position:"relative",width:"100%",paddingBottom:"135%",userSelect:"none"}}>
+                  {/* Pitch markings */}
+                  <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
+                    <div style={{position:"absolute",top:"50%",left:"5%",right:"5%",height:1,background:"rgba(255,255,255,0.07)"}}/>
+                    <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",borderRadius:"50%",border:"1px solid rgba(255,255,255,0.07)",transform:"translate(-50%,-50%)"}}/>
+                    <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderBottom:"none"}}/>
+                    <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
+                  </div>
+                  {/* Formation label */}
+                  <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.25)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
+                  {/* Players */}
+                  {slots.map(function(slot,si){
+                    const pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+                    const p=pid?roster.find(function(r){return r.id===pid;}):null;
+                    const pc=p?posColor(primaryPos(p)):null;
+                    const col=zc[slot.zone]||"#fff";
+                    const isActive=picking?.zone===slot.zone&&picking?.idx===slot.idx;
+                    return(
+                      <div key={si}
+                        onClick={function(){setPicking({zone:slot.zone,idx:slot.idx});}}
+                        style={{position:"absolute",left:slot.x+"%",top:slot.y+"%",
+                          transform:"translate(-50%,-50%)",
+                          width:48,height:48,borderRadius:"50%",
+                          background:p?pc+"44":"rgba(255,255,255,0.07)",
+                          border:`2px solid ${isActive?C.accent:p?pc:col+"55"}`,
+                          display:"flex",flexDirection:"column",alignItems:"center",
+                          justifyContent:"center",cursor:"pointer",transition:"all .15s",
+                          boxShadow:isActive?"0 0 0 3px "+C.accent+"66":p?"0 2px 8px rgba(0,0,0,.4)":"none",
+                          zIndex:1}}>
+                        {p?(
+                          <>
+                            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:14,lineHeight:1}}>{p.number||"#"}</div>
+                            <div style={{color:"rgba(255,255,255,.75)",fontSize:7,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:44,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>
+                              {p.name.split(" ").pop()}
+                            </div>
+                          </>
+                        ):(
+                          <div style={{color:col+"99",fontSize:8,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{slot.lbl}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+          {/* ── OLD zone builder kept for reference — now hidden
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {ZONES.map(([zone,label])=>(
                 <div key={zone}>
