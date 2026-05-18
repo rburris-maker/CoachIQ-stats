@@ -9491,7 +9491,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:12,flexShrink:0}}>
                               {r.our}–{r.their}
                             </span>}
-                            {isToday&&(evt.type==="game"||evt.opponent)&&!r&&(
+                            {evt.date===todayStr&&(evt.type==="game"||evt.opponent)&&!r&&(
                               <button onClick={e=>{
                                 e.stopPropagation();
                                 setLivePreload&&setLivePreload({
