@@ -3848,7 +3848,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     }
 
     onClearPreload&&onClearPreload();
-  },[livePreload]);
+  },[livePreload,roster]);
 
   // ── Join session from notification ─────────────────────────────────────────
   useEffect(()=>{
