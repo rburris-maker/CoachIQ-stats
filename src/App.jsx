@@ -6677,6 +6677,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [oppSuggestions,setOppSuggestions] = useState([]);
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
   const [form,setForm]     = useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",formation:"4-3-3"});
+  const [showGamePicker,setShowGamePicker] = useState(true);
 
   async function shareGamePlan(){
     if(!sel) return;
@@ -6743,7 +6744,124 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     <div style={{padding:24,maxWidth:500,margin:"0 auto"}}>
       <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
       <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:2,marginBottom:4}}>GAME PLAN</div>
-      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Game Plan</h2>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:18}}>New Game Plan</h2>
+
+      {/* ── Pick from existing games ── */}
+      {(()=>{
+        const existingPlanKeys=new Set((gamePlans||[]).map(function(p){return p.opponent+"_"+p.date;}));
+        const today=new Date().toISOString().split("T")[0];
+        const allGames=(games||[]).filter(function(g){return g.opponent;})
+          .sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
+        const upcoming=allGames.filter(function(g){return (g.date||"")>=today;});
+        const past=allGames.filter(function(g){return (g.date||"")<today;}).slice(0,5);
+        if(allGames.length===0) return null;
+        return(
+          <div style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5}}>
+                PICK FROM EXISTING GAMES
+              </div>
+              <button onClick={function(){setShowGamePicker(function(v){return !v;});}}
+                style={{background:"none",border:"none",color:C.accent,cursor:"pointer",
+                  fontSize:11,fontWeight:700}}>
+                {showGamePicker?"Hide ▲":"Show ▼"}
+              </button>
+            </div>
+            {showGamePicker&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:12,overflow:"hidden",maxHeight:280,overflowY:"auto"}}>
+                {upcoming.length===0&&past.length===0&&(
+                  <div style={{padding:"20px",textAlign:"center",color:C.muted,fontSize:13}}>
+                    No games added yet
+                  </div>
+                )}
+                {upcoming.length>0&&(
+                  <div style={{padding:"8px 12px 4px",color:C.muted,fontSize:9,
+                    fontWeight:700,letterSpacing:1.5,borderBottom:`1px solid ${C.border}`}}>
+                    UPCOMING
+                  </div>
+                )}
+                {upcoming.map(function(g){
+                  var isSelected=form.opponent===g.opponent&&form.date===g.date;
+                  var hasPlan=existingPlanKeys.has(g.opponent+"_"+g.date);
+                  return(
+                    <div key={g.id}
+                      onClick={function(){
+                        setForm(function(f){return Object.assign({},f,{
+                          opponent:g.opponent,
+                          date:g.date||f.date,
+                          location:g.location||"Home",
+                        });});
+                        setShowGamePicker(false);
+                      }}
+                      style={{padding:"10px 14px",cursor:"pointer",
+                        background:isSelected?C.accent+"18":C.card,
+                        borderBottom:`1px solid ${C.border}`,
+                        display:"flex",justifyContent:"space-between",
+                        alignItems:"center",opacity:hasPlan?.55:1,
+                        transition:"background .1s"}}>
+                      <div>
+                        <div style={{color:C.text,fontWeight:700,fontSize:13}}>
+                          vs {g.opponent}
+                        </div>
+                        <div style={{color:C.muted,fontSize:11,marginTop:1}}>
+                          {g.date}{g.location&&" · "+g.location}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        {hasPlan&&<span style={{color:C.muted,fontSize:9,fontWeight:600,
+                          background:C.surface,padding:"2px 6px",borderRadius:4}}>
+                          has plan
+                        </span>}
+                        {isSelected&&<span style={{color:C.accent,fontSize:16}}>✓</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {past.length>0&&(
+                  <div style={{padding:"8px 12px 4px",color:C.muted,fontSize:9,
+                    fontWeight:700,letterSpacing:1.5,borderBottom:`1px solid ${C.border}`,
+                    borderTop:`1px solid ${C.border}`,marginTop:4}}>
+                    RECENT PAST
+                  </div>
+                )}
+                {past.map(function(g){
+                  var isSelected=form.opponent===g.opponent&&form.date===g.date;
+                  var hasPlan=existingPlanKeys.has(g.opponent+"_"+g.date);
+                  return(
+                    <div key={g.id}
+                      onClick={function(){
+                        setForm(function(f){return Object.assign({},f,{
+                          opponent:g.opponent,
+                          date:g.date||f.date,
+                          location:g.location||"Home",
+                        });});
+                        setShowGamePicker(false);
+                      }}
+                      style={{padding:"9px 14px",cursor:"pointer",
+                        background:isSelected?C.accent+"18":C.card,
+                        borderBottom:`1px solid ${C.border}`,
+                        display:"flex",justifyContent:"space-between",
+                        alignItems:"center",opacity:hasPlan?.5:isSelected?1:.75,
+                        transition:"background .1s"}}>
+                      <div>
+                        <div style={{color:C.text,fontWeight:600,fontSize:12}}>
+                          vs {g.opponent}
+                        </div>
+                        <div style={{color:C.muted,fontSize:10,marginTop:1}}>
+                          {g.date}{g.location&&" · "+g.location}
+                        </div>
+                      </div>
+                      {isSelected&&<span style={{color:C.accent,fontSize:16}}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Opponent with autocomplete */}
       <div style={{marginBottom:14,position:"relative"}}>
         <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
