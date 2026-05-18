@@ -1424,6 +1424,384 @@ function PlayerModal({player, onSave, onDelete, onClose}){
 
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────
+
+// ── Lineups View ──────────────────────────────────────────────────────────────
+function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
+  const FORMATIONS = ["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-1-4-1"];
+  const ZONES = [
+    {key:"FWD",label:"Forwards",   color:"#ff6b00"},
+    {key:"MID",label:"Midfielders",color:"#66bb6a"},
+    {key:"DEF",label:"Defenders",  color:"#42a5f5"},
+    {key:"GK", label:"Goalkeeper", color:"#ffb300"},
+  ];
+  const SLOTS_FOR = f=>{
+    const m={"4-3-3":{GK:1,DEF:4,MID:3,FWD:3},"4-4-2":{GK:1,DEF:4,MID:4,FWD:2},
+      "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},"3-5-2":{GK:1,DEF:3,MID:5,FWD:2},
+      "5-3-2":{GK:1,DEF:5,MID:3,FWD:2},"4-1-4-1":{GK:1,DEF:4,MID:5,FWD:1}};
+    return m[f]||m["4-3-3"];
+  };
+
+  function emptyLineup(formation){
+    const counts = SLOTS_FOR(formation);
+    const slots={};
+    Object.entries(counts).forEach(([z,n])=>{ slots[z]=Array(n).fill(null); });
+    return slots;
+  }
+
+  const [selId,    setSelId]    = useState(lineups[0]?.id||null);
+  const [picking,  setPicking]  = useState(null); // {zone,idx}
+  const [creating, setCreating] = useState(false);
+  const [newName,  setNewName]  = useState("");
+
+  // Auto-select first lineup
+  useEffect(function(){
+    if(!selId && lineups.length>0) setSelId(lineups[0].id);
+  },[lineups]);
+
+  const active = lineups.find(l=>l.id===selId)||null;
+
+  function createLineup(){
+    const n = newName.trim()||"Lineup "+(lineups.length+1);
+    const id = "lu"+Date.now();
+    const lu = {id, name:n, formation:"4-3-3", slots:emptyLineup("4-3-3"), note:"", createdAt:new Date().toISOString()};
+    setLineups(prev=>[...prev, lu]);
+    setSelId(id); setCreating(false); setNewName("");
+  }
+
+  function deleteLineup(id){
+    if(!window.confirm("Delete this lineup?")) return;
+    setLineups(prev=>prev.filter(l=>l.id!==id));
+    setSelId(lineups.find(l=>l.id!==id)?.id||null);
+  }
+
+  function upd(fn){
+    setLineups(prev=>prev.map(l=>l.id===selId?{...l,...fn(l)}:l));
+  }
+
+  function setFormation(f){
+    upd(()=>({formation:f, slots:emptyLineup(f)}));
+  }
+
+  function assignPlayer(zone, idx, playerId){
+    upd(l=>{
+      const slots={...l.slots};
+      Object.keys(slots).forEach(z=>{
+        slots[z]=slots[z].map(id=>id===playerId?null:id);
+      });
+      slots[zone]=[...slots[zone]];
+      slots[zone][idx]=playerId||null;
+      return {slots};
+    });
+    setPicking(null);
+  }
+
+  const usedIds = active ? Object.values(active.slots||{}).flat().filter(Boolean) : [];
+  const bench   = (roster||[]).filter(p=>!usedIds.includes(p.id));
+
+  const iS = (extra={})=>({padding:"8px 12px",background:C.surface,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",...extra});
+
+  return(
+    <div style={{padding:20,maxWidth:1200,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SQUAD</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Lineups</h1>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:16}}>
+
+        {/* ── LEFT: Lineup list ── */}
+        <div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>SAVED LINEUPS</div>
+              <button onClick={()=>setCreating(true)}
+                style={{background:C.accent,border:"none",borderRadius:6,
+                  padding:"4px 10px",color:"#000",fontWeight:800,fontSize:11,cursor:"pointer"}}>
+                + New
+              </button>
+            </div>
+
+            {creating&&(
+              <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+                <input value={newName} onChange={e=>setNewName(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter")createLineup();if(e.key==="Escape"){setCreating(false);setNewName("");}}}
+                  placeholder="Lineup name..." autoFocus style={iS({width:"100%",fontSize:12,padding:"6px 10px",marginBottom:6})}/>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={createLineup}
+                    style={{flex:1,padding:"6px",background:C.accent,border:"none",borderRadius:6,
+                      color:"#000",fontWeight:700,fontSize:11,cursor:"pointer"}}>Create</button>
+                  <button onClick={()=>{setCreating(false);setNewName("");}}
+                    style={{padding:"6px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:6,color:C.muted,fontSize:11,cursor:"pointer"}}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {lineups.length===0&&!creating&&(
+              <div style={{padding:"32px 16px",textAlign:"center",color:C.muted,fontSize:13}}>
+                No lineups yet.<br/>Click + New to create one.
+              </div>
+            )}
+
+            {lineups.map(l=>(
+              <div key={l.id}
+                onClick={()=>setSelId(l.id)}
+                style={{padding:"11px 14px",cursor:"pointer",
+                  background:selId===l.id?C.accent+"18":C.card,
+                  borderLeft:`3px solid ${selId===l.id?C.accent:"transparent"}`,
+                  borderBottom:`1px solid ${C.border}`,
+                  display:"flex",justifyContent:"space-between",alignItems:"center",
+                  transition:"all .1s"}}>
+                <div>
+                  <div style={{color:C.text,fontWeight:700,fontSize:13}}>{l.name}</div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:2}}>
+                    {l.formation}
+                    {l.note&&<span> · {l.note}</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{color:C.muted,fontSize:11}}>
+                    {Object.values(l.slots||{}).flat().filter(Boolean).length}/11
+                  </div>
+                  <button onClick={e=>{e.stopPropagation();deleteLineup(l.id);}}
+                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:15,
+                      padding:"0 2px",opacity:.5}}>×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Pitch + editor ── */}
+        {active?(
+          <div>
+            {/* Formation + note row */}
+            <div style={{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div>
+                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>FORMATION</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {FORMATIONS.map(f=>(
+                    <button key={f} onClick={()=>setFormation(f)}
+                      style={{padding:"6px 14px",
+                        background:active.formation===f?C.accent+"22":C.surface,
+                        border:`1px solid ${active.formation===f?C.accent:C.border}`,
+                        borderRadius:8,color:active.formation===f?C.accent:C.muted,
+                        cursor:"pointer",fontWeight:700,fontSize:13}}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>NOTE / OPPONENT</div>
+                <input value={active.note||""} onChange={e=>upd(()=>({note:e.target.value}))}
+                  placeholder="e.g. vs Westview, High Press setup..."
+                  style={iS({width:"100%",padding:"7px 12px"})}/>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14}}>
+
+              {/* Visual pitch */}
+              <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 40%,#1c3c1c 60%,#162e16 100%)",
+                borderRadius:16,padding:"20px 16px",border:"2px solid #2a522a",
+                position:"relative",minHeight:500,userSelect:"none"}}>
+                {/* Pitch markings */}
+                <div style={{position:"absolute",top:"50%",left:20,right:20,height:1,background:"rgba(255,255,255,0.06)"}}/>
+                <div style={{position:"absolute",top:"50%",left:"50%",width:90,height:90,borderRadius:"50%",
+                  border:"1px solid rgba(255,255,255,0.06)",transform:"translate(-50%,-50%)"}}/>
+                <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",
+                  width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderBottom:"none"}}/>
+                <div style={{position:"absolute",top:16,left:"50%",transform:"translateX(-50%)",
+                  width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderTop:"none"}}/>
+
+                <div style={{display:"flex",flexDirection:"column",gap:0,height:"100%",justifyContent:"space-around"}}>
+                  {ZONES.map(zone=>{
+                    const slots = active.slots[zone.key]||[];
+                    return(
+                      <div key={zone.key} style={{display:"flex",justifyContent:"center",gap:10,padding:"8px 0"}}>
+                        {slots.map((pid,idx)=>{
+                          const player = pid?(roster||[]).find(p=>p.id===pid):null;
+                          const pc = player?posColor(primaryPos(player)):zone.color;
+                          const isActive = picking?.zone===zone.key&&picking?.idx===idx;
+                          return(
+                            <div key={idx}
+                              onClick={()=>setPicking({zone:zone.key,idx})}
+                              title={player?player.name:"Click to assign"}
+                              style={{width:62,height:62,borderRadius:"50%",
+                                background:player?pc+"33":"rgba(255,255,255,0.06)",
+                                border:`2px solid ${isActive?C.accent:player?pc:"rgba(255,255,255,0.15)"}`,
+                                display:"flex",flexDirection:"column",alignItems:"center",
+                                justifyContent:"center",cursor:"pointer",
+                                transition:"all .15s",
+                                boxShadow:isActive?"0 0 0 3px "+C.accent+"66":"none"}}>
+                              {player?(
+                                <>
+                                  <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                                    color:pc,fontSize:16,lineHeight:1}}>
+                                    {player.number||"#"}
+                                  </div>
+                                  <div style={{color:"rgba(255,255,255,.7)",fontSize:8,
+                                    fontWeight:700,marginTop:2,textAlign:"center",
+                                    maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",
+                                    whiteSpace:"nowrap",padding:"0 4px"}}>
+                                    {player.name.split(" ").pop()}
+                                  </div>
+                                </>
+                              ):(
+                                <div style={{color:"rgba(255,255,255,.2)",fontSize:11,fontWeight:700}}>
+                                  {zone.key}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bench */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`}}>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>
+                    BENCH ({bench.length})
+                  </div>
+                </div>
+                <div style={{overflowY:"auto",maxHeight:460}}>
+                  {bench.map(p=>{
+                    const pc=posColor(primaryPos(p));
+                    return(
+                      <div key={p.id} style={{padding:"9px 12px",
+                        borderBottom:`1px solid ${C.border}`,
+                        display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                          background:pc+"22",border:`1.5px solid ${pc}44`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                          color:pc,fontSize:12}}>
+                          {p.number||"#"}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:600,fontSize:12,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {p.name}
+                          </div>
+                          <div style={{color:C.muted,fontSize:10}}>
+                            {allPos(p).join(" · ")}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {bench.length===0&&(
+                    <div style={{padding:"24px 14px",textAlign:"center",
+                      color:C.muted,fontSize:12}}>All players assigned</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ):(
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+            background:C.card,border:`1px solid ${C.border}`,borderRadius:12,
+            minHeight:400,flexDirection:"column",gap:12,color:C.muted}}>
+            <div style={{fontSize:40}}>📋</div>
+            <div style={{fontWeight:700}}>No lineup selected</div>
+            <div style={{fontSize:12}}>Create a lineup to get started</div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Player picker modal ── */}
+      {picking&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+            padding:22,width:"100%",maxWidth:420,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div>
+                <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700,margin:0}}>
+                  {picking.zone} — Select Player
+                </h3>
+                <div style={{color:C.muted,fontSize:11,marginTop:3}}>
+                  Click to assign · currently {active?.slots[picking.zone]?.[picking.idx]
+                    ?(roster||[]).find(p=>p.id===active.slots[picking.zone][picking.idx])?.name||"assigned"
+                    :"empty"}
+                </div>
+              </div>
+              <button onClick={()=>setPicking(null)}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+            </div>
+
+            <div style={{overflowY:"auto",flex:1}}>
+              {/* Clear option */}
+              <div onClick={()=>assignPlayer(picking.zone,picking.idx,null)}
+                style={{padding:"9px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",
+                  background:C.surface,border:`1px solid ${C.border}`,
+                  color:C.muted,fontSize:13}}>
+                — Clear slot
+              </div>
+
+              {/* Roster grouped by zone fit */}
+              {(roster||[])
+                .slice()
+                .sort((a,b)=>{
+                  const zonePos={FWD:["ST","W","CAM"],MID:["CM","CDM","RM","LM","W","CAM"],
+                    DEF:["CB","LB","RB","CDM"],GK:["GK"]};
+                  const fits=zonePos[picking.zone]||[];
+                  const aFit=allPos(a).some(p=>fits.includes(p))?0:1;
+                  const bFit=allPos(b).some(p=>fits.includes(p))?0:1;
+                  return aFit-bFit||(a.number||0)-(b.number||0);
+                })
+                .map(p=>{
+                  const pc=posColor(primaryPos(p));
+                  const isAssigned=usedIds.includes(p.id);
+                  const isCurrent=active?.slots[picking.zone]?.[picking.idx]===p.id;
+                  return(
+                    <div key={p.id}
+                      onClick={()=>assignPlayer(picking.zone,picking.idx,p.id)}
+                      style={{padding:"9px 12px",borderRadius:8,marginBottom:4,cursor:"pointer",
+                        background:isCurrent?C.accent+"22":C.surface,
+                        border:`1px solid ${isCurrent?C.accent:pc+"33"}`,
+                        display:"flex",alignItems:"center",gap:10,
+                        opacity:isAssigned&&!isCurrent?.5:1}}>
+                      <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
+                        background:pc+"22",border:`1.5px solid ${pc}44`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:13}}>
+                        {p.number||"#"}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:C.text,fontWeight:700,fontSize:13}}>
+                          {p.name}
+                          {isCurrent&&<span style={{color:C.accent,fontSize:10,marginLeft:6}}>✓ current</span>}
+                          {isAssigned&&!isCurrent&&<span style={{color:C.muted,fontSize:10,marginLeft:6}}>assigned</span>}
+                        </div>
+                        <div style={{color:C.muted,fontSize:11}}>
+                          {allPos(p).join(" · ")}
+                          {p.grade&&` · Gr. ${p.grade}`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitchTeam, games, practices}){
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [sel, setSel]                     = useState(null);
@@ -4420,6 +4798,7 @@ export default function CoachIQStats(){
     ]},
     { label:"SQUAD", items:[
       {id:"roster",   icon:Users,           label:"Squad"},
+      {id:"lineups",  icon:Layout,          label:"Lineups"},
       {id:"tryouts",  icon:UserPlus,        label:"Tryouts"},
     ]},
     { label:"PLANNING", items:[
@@ -4464,6 +4843,7 @@ export default function CoachIQStats(){
   const [drills,      setDrillsState]   = useState([]);
   const [templates,   setTemplatesState]= useState([]);
   const [schedule,    setScheduleState] = useState([]);
+  const [lineups,     setLineupsState]   = useState([]);
   const [tryouts,     setTryoutsState]  = useState([]);
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
@@ -4585,6 +4965,7 @@ export default function CoachIQStats(){
       setDrillsState((dr.data?.[0]?.data) || []);
       setTemplatesState((tp.data?.[0]?.data) || []);
       setScheduleState((sc.data||[]).map(x=>x.data));
+      setLineupsState((await supabase.from("lineups").select("*").eq("team_id",tid)).data?.map(x=>x.data)||[]);
       setTryoutsState((tr.data||[]).map(x=>x.data));
       setOpponentsState((op.data||[]).map(x=>x.data));
     }catch(e){ console.error("loadTeamData error:",e); }
@@ -4746,6 +5127,17 @@ export default function CoachIQStats(){
     }catch(e){ endSave(e); console.error("setSchedule error:",e); }
   }
 
+  async function setLineups(val){
+    const resolved=typeof val==="function"?val(lineups):val;
+    setLineupsState(resolved);
+    try{
+      await supabase.from("lineups").delete().eq("team_id",safeTeamId);
+      if(resolved.length){
+        await supabase.from("lineups").insert(resolved.map(l=>({team_id:safeTeamId,data:l})));
+      }
+    }catch(e){console.error("setLineups error:",e);}
+  }
+
   async function setTryouts(val){
     const resolved = typeof val==="function" ? val(tryouts) : val;
     setTryoutsState(resolved);
@@ -4793,7 +5185,7 @@ export default function CoachIQStats(){
     setActiveTeamId(newTeam.id);
     setRosterState([]);
     setGamesState([]); setGamePlansState([]); setPracticesState([]);
-    setDrillsState([]); setTemplatesState([]); setScheduleState([]); setTryoutsState([]); setOpponentsState([]);
+    setDrillsState([]); setTemplatesState([]); setScheduleState([]); setLineupsState([]); setTryoutsState([]); setOpponentsState([]);
     setView("home");
   }
 
@@ -5399,6 +5791,7 @@ export default function CoachIQStats(){
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
+            {view==="lineups"   &&<LineupsView  lineups={lineups} setLineups={setLineups} roster={roster} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
