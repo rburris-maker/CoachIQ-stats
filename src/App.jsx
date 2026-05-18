@@ -3816,6 +3816,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     return ()=>clearInterval(timerRef.current);
   },[autoMin,live,halfTime]);
 
+  // ── Save minute to session every 30 seconds for rejoin ───────────────────
+  useEffect(()=>{
+    if(!sessionIdRef.current||!live||lobby) return;
+    const saveTimer=setInterval(function(){
+      supabase.from("live_sessions").update({
+        current_min: min,
+        score_us: live.ourScore||0,
+        score_them: live.theirScore||0,
+      }).eq("id",sessionIdRef.current).then(function(){});
+    }, 30000);
+    return function(){ clearInterval(saveTimer); };
+  },[min,live,lobby]);
+
   // ── Apply preload from game plan / calendar ─────────────────────────────────
   useEffect(()=>{
     if(!livePreload) return;
@@ -4114,7 +4127,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
-    setBenched(new Set()); setSubLog([]); setPlayerMins(initMins);
+    setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
     setConnectedUsers([{name:userName,role:"Head Coach"}]);
     setPossession({home:0,away:0,current:null,lastTs:null});
@@ -4151,8 +4164,15 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         });
       }catch(evErr){ /* live_events table may not exist — continue without event replay */ }
 
+      // Use saved minute from session record if event replay didn't get it
+      const savedMin = data[0].current_min||curMin||0;
+      const savedScoreUs = data[0].score_us;
+      const savedScoreThem = data[0].score_them;
+      if(savedScoreUs!=null) setup.ourScore = savedScoreUs;
+      if(savedScoreThem!=null) setup.theirScore = savedScoreThem;
+
       sessionIdRef.current = sid;
-      setLive(setup); setStats(initStats); setMin(curMin); setEvents([]);
+      setLive(setup); setStats(initStats); setMin(savedMin); setEvents([]);
       setBenched(new Set()); setPlayerMins(initMins); setHalfTime(false);
       setSessionId(sid); setIsHost(false);
       setPossession({home:0,away:0,current:null,lastTs:null});
