@@ -1430,7 +1430,53 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
   const [msg, setMsg]                     = useState(null);
   const [importing, setImporting]         = useState(false);
   const [search,    setSearch]            = useState("");
+  const [bulkEdit,  setBulkEdit]          = useState(false);
+  const [bulkDraft, setBulkDraft]         = useState([]);
+  const [bulkSaving,setBulkSaving]        = useState(false);
   const fileRef = useRef(null);
+
+  function openBulkEdit(){
+    setBulkDraft((players||[]).map(p=>({
+      id:p.id, name:p.name,
+      number:   String(p.number||""),
+      position: (Array.isArray(p.position)?p.position[0]:p.position)||"CM",
+      grade:    p.grade||"",
+      height:   p.height||"",
+      email:    p.email||"",
+      availability: p.availability||"available",
+      fortyYard:  String(p.fortyYard||""),
+      mileTime:   p.mileTime||"",
+      vertical:   String(p.vertical||""),
+    })));
+    setBulkEdit(true);
+  }
+
+  function bulkUpdate(id, field, value){
+    setBulkDraft(prev=>prev.map(p=>p.id===id?{...p,[field]:value}:p));
+  }
+
+  async function saveBulkEdit(){
+    setBulkSaving(true);
+    const updated = (players||[]).map(p=>{
+      const d = bulkDraft.find(b=>b.id===p.id);
+      if(!d) return p;
+      return {
+        ...p,
+        number:      parseInt(d.number)||p.number,
+        position:    [d.position],
+        grade:       d.grade,
+        height:      d.height,
+        email:       d.email,
+        availability:d.availability,
+        fortyYard:   d.fortyYard?parseFloat(d.fortyYard):p.fortyYard,
+        mileTime:    d.mileTime||p.mileTime,
+        vertical:    d.vertical?parseFloat(d.vertical):p.vertical,
+      };
+    });
+    setPlayers(updated);
+    setBulkSaving(false);
+    setBulkEdit(false);
+  }
 
   async function handleUpload(e){
     const file=e.target.files?.[0]; if(!file) return;
@@ -1513,6 +1559,12 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
             }}
             style={{display:"flex",alignItems:"center",gap:7,padding:"9px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
             🔗 Player Link
+          </button>
+          <button onClick={openBulkEdit}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ✏ Bulk Edit
           </button>
         </div>
       </div>
@@ -7329,6 +7381,182 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
 
   const todayStr = today.toISOString().split("T")[0];
 
+    if(bulkEdit){
+      const POSITIONS = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
+      const AVAIL = [
+        {k:"available", l:"Active"},
+        {k:"injured",   l:"Injured"},
+        {k:"suspended", l:"Suspended"},
+      ];
+      const cellStyle = {
+        background:"none",border:"none",
+        borderBottom:`1px solid ${C.border}`,
+        color:C.text,fontSize:12,outline:"none",
+        fontFamily:"'Outfit',sans-serif",
+        width:"100%",padding:"6px 8px",
+        boxSizing:"border-box",
+      };
+      const cols = [
+        {key:"number",   label:"#",            width:56,  type:"number"},
+        {key:"position", label:"Position",     width:96,  type:"select", opts:POSITIONS},
+        {key:"grade",    label:"Grade",        width:72,  type:"text",   placeholder:"10"},
+        {key:"height",   label:"Height",       width:80,  type:"text",   placeholder:"5'10"},
+        {key:"email",    label:"Email",        width:200, type:"email",  placeholder:"player@email.com"},
+        {key:"availability",label:"Status",   width:110, type:"select", opts:AVAIL},
+        {key:"fortyYard",label:"40-Yd (s)",   width:90,  type:"number", placeholder:"4.8"},
+        {key:"mileTime", label:"Mile",        width:90,  type:"text",   placeholder:"7:30"},
+        {key:"vertical", label:"Vertical (in)",width:100,type:"number", placeholder:"28"},
+      ];
+      return(
+        <div style={{position:"fixed",inset:0,zIndex:500,
+          background:C.bg,display:"flex",flexDirection:"column",
+          fontFamily:"'Outfit',sans-serif"}}>
+
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"16px 24px",background:C.card,
+            borderBottom:`1px solid ${C.border}`,flexShrink:0,
+            boxShadow:"0 2px 8px rgba(0,0,0,.12)"}}>
+            <div>
+              <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>
+                SQUAD BULK EDIT
+              </div>
+              <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",
+                fontSize:22,fontWeight:900,margin:"4px 0 0"}}>
+                {teamName} — {bulkDraft.length} Players
+              </h2>
+            </div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{color:C.muted,fontSize:12,marginRight:8}}>
+                Tab between cells · changes save on "Save All"
+              </div>
+              <button onClick={()=>setBulkEdit(false)}
+                style={{padding:"9px 18px",background:C.surface,
+                  border:`1px solid ${C.border}`,borderRadius:9,
+                  color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                Cancel
+              </button>
+              <button onClick={saveBulkEdit} disabled={bulkSaving}
+                style={{padding:"9px 22px",background:C.accent,border:"none",
+                  borderRadius:9,color:"#000",cursor:"pointer",
+                  fontWeight:900,fontSize:13,fontFamily:"'Oswald',sans-serif",
+                  opacity:bulkSaving?.7:1}}>
+                {bulkSaving?"Saving…":"Save All Changes"}
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div style={{flex:1,overflow:"auto"}}>
+            <table style={{borderCollapse:"collapse",width:"100%",minWidth:900}}>
+              {/* Sticky column headers */}
+              <thead>
+                <tr style={{position:"sticky",top:0,zIndex:10,background:C.card}}>
+                  <th style={{textAlign:"left",padding:"10px 16px",
+                    fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,
+                    borderBottom:`2px solid ${C.border}`,
+                    position:"sticky",left:0,background:C.card,minWidth:160,
+                    whiteSpace:"nowrap"}}>
+                    PLAYER
+                  </th>
+                  {cols.map(c=>(
+                    <th key={c.key} style={{textAlign:"left",padding:"10px 12px",
+                      fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,
+                      borderBottom:`2px solid ${C.border}`,
+                      minWidth:c.width,whiteSpace:"nowrap"}}>
+                      {c.label.toUpperCase()}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bulkDraft.map((p,ri)=>{
+                  const pc = posColor(p.position||"CM");
+                  return(
+                    <tr key={p.id}
+                      style={{background:ri%2===0?C.bg:C.surface,
+                        transition:"background .1s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.card}
+                      onMouseLeave={e=>e.currentTarget.style.background=ri%2===0?C.bg:C.surface}>
+
+                      {/* Sticky player name */}
+                      <td style={{padding:"8px 16px",
+                        position:"sticky",left:0,
+                        background:ri%2===0?C.bg:C.surface,
+                        borderBottom:`1px solid ${C.border}`,
+                        zIndex:2,whiteSpace:"nowrap"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:32,height:32,borderRadius:7,flexShrink:0,
+                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                            color:pc,fontSize:14}}>
+                            {p.number||"#"}
+                          </div>
+                          <div>
+                            <div style={{color:C.text,fontWeight:700,fontSize:13}}>
+                              {p.name}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Editable cells */}
+                      {cols.map(c=>(
+                        <td key={c.key}
+                          style={{padding:"4px 4px",
+                            borderBottom:`1px solid ${C.border}`,
+                            verticalAlign:"middle"}}>
+                          {c.type==="select"&&Array.isArray(c.opts)&&c.opts[0]&&typeof c.opts[0]==="string"?(
+                            <select value={p[c.key]||""}
+                              onChange={e=>bulkUpdate(p.id,c.key,e.target.value)}
+                              style={{...cellStyle,cursor:"pointer",
+                                color:c.key==="position"?posColor(p.position||"CM"):C.text}}>
+                              {c.opts.map(o=>(
+                                <option key={o} value={o}>{o}</option>
+                              ))}
+                            </select>
+                          ):c.type==="select"?(
+                            <select value={p[c.key]||"available"}
+                              onChange={e=>bulkUpdate(p.id,c.key,e.target.value)}
+                              style={{...cellStyle,cursor:"pointer"}}>
+                              {c.opts.map(o=>(
+                                <option key={o.k} value={o.k}>{o.l}</option>
+                              ))}
+                            </select>
+                          ):(
+                            <input
+                              type={c.type==="email"?"text":c.type}
+                              value={p[c.key]||""}
+                              placeholder={c.placeholder||""}
+                              onChange={e=>bulkUpdate(p.id,c.key,e.target.value)}
+                              style={{...cellStyle,
+                                minWidth:c.width-20}}/>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer hint */}
+          <div style={{padding:"10px 24px",background:C.card,
+            borderTop:`1px solid ${C.border}`,flexShrink:0,
+            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{color:C.muted,fontSize:11}}>
+              Changes are not saved until you click "Save All Changes"
+            </div>
+            <div style={{color:C.muted,fontSize:11}}>
+              {bulkDraft.length} players · {cols.length} fields each
+            </div>
+          </div>
+        </div>
+      );
+    }
+
   return(
     <div style={{padding:20,maxWidth:1160,margin:"0 auto"}}>
 
@@ -11773,6 +12001,7 @@ function PlayerPortalPage(){
                     {key:"squat",        label:"SQUAT",           unit:"lbs"},
                     {key:"deadlift",     label:"DEADLIFT",        unit:"lbs"},
                     {key:"clean",        label:"POWER CLEAN",     unit:"lbs"},
+                    {key:"mileTime",     label:"MILE",            unit:""},
                   ].map(function(f,i){
                     var val = editMode?draft[f.key]:(player[f.key]||"");
                     return(
