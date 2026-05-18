@@ -3733,7 +3733,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 
 // ─── LIVE TRACK ───────────────────────────────────────────────────────────────
 
-function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,userName,joinSessionId,onClearJoin}){
+function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,userName,joinSessionId,onClearJoin,gamePlans,livePreload,onClearPreload}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Live game tracking and player ratings">{null}</ProGate>;
 
   const PLAYERS = roster||[];
@@ -3822,6 +3822,14 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   },[joinSessionId]);
 
   // Format seconds to MM:SS
+  // Find matching game plan for current game
+  const matchingPlan = (gamePlans||[]).find(function(p){
+    return p.opponent&&form.opponent&&
+      p.opponent.toLowerCase().trim()===form.opponent.toLowerCase().trim()&&
+      p.date===form.date;
+  });
+  const [showPlanRef, setShowPlanRef] = useState(false);
+
   function formatSecs(s){
     var m=Math.floor(s/60);
     var sec=s%60;
@@ -5420,6 +5428,7 @@ export default function CoachIQStats(){
   const [templates,   setTemplatesState]= useState([]);
   const [schedule,    setScheduleState] = useState([]);
   const [lineups,     setLineupsState]   = useState([]);
+  const [livePreload,  setLivePreload]    = useState(null);
   const [tryouts,     setTryoutsState]  = useState([]);
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
@@ -6360,13 +6369,13 @@ export default function CoachIQStats(){
               localStorage.setItem('coachiq_onboarded','1'); // never show again on this device
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
-            {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)}/>}
+            {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)} gamePlans={gamePlans} livePreload={livePreload} onClearPreload={()=>setLivePreload(null)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
             {view==="settings"  &&<SettingsView isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
-            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups}/>}
+            {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups} setLivePreload={setLivePreload} setView={setView}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
-            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
+            {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} setLivePreload={setLivePreload} setView={setView} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="lineups"   &&<LineupsView  lineups={lineups} setLineups={setLineups} roster={roster} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
             {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
@@ -6668,7 +6677,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
   );
 }
 
-function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpponents, lineups}){
+function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpponents, lineups, setLivePreload, setView}){
   const [sel,setSel]       = useState(null);
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
@@ -7008,6 +7017,19 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 12px",color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
             ⬇ Import Lineup
+          </button>
+          <button onClick={()=>{
+              setLivePreload&&setLivePreload({
+                opponent:plan.opponent,location:plan.location,
+                formation:plan.formation,date:plan.date,
+                benchExcluded:plan.benchExcluded||[],planId:plan.id,
+              });
+              setView&&setView("live");
+            }}
+            style={{background:"#27a560",border:"none",borderRadius:8,
+              padding:"8px 14px",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:12,
+              fontFamily:"'Oswald',sans-serif",display:"flex",alignItems:"center",gap:6}}>
+            ▶ Go Live
           </button>
           <button onClick={()=>{if(window.confirm("Delete this game plan?"))setGamePlans(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
@@ -8547,7 +8569,7 @@ function downloadICS(events, teamName){
 }
 
 
-function CalendarView({schedule, setSchedule, games, setGames, practices, setPractices, setView, teamName, activeTeamId}){
+function CalendarView({schedule, setSchedule, games, setGames, practices, setPractices, setView, teamName, activeTeamId, setLivePreload}){
   const today   = new Date();
   const [curMonth, setCurMonth] = useState(today.getMonth());
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -9390,6 +9412,23 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:12,flexShrink:0}}>
                               {r.our}–{r.their}
                             </span>}
+                            {isToday&&(evt.type==="game"||evt.opponent)&&!r&&(
+                              <button onClick={e=>{
+                                e.stopPropagation();
+                                setLivePreload&&setLivePreload({
+                                  opponent:evt.opponent||evt.title||"",
+                                  location:evt.location||"Home",
+                                  formation:"4-3-3",
+                                  date:evt.date,
+                                });
+                                setView("live");
+                              }} style={{flexShrink:0,padding:"2px 7px",background:"#27a560",
+                                border:"none",borderRadius:5,color:"#fff",
+                                fontSize:10,fontWeight:800,cursor:"pointer",
+                                fontFamily:"'Oswald',sans-serif"}}>
+                                ▶ Live
+                              </button>
+                            )}
                             {evt.type==="game"&&evt.opponent&&!inGames&&(
                               <button onClick={e=>{
                                 e.stopPropagation();
