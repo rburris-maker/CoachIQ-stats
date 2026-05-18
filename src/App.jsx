@@ -1613,7 +1613,52 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
               </div>
             ))}
           </div>
-        </div>
+
+          {/* Bench below lineup list */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",marginTop:12}}>
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>
+                BENCH ({bench.length})
+              </div>
+            </div>
+            <div style={{overflowY:"auto",maxHeight:340}}>
+              {bench.map(p=>{
+                const pc=posColor(primaryPos(p));
+                return(
+                  <div key={p.id}
+                    draggable="true"
+                    onDragStart={()=>setDragId(p.id)}
+                    onDragEnd={()=>{setDragId(null);setDragOver(null);}}
+                    style={{padding:"8px 12px",
+                      borderBottom:`1px solid ${C.border}`,
+                      display:"flex",alignItems:"center",gap:8,
+                      opacity:dragId===p.id?.4:1,
+                      cursor:"grab",transition:"opacity .15s"}}>
+                    <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                      background:pc+"22",border:`1.5px solid ${pc}44`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                      color:pc,fontSize:12}}>
+                      {p.number||"#"}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:C.text,fontWeight:600,fontSize:12,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {p.name}
+                      </div>
+                      <div style={{color:C.muted,fontSize:10}}>
+                        {allPos(p).join(" · ")}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {bench.length===0&&(
+                <div style={{padding:"20px 14px",textAlign:"center",
+                  color:C.muted,fontSize:12}}>All players assigned</div>
+              )}
+            </div>
+          </div>        </div>
 
         {/* ── RIGHT: Pitch + editor ── */}
         {active?(
@@ -1643,7 +1688,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 260px 200px",gap:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:14}}>
 
               {/* Visual pitch — coordinate-based formation layout */}
               {(()=>{
@@ -1927,51 +1972,6 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                 );
               })()}
 
-              {/* Bench */}
-              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`}}>
-                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>
-                    BENCH ({bench.length})
-                  </div>
-                </div>
-                <div style={{overflowY:"auto",maxHeight:460}}>
-                  {bench.map(p=>{
-                    const pc=posColor(primaryPos(p));
-                    return(
-                      <div key={p.id}
-                        draggable="true"
-                        onDragStart={()=>setDragId(p.id)}
-                        onDragEnd={()=>{setDragId(null);setDragOver(null);}}
-                        style={{padding:"9px 12px",
-                          borderBottom:`1px solid ${C.border}`,
-                          display:"flex",alignItems:"center",gap:8,
-                          opacity:dragId===p.id?.4:1,
-                          cursor:"grab",transition:"opacity .15s"}}>
-                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                          background:pc+"22",border:`1.5px solid ${pc}44`,
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                          color:pc,fontSize:12}}>
-                          {p.number||"#"}
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{color:C.text,fontWeight:600,fontSize:12,
-                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                            {p.name}
-                          </div>
-                          <div style={{color:C.muted,fontSize:10}}>
-                            {allPos(p).join(" · ")}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {bench.length===0&&(
-                    <div style={{padding:"24px 14px",textAlign:"center",
-                      color:C.muted,fontSize:12}}>All players assigned</div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         ):(
