@@ -6735,7 +6735,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       id:`gp${Date.now()}`, ...form,
       shareId:`s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,
       lineup, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
-      instructions:"", createdAt: new Date().toISOString()
+      instructions:"", benchExcluded:[], createdAt: new Date().toISOString()
     };
     setGamePlans(prev=>[plan,...prev]);
     setSel(plan.id); setCreating(false);
@@ -6937,7 +6937,9 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     }
 
     const usedIds = Object.values(plan.lineup).flat().filter(Boolean);
-    const benchRoster = roster.filter(p=>!usedIds.includes(p.id));
+    const benchExcluded = plan.benchExcluded||[];
+    const benchRoster = roster.filter(p=>!usedIds.includes(p.id)&&!benchExcluded.includes(p.id));
+    const excludedRoster = roster.filter(p=>!usedIds.includes(p.id)&&benchExcluded.includes(p.id));
 
     function assignSlot(zone,idx,pid){
       updatePlan(p=>{
@@ -7282,18 +7284,43 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 
             {/* Bench */}
             <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
-              <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>BENCH</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
+                {excludedRoster.length>0&&(
+                  <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))}
+                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
+                    Restore all ({excludedRoster.length})
+                  </button>
+                )}
+              </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {benchRoster.length===0
+                {benchRoster.length===0&&excludedRoster.length===0
                   ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
                   : benchRoster.map(p=>(
-                    <div key={p.id} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
-                      <div style={{width:22,height:22,borderRadius:5,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:11}}>{p.number}</div>
+                    <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
+                      <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>{p.number}</div>
                       <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
+                      <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
                     </div>
                   ))
                 }
               </div>
+              {excludedRoster.length>0&&(
+                <div style={{marginTop:8}}>
+                  <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {excludedRoster.map(p=>(
+                      <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
+                        style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,
+                          display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
+                        <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
+                        <span style={{color:C.accent,fontSize:9}}>+</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -11549,7 +11576,6 @@ function GamePlanSharePage(){
   var shareId = hash.replace("#/plan/","");
   const [plan,    setPlan]    = useState(null);
   const [roster,  setRoster]  = useState([]);
-  const [opp,     setOpp]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
 
@@ -11558,188 +11584,244 @@ function GamePlanSharePage(){
       try{
         var gpRes=await supabase.from("game_plans").select("*");
         var gpRows=gpRes.data||[];
-        var foundPlan=null, teamId=null;
+        var foundPlan=null;
         for(var ri=0;ri<gpRows.length;ri++){
           var row=gpRows[ri];
           if(!row.data) continue;
           var plans=Array.isArray(row.data)?row.data:[row.data];
           for(var pi=0;pi<plans.length;pi++){
             var gp=plans[pi];
-            if(gp&&(gp.shareId===shareId||gp.id===shareId)){foundPlan=gp;teamId=row.team_id;break;}
+            if(gp&&(gp.shareId===shareId||gp.id===shareId)){
+              foundPlan=gp;
+              var rRes=await supabase.from("rosters").select("*");
+              var rRows=(rRes.data||[]).filter(function(r){return r.team_id===row.team_id;});
+              setRoster(rRows[0]?rRows[0].players:[]);
+              break;
+            }
           }
           if(foundPlan) break;
         }
         if(!foundPlan){setError("Game plan not found.");setLoading(false);return;}
         setPlan(foundPlan);
-        if(teamId){
-          var rRes=await supabase.from("rosters").select("*");
-          var rRows=(rRes.data||[]).filter(function(r){return r.team_id===teamId;});
-          setRoster(rRows[0]?rRows[0].players:[]);
-        }
-        if(foundPlan.opponent){
-          var oRes=await supabase.from("opponents").select("*");
-          var oRows=oRes.data||[];
-          for(var oi=0;oi<oRows.length;oi++){
-            var od=oRows[oi].data;
-            if(od&&od.name&&od.name.trim().toLowerCase()===foundPlan.opponent.trim().toLowerCase()){
-              setOpp(od); break;
-            }
-          }
-        }
         setLoading(false);
       }catch(e){setError("Failed to load.");setLoading(false);}
     }
     load();
   },[shareId]);
 
-  if(loading) return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>Loading game plan...</div>);
-  if(error)   return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>{error}</div>);
+  if(loading) return(<div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#ff6b00",fontFamily:"'Outfit',sans-serif",fontSize:14}}>Loading game plan…</div>);
+  if(error)   return(<div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#e53935",fontFamily:"'Outfit',sans-serif"}}>{error}</div>);
 
-  // Build scout data
-  var FORM_POS={"4-3-3":["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],"4-4-2":["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],"4-2-3-1":["GK","RB","CB","CB","LB","CDM","CDM","RAM","CAM","LAM","ST"],"3-5-2":["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],"5-3-2":["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],"4-1-4-1":["GK","RB","CB","CB","LB","CDM","RM","CM","CM","LM","ST"],"4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"]};
-  var oppPlayers2=opp&&opp.oppPlayers?opp.oppPlayers:{};
-  var oppPos=opp&&opp.formation?(FORM_POS[opp.formation]||[]):[];
-  var extras2=oppPlayers2["extra"]||[];
-  var allOppP=oppPos.map(function(pos,idx){var p=(oppPlayers2[pos]||[])[idx]||{};return Object.assign({},p,{pos:pos});})
-    .concat(extras2.map(function(p){return Object.assign({},p,{pos:p.customPos||"SUB"});}))
-    .filter(function(p){return p.name||p.number;});
-  var threats=allOppP.filter(function(p){return p.threat;});
-
-  // Scout description text
-  var scoutLines=[];
-  threats.forEach(function(p){
-    scoutLines.push((p.number?"#"+p.number+" ":"")+(p.name||"")+(p.notes?" — "+p.notes:"")+".");
-  });
-  if(opp&&opp.tendencies){
-    if(opp.tendencies.pressing)    scoutLines.push("Pressing: "+opp.tendencies.pressing+".");
-    if(opp.tendencies.buildUp)     scoutLines.push("Build-up: "+opp.tendencies.buildUp+".");
-    if(opp.tendencies.weaknesses)  scoutLines.push("Weaknesses: "+opp.tendencies.weaknesses+".");
-    if(opp.tendencies.attackShape) scoutLines.push("Attack shape: "+opp.tendencies.attackShape+".");
-  }
-  if(opp&&opp.scoutNotes) scoutLines.push(opp.scoutNotes);
-  var scoutText=scoutLines.join(" ");
-
-  // Set pieces text
-  var spLines=[];
-  if(opp&&opp.setPieces){
-    var sp=opp.setPieces;
-    if(sp.cornersAtk)   spLines.push("Corners: "+sp.cornersAtk);
-    if(sp.freeKicksAtk) spLines.push("Free kicks: "+sp.freeKicksAtk);
-    if(sp.throwInsAtk)  spLines.push("Throw-ins: "+sp.throwInsAtk);
-    if(sp.cornersDef||sp.freeKicksDef||sp.throwInsDef){
-      var defParts=[];
-      if(sp.cornersDef)   defParts.push("corners: "+sp.cornersDef);
-      if(sp.freeKicksDef) defParts.push("free kicks: "+sp.freeKicksDef);
-      if(sp.throwInsDef)  defParts.push("throw-ins: "+sp.throwInsDef);
-      spLines.push("Our defence — "+defParts.join("; ")+".");
-    }
-  }
-  var spText=spLines.join(" ");
-
-  var cp=opp&&opp.counterPlan?opp.counterPlan:{};
-
-  // Shared text styles
-  var LBL={fontSize:10,fontWeight:"bold",letterSpacing:1,color:"#555",marginBottom:6,textTransform:"uppercase",display:"block",fontFamily:"Arial,sans-serif"};
-  var BODY={fontSize:12,color:"#222",lineHeight:1.75,fontFamily:"Arial,sans-serif"};
-  var SEC={borderTop:"1px solid #eee",paddingTop:12,marginBottom:14};
+  // Formation slot coordinates
+  var GP_FSLOTS={"4-3-3":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},
+    {zone:"MID",idx:1,lbl:"CM",x:50,y:43},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},
+    {zone:"FWD",idx:0,lbl:"LW",x:16,y:22},{zone:"FWD",idx:1,lbl:"ST",x:50,y:14},
+    {zone:"FWD",idx:2,lbl:"RW",x:84,y:22},
+  ],"4-4-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LM",x:12,y:48},
+    {zone:"MID",idx:1,lbl:"LCM",x:38,y:46},{zone:"MID",idx:2,lbl:"RCM",x:62,y:46},
+    {zone:"MID",idx:3,lbl:"RM",x:88,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ],"4-2-3-1":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:34,y:56},
+    {zone:"MID",idx:1,lbl:"CDM",x:66,y:56},{zone:"MID",idx:2,lbl:"LAM",x:16,y:36},
+    {zone:"MID",idx:3,lbl:"CAM",x:50,y:32},{zone:"MID",idx:4,lbl:"RAM",x:84,y:36},
+    {zone:"FWD",idx:0,lbl:"ST",x:50,y:14},
+  ],"3-5-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},
+    {zone:"DEF",idx:1,lbl:"CB",x:50,y:75},{zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},
+    {zone:"MID",idx:0,lbl:"LWM",x:8,y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},
+    {zone:"MID",idx:2,lbl:"CM",x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},
+    {zone:"MID",idx:4,lbl:"RWM",x:92,y:50},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ],"5-3-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:8,y:68},
+    {zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},{zone:"DEF",idx:2,lbl:"CB",x:50,y:74},
+    {zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},{zone:"DEF",idx:4,lbl:"RB",x:92,y:68},
+    {zone:"MID",idx:0,lbl:"LCM",x:22,y:46},{zone:"MID",idx:1,lbl:"CM",x:50,y:42},
+    {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ]};
+  var slots=GP_FSLOTS[plan.formation]||GP_FSLOTS["4-3-3"];
+  var zoneCol={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
+  var benchExcluded=plan.benchExcluded||[];
+  var usedIds=Object.values(plan.lineup||{}).flat().filter(Boolean);
+  var bench=(roster||[]).filter(function(p){return !usedIds.includes(p.id)&&!benchExcluded.includes(p.id);});
 
   return(
-    <div>
-      <style>{"*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;color:#000;font-family:Arial,sans-serif;}@media print{.no-print{display:none!important;}@page{margin:10mm 12mm;size:A4 portrait;}}"}</style>
-      <div style={{maxWidth:760,margin:"0 auto",padding:"20px 16px",background:"#fff"}}>
+    <div style={{minHeight:"100vh",background:"#111",fontFamily:"'Outfit',sans-serif",color:"#fff",padding:"24px 16px"}}>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;800;900&family=Outfit:wght@400;600;700;800&display=swap');@media print{@page{margin:8mm;size:A4;}body{background:#fff!important;color:#111!important;}.no-print{display:none!important;}}"}</style>
 
-        <div className="no-print" style={{display:"flex",gap:10,marginBottom:20}}>
-          <button onClick={function(){window.history.back();}} style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,background:"#f5f5f5",cursor:"pointer",fontSize:13}}>Back</button>
-          <div style={{flex:1}}/>
-          <button onClick={function(){window.print();}} style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>Print / Save PDF</button>
-        </div>
+      {/* Print button */}
+      <div className="no-print" style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
+        <button onClick={()=>window.print()}
+          style={{padding:"8px 18px",background:"#ff6b00",border:"none",borderRadius:8,
+            color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif"}}>
+          🖨 Print / PDF
+        </button>
+      </div>
+
+      <div style={{maxWidth:820,margin:"0 auto"}}>
 
         {/* Header */}
-        <div style={{display:"flex",alignItems:"center",gap:14,borderBottom:"2.5px solid #000",paddingBottom:10,marginBottom:16}}>
-          <div style={{flexShrink:0}}><AppLogo size={40} glow={false}/></div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:18,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>{"vs "+plan.opponent}</div>
-            <div style={{fontSize:11,color:"#666",marginTop:2,fontFamily:"Arial,sans-serif"}}>
-              {[plan.date, plan.location, plan.formation].filter(Boolean).join(" · ")}
+        <div style={{background:"#1a1a1a",borderRadius:14,padding:"20px 24px",marginBottom:16,
+          border:"1px solid #333"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+            <div>
+              <div style={{color:"#ff6b00",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>
+                GAME PLAN
+              </div>
+              <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900,margin:0}}>
+                vs {plan.opponent}
+              </h1>
+              <div style={{color:"#888",fontSize:13,marginTop:4}}>
+                {plan.date&&<span>{plan.date}</span>}
+                {plan.location&&<span> · {plan.location}</span>}
+                {plan.formation&&<span> · {plan.formation}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:"#ff6b00"}}/>
+              <span style={{color:"#ff6b00",fontSize:12,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
             </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div style={{display:"flex",gap:24}}>
+        {/* Two column layout */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
 
-          {/* Left — pitch + instructions + attack */}
-          <div style={{width:210,flexShrink:0}}>
-            <span style={LBL}>Our Lineup</span>
-            <SharePitch lineup={plan.lineup||{}} roster={roster}/>
-
-            <div style={{marginTop:14,borderTop:"1px solid #eee",paddingTop:12,marginBottom:14}}>
-              <span style={LBL}>Match Instructions</span>
-              <div style={BODY}>{plan.instructions||"No instructions added."}</div>
-            </div>
-
-            {cp.howWeAttack?(
-              <div style={SEC}>
-                <span style={LBL}>How We Attack</span>
-                <div style={BODY}>{cp.howWeAttack}</div>
-              </div>
-            ):null}
+          {/* Pitch */}
+          <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 50%,#162e16 100%)",
+            borderRadius:14,border:"2px solid #2a522a",position:"relative",
+            paddingBottom:"130%",userSelect:"none"}}>
+            {/* Markings */}
+            <div style={{position:"absolute",top:"50%",left:"5%",right:"5%",height:1,background:"rgba(255,255,255,0.07)"}}/>
+            <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",borderRadius:"50%",border:"1px solid rgba(255,255,255,0.07)",transform:"translate(-50%,-50%)"}}/>
+            <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderBottom:"none"}}/>
+            <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
+            <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.2)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
+            {slots.map(function(slot,si){
+              var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+              var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
+              var pc=p?posColor(primaryPos(p)):null;
+              var col=zoneCol[slot.zone]||"#fff";
+              return(
+                <div key={si} style={{position:"absolute",left:slot.x+"%",top:slot.y+"%",
+                  transform:"translate(-50%,-50%)",width:46,height:46,borderRadius:"50%",
+                  background:p?pc+"44":"rgba(255,255,255,0.07)",
+                  border:"2px solid "+(p?pc:col+"55"),
+                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                  {p?(
+                    <>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:13,lineHeight:1}}>{p.number||"#"}</div>
+                      <div style={{color:"rgba(255,255,255,.75)",fontSize:6.5,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:42,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>{p.name.split(" ").pop()}</div>
+                    </>
+                  ):(
+                    <div style={{color:col+"99",fontSize:7.5,fontWeight:700,textAlign:"center"}}>{slot.lbl}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Right — all scout info */}
-          <div style={{flex:1,borderLeft:"1.5px solid #ddd",paddingLeft:20}}>
+          {/* Right side info */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
 
-            {opp?(
-              <div style={{marginBottom:14}}>
-                <span style={LBL}>{"Scout — "+opp.name+(opp.formation?" ("+opp.formation+")":"")}</span>
-                <div style={BODY}>{scoutText||"No scout notes added."}</div>
+            {/* Starting XI list */}
+            <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
+              <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
+              {slots.map(function(slot,si){
+                var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+                var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
+                var col=zoneCol[slot.zone]||"#888";
+                return(
+                  <div key={si} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #222"}}>
+                    <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
+                      background:col+"22",border:"1px solid "+col+"44",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:7,fontWeight:800,color:col}}>{slot.lbl}</div>
+                    <span style={{color:p?"#fff":"#444",fontWeight:p?600:400,fontSize:11}}>
+                      {p?"#"+p.number+" "+p.name:"—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bench */}
+            {bench.length>0&&(
+              <div style={{background:"#1a1a1a",borderRadius:12,padding:"12px 16px",border:"1px solid #333"}}>
+                <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>BENCH</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {bench.map(function(p){
+                    var pc=posColor(primaryPos(p));
+                    return(
+                      <div key={p.id} style={{padding:"3px 8px",background:"#222",borderRadius:6,border:"1px solid #333",fontSize:11}}>
+                        <span style={{color:pc,fontWeight:700}}>#{p.number}</span>
+                        <span style={{color:"#aaa",marginLeft:4}}>{p.name.split(" ").pop()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ):null}
-
-            {spText?(
-              <div style={SEC}>
-                <span style={LBL}>Their Set Pieces</span>
-                <div style={BODY}>{spText}</div>
-              </div>
-            ):null}
-
-            {cp.howWeDefend?(
-              <div style={SEC}>
-                <span style={LBL}>How We Defend</span>
-                <div style={BODY}>{cp.howWeDefend}</div>
-              </div>
-            ):null}
-
-            {cp.keyMatchups?(
-              <div style={SEC}>
-                <span style={LBL}>Key Matchups</span>
-                <div style={BODY}>{cp.keyMatchups}</div>
-              </div>
-            ):null}
-
-            {cp.focusPoints?(
-              <div style={SEC}>
-                <span style={LBL}>Focus Points</span>
-                <div style={BODY}>{cp.focusPoints}</div>
-              </div>
-            ):null}
-
-            {!opp&&!plan.instructions?(
-              <div style={{color:"#aaa",fontSize:13,fontStyle:"italic",fontFamily:"Arial,sans-serif"}}>
-                No scout data found for this opponent.
-              </div>
-            ):null}
-
+            )}
           </div>
         </div>
 
-        <div style={{borderTop:"1px solid #ddd",marginTop:16,paddingTop:8,textAlign:"center",fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>CoachIQ</div>
+        {/* Substitutions */}
+        {plan.subs&&plan.subs.length>0&&(
+          <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1px solid #333"}}>
+            <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>SUBSTITUTION PLAN</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {plan.subs.map(function(sub,si){
+                var pOn=sub.playerOn?(roster||[]).find(function(p){return p.id===sub.playerOn;}):null;
+                var pOff=sub.playerOff?(roster||[]).find(function(p){return p.id===sub.playerOff;}):null;
+                return(
+                  <div key={sub.id||si} style={{display:"flex",alignItems:"center",gap:10,
+                    padding:"8px 12px",background:"#222",borderRadius:8}}>
+                    <div style={{color:"#ff6b00",fontSize:11,fontWeight:700,minWidth:50}}>
+                      {sub.minute||"—"}'
+                    </div>
+                    {pOn&&<span style={{color:"#66bb6a",fontWeight:600,fontSize:12}}>↑ #{pOn.number} {pOn.name}</span>}
+                    {pOff&&<span style={{color:"#e53935",fontWeight:600,fontSize:12,marginLeft:4}}>↓ #{pOff.number} {pOff.name}</span>}
+                    {sub.condition&&sub.condition!=="Regardless"&&(
+                      <span style={{color:"#888",fontSize:11,marginLeft:"auto"}}>{sub.condition}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Instructions */}
+        {plan.instructions&&(
+          <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1px solid #333"}}>
+            <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>MATCH INSTRUCTIONS</div>
+            <div style={{color:"#ccc",fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{plan.instructions}</div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{textAlign:"center",marginTop:16,color:"#444",fontSize:11}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:"#ff6b00"}}/>
+            <span style={{color:"#ff6b00",fontWeight:700,letterSpacing:1}}>COACHIQ</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── MATCH REPORT PAGE ────────────────────────────────────────────────────────
 function MatchReportPage(){
   var hash   = window.location.hash;
   var gameId = hash.replace("#/report/","");
