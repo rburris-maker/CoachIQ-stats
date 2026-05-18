@@ -7013,7 +7013,74 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
           </button>
         </div>
 
-{/* ── SHARE LINK MODAL ── */}
+{/* ── IMPORT LINEUP MODAL ── */}
+        {showImport&&(
+          <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+            display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+              padding:24,width:"100%",maxWidth:440,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <div>
+                  <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800,margin:0}}>
+                    Import Lineup
+                  </h3>
+                  <div style={{color:C.muted,fontSize:12,marginTop:3}}>
+                    Pick a saved lineup to import into this game plan
+                  </div>
+                </div>
+                <button onClick={()=>setShowImport(false)}
+                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+              </div>
+              <div style={{overflowY:"auto",flex:1}}>
+                {(!lineups||lineups.length===0)&&(
+                  <div style={{textAlign:"center",padding:"32px 0",color:C.muted}}>
+                    <div style={{fontSize:28,marginBottom:8}}>📋</div>
+                    <div style={{fontWeight:700,marginBottom:4}}>No saved lineups</div>
+                    <div style={{fontSize:12}}>Create lineups in the Lineups tab first</div>
+                  </div>
+                )}
+                {(lineups||[]).map(function(lu){
+                  const filled=Object.values(lu.slots||{}).flat().filter(Boolean).length;
+                  return(
+                    <div key={lu.id}
+                      onClick={function(){
+                        const gpSlots=SLOTS[plan.formation]||SLOTS["4-3-3"];
+                        const newLineup={};
+                        const src2=lu.slots||{};
+                        Object.keys(gpSlots).forEach(function(zone){
+                          newLineup[zone]=(src2[zone]||[]).slice(0,gpSlots[zone]);
+                          while(newLineup[zone].length<gpSlots[zone]) newLineup[zone].push(null);
+                        });
+                        updatePlan(function(){return {lineup:newLineup};});
+                        setShowImport(false);
+                      }}
+                      style={{padding:"12px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",
+                        background:C.surface,border:`1px solid ${C.border}`,
+                        display:"flex",justifyContent:"space-between",alignItems:"center",
+                        transition:"border-color .1s"}}
+                      onMouseEnter={function(e){e.currentTarget.style.borderColor=C.accent;}}
+                      onMouseLeave={function(e){e.currentTarget.style.borderColor=C.border;}}>
+                      <div>
+                        <div style={{color:C.text,fontWeight:700,fontSize:14}}>{lu.name}</div>
+                        <div style={{color:C.muted,fontSize:12,marginTop:2}}>
+                          {lu.formation}{lu.note&&" · "+lu.note}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{color:filled===11?C.accent:C.muted,fontSize:12,fontWeight:700}}>
+                          {filled}/11
+                        </div>
+                        <div style={{color:C.accent,fontSize:16,fontWeight:700}}>→</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SHARE LINK MODAL ── */}
         {shareLink&&(
           <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
             display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
