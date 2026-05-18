@@ -1609,65 +1609,166 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14}}>
 
-              {/* Visual pitch */}
-              <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 40%,#1c3c1c 60%,#162e16 100%)",
-                borderRadius:16,padding:"20px 16px",border:"2px solid #2a522a",
-                position:"relative",minHeight:500,userSelect:"none"}}>
-                {/* Pitch markings */}
-                <div style={{position:"absolute",top:"50%",left:20,right:20,height:1,background:"rgba(255,255,255,0.06)"}}/>
-                <div style={{position:"absolute",top:"50%",left:"50%",width:90,height:90,borderRadius:"50%",
-                  border:"1px solid rgba(255,255,255,0.06)",transform:"translate(-50%,-50%)"}}/>
-                <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",
-                  width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderBottom:"none"}}/>
-                <div style={{position:"absolute",top:16,left:"50%",transform:"translateX(-50%)",
-                  width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderTop:"none"}}/>
+              {/* Visual pitch — coordinate-based formation layout */}
+              {(()=>{
+                const FSLOTS = {
+                  "4-3-3":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:12,y:70,lbl:"LB"},
+                    {zone:"DEF",idx:1, x:35,y:74,lbl:"LCB"},
+                    {zone:"DEF",idx:2, x:65,y:74,lbl:"RCB"},
+                    {zone:"DEF",idx:3, x:88,y:70,lbl:"RB"},
+                    {zone:"MID",idx:0, x:22,y:48,lbl:"LCM"},
+                    {zone:"MID",idx:1, x:50,y:43,lbl:"CM"},
+                    {zone:"MID",idx:2, x:78,y:48,lbl:"RCM"},
+                    {zone:"FWD",idx:0, x:16,y:22,lbl:"LW"},
+                    {zone:"FWD",idx:1, x:50,y:14,lbl:"ST"},
+                    {zone:"FWD",idx:2, x:84,y:22,lbl:"RW"},
+                  ],
+                  "4-4-2":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:12,y:70,lbl:"LB"},
+                    {zone:"DEF",idx:1, x:35,y:74,lbl:"LCB"},
+                    {zone:"DEF",idx:2, x:65,y:74,lbl:"RCB"},
+                    {zone:"DEF",idx:3, x:88,y:70,lbl:"RB"},
+                    {zone:"MID",idx:0, x:12,y:48,lbl:"LM"},
+                    {zone:"MID",idx:1, x:38,y:46,lbl:"LCM"},
+                    {zone:"MID",idx:2, x:62,y:46,lbl:"RCM"},
+                    {zone:"MID",idx:3, x:88,y:48,lbl:"RM"},
+                    {zone:"FWD",idx:0, x:34,y:16,lbl:"ST"},
+                    {zone:"FWD",idx:1, x:66,y:16,lbl:"ST"},
+                  ],
+                  "4-2-3-1":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:12,y:70,lbl:"LB"},
+                    {zone:"DEF",idx:1, x:35,y:74,lbl:"LCB"},
+                    {zone:"DEF",idx:2, x:65,y:74,lbl:"RCB"},
+                    {zone:"DEF",idx:3, x:88,y:70,lbl:"RB"},
+                    {zone:"MID",idx:0, x:34,y:56,lbl:"CDM"},
+                    {zone:"MID",idx:1, x:66,y:56,lbl:"CDM"},
+                    {zone:"MID",idx:2, x:16,y:36,lbl:"LAM"},
+                    {zone:"MID",idx:3, x:50,y:32,lbl:"CAM"},
+                    {zone:"MID",idx:4, x:84,y:36,lbl:"RAM"},
+                    {zone:"FWD",idx:0, x:50,y:14,lbl:"ST"},
+                  ],
+                  "3-5-2":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:22,y:72,lbl:"LCB"},
+                    {zone:"DEF",idx:1, x:50,y:75,lbl:"CB"},
+                    {zone:"DEF",idx:2, x:78,y:72,lbl:"RCB"},
+                    {zone:"MID",idx:0, x:8, y:50,lbl:"LWM"},
+                    {zone:"MID",idx:1, x:30,y:46,lbl:"LCM"},
+                    {zone:"MID",idx:2, x:50,y:44,lbl:"CM"},
+                    {zone:"MID",idx:3, x:70,y:46,lbl:"RCM"},
+                    {zone:"MID",idx:4, x:92,y:50,lbl:"RWM"},
+                    {zone:"FWD",idx:0, x:34,y:16,lbl:"ST"},
+                    {zone:"FWD",idx:1, x:66,y:16,lbl:"ST"},
+                  ],
+                  "5-3-2":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:8, y:68,lbl:"LB"},
+                    {zone:"DEF",idx:1, x:28,y:72,lbl:"LCB"},
+                    {zone:"DEF",idx:2, x:50,y:74,lbl:"CB"},
+                    {zone:"DEF",idx:3, x:72,y:72,lbl:"RCB"},
+                    {zone:"DEF",idx:4, x:92,y:68,lbl:"RB"},
+                    {zone:"MID",idx:0, x:22,y:46,lbl:"LCM"},
+                    {zone:"MID",idx:1, x:50,y:42,lbl:"CM"},
+                    {zone:"MID",idx:2, x:78,y:46,lbl:"RCM"},
+                    {zone:"FWD",idx:0, x:34,y:16,lbl:"ST"},
+                    {zone:"FWD",idx:1, x:66,y:16,lbl:"ST"},
+                  ],
+                  "4-1-4-1":[
+                    {zone:"GK", idx:0, x:50,y:88,lbl:"GK"},
+                    {zone:"DEF",idx:0, x:12,y:70,lbl:"LB"},
+                    {zone:"DEF",idx:1, x:35,y:74,lbl:"LCB"},
+                    {zone:"DEF",idx:2, x:65,y:74,lbl:"RCB"},
+                    {zone:"DEF",idx:3, x:88,y:70,lbl:"RB"},
+                    {zone:"MID",idx:0, x:50,y:58,lbl:"CDM"},
+                    {zone:"MID",idx:1, x:10,y:40,lbl:"LM"},
+                    {zone:"MID",idx:2, x:36,y:38,lbl:"LCM"},
+                    {zone:"MID",idx:3, x:64,y:38,lbl:"RCM"},
+                    {zone:"MID",idx:4, x:90,y:40,lbl:"RM"},
+                    {zone:"FWD",idx:0, x:50,y:14,lbl:"ST"},
+                  ],
+                };
+                const slots = FSLOTS[active.formation]||FSLOTS["4-3-3"];
+                return(
+                  <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 40%,#1c3c1c 60%,#162e16 100%)",
+                    borderRadius:16,border:"2px solid #2a522a",
+                    position:"relative",width:"100%",paddingBottom:"140%",userSelect:"none"}}>
 
-                <div style={{display:"flex",flexDirection:"column",gap:0,height:"100%",justifyContent:"space-around"}}>
-                  {ZONES.map(zone=>{
-                    const slots = active.slots[zone.key]||[];
-                    return(
-                      <div key={zone.key} style={{display:"flex",justifyContent:"center",gap:10,padding:"8px 0"}}>
-                        {slots.map((pid,idx)=>{
-                          const player = pid?(roster||[]).find(p=>p.id===pid):null;
-                          const pc = player?posColor(primaryPos(player)):zone.color;
-                          const isActive = picking?.zone===zone.key&&picking?.idx===idx;
-                          return(
-                            <div key={idx}
-                              onClick={()=>setPicking({zone:zone.key,idx})}
-                              title={player?player.name:"Click to assign"}
-                              style={{width:62,height:62,borderRadius:"50%",
-                                background:player?pc+"33":"rgba(255,255,255,0.06)",
-                                border:`2px solid ${isActive?C.accent:player?pc:"rgba(255,255,255,0.15)"}`,
-                                display:"flex",flexDirection:"column",alignItems:"center",
-                                justifyContent:"center",cursor:"pointer",
-                                transition:"all .15s",
-                                boxShadow:isActive?"0 0 0 3px "+C.accent+"66":"none"}}>
-                              {player?(
-                                <>
-                                  <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                                    color:pc,fontSize:16,lineHeight:1}}>
-                                    {player.number||"#"}
-                                  </div>
-                                  <div style={{color:"rgba(255,255,255,.7)",fontSize:8,
-                                    fontWeight:700,marginTop:2,textAlign:"center",
-                                    maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",
-                                    whiteSpace:"nowrap",padding:"0 4px"}}>
-                                    {player.name.split(" ").pop()}
-                                  </div>
-                                </>
-                              ):(
-                                <div style={{color:"rgba(255,255,255,.2)",fontSize:11,fontWeight:700}}>
-                                  {zone.key}
-                                </div>
-                              )}
+                    {/* Pitch markings */}
+                    <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
+                      {/* Center line */}
+                      <div style={{position:"absolute",top:"50%",left:"5%",right:"5%",height:1,background:"rgba(255,255,255,0.08)"}}/>
+                      {/* Center circle */}
+                      <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",
+                        borderRadius:"50%",border:"1px solid rgba(255,255,255,0.08)",
+                        transform:"translate(-50%,-50%)"}}/>
+                      {/* Penalty boxes */}
+                      <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"12%",
+                        border:"1px solid rgba(255,255,255,0.08)",borderTop:"none"}}/>
+                      <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"12%",
+                        border:"1px solid rgba(255,255,255,0.08)",borderBottom:"none"}}/>
+                    </div>
+
+                    {/* Formation label */}
+                    <div style={{position:"absolute",top:8,left:12,
+                      color:"rgba(255,255,255,0.25)",fontSize:11,fontWeight:700}}>
+                      {active.formation}
+                    </div>
+
+                    {/* Players */}
+                    {slots.map((slot,si)=>{
+                      const pid = (active.slots[slot.zone]||[])[slot.idx]||null;
+                      const player = pid?(roster||[]).find(p=>p.id===pid):null;
+                      const pc = player?posColor(primaryPos(player)):null;
+                      const zoneColors={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
+                      const zc = zoneColors[slot.zone]||"#fff";
+                      const isActive = picking?.zone===slot.zone&&picking?.idx===slot.idx;
+                      return(
+                        <div key={si}
+                          onClick={()=>setPicking({zone:slot.zone,idx:slot.idx})}
+                          style={{
+                            position:"absolute",
+                            left:slot.x+"%",
+                            top:slot.y+"%",
+                            transform:"translate(-50%,-50%)",
+                            width:52,height:52,
+                            borderRadius:"50%",
+                            background:player?pc+"44":"rgba(255,255,255,0.07)",
+                            border:`2px solid ${isActive?C.accent:player?pc:zc+"55"}`,
+                            display:"flex",flexDirection:"column",
+                            alignItems:"center",justifyContent:"center",
+                            cursor:"pointer",
+                            transition:"all .15s",
+                            boxShadow:isActive?"0 0 0 3px "+C.accent+"66":player?"0 2px 8px rgba(0,0,0,.4)":"none",
+                            zIndex:1,
+                          }}>
+                          {player?(
+                            <>
+                              <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
+                                color:pc,fontSize:15,lineHeight:1}}>
+                                {player.number||"#"}
+                              </div>
+                              <div style={{color:"rgba(255,255,255,.75)",fontSize:7.5,
+                                fontWeight:700,marginTop:1,textAlign:"center",
+                                maxWidth:46,overflow:"hidden",textOverflow:"ellipsis",
+                                whiteSpace:"nowrap",padding:"0 3px"}}>
+                                {player.name.split(" ").pop()}
+                              </div>
+                            </>
+                          ):(
+                            <div style={{color:zc+"99",fontSize:9,fontWeight:700,textAlign:"center",lineHeight:1.2}}>
+                              {slot.lbl}
                             </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Bench */}
               <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
