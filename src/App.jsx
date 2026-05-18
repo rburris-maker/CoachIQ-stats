@@ -3736,7 +3736,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,userName,joinSessionId,onClearJoin,gamePlans,livePreload,onClearPreload}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Live game tracking and player ratings">{null}</ProGate>;
 
-  const PLAYERS = (roster||[]).filter(function(p){return !excluded.has(p.id);});
+  const PLAYERS = roster||[];
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [live,       setLive]       = useState(null);
@@ -4285,8 +4285,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ─────────────────────────────────────────────────────────────────────────
   const activeStat_def = STAT_BTNS.find(b=>b.k===activeStat);
   const myStats = roleStats(role);
-  const activePlayers = PLAYERS.filter(p=>!benched.has(p.id));
-  const benchPlayers  = PLAYERS.filter(p=>benched.has(p.id));
+  const activePlayers = PLAYERS.filter(p=>!benched.has(p.id)&&!excluded.has(p.id));
+  const benchPlayers  = PLAYERS.filter(p=>benched.has(p.id)&&!excluded.has(p.id));
   const pct = possessionPct();
 
   // ── POSSESSION TRACKER FULL SCREEN ──────────────────────────────────────
