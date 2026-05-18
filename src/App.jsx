@@ -1443,13 +1443,17 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
 
   function emptyLineup(formation){
     const counts = SLOTS_FOR(formation);
-    const slots={};
-    Object.entries(counts).forEach(([z,n])=>{ slots[z]=Array(n).fill(null); });
-    return slots;
+    const slots={}, subs={};
+    Object.entries(counts).forEach(([z,n])=>{
+      slots[z]=Array(n).fill(null);
+      subs[z]=Array(n).fill(null);
+    });
+    return {slots, subs};
   }
 
   const [selId,    setSelId]    = useState(lineups[0]?.id||null);
-  const [picking,  setPicking]  = useState(null); // {zone,idx}
+  const [picking,  setPicking]  = useState(null); // {zone,idx,isSub}
+  const [pickSearch,setPickSearch]= useState("");
   const [creating, setCreating] = useState(false);
   const [newName,  setNewName]  = useState("");
 
@@ -1463,7 +1467,8 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
   function createLineup(){
     const n = newName.trim()||"Lineup "+(lineups.length+1);
     const id = "lu"+Date.now();
-    const lu = {id, name:n, formation:"4-3-3", slots:emptyLineup("4-3-3"), note:"", createdAt:new Date().toISOString()};
+    const {slots:s0,subs:sb0}=emptyLineup("4-3-3");
+    const lu = {id, name:n, formation:"4-3-3", slots:s0, subs:sb0, note:"", createdAt:new Date().toISOString()};
     setLineups(prev=>[...prev, lu]);
     setSelId(id); setCreating(false); setNewName("");
   }
@@ -1479,23 +1484,33 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
   }
 
   function setFormation(f){
-    upd(()=>({formation:f, slots:emptyLineup(f)}));
+    const {slots,subs}=emptyLineup(f);
+    upd(()=>({formation:f, slots, subs}));
   }
 
-  function assignPlayer(zone, idx, playerId){
+  function assignPlayer(zone, idx, playerId, isSub){
     upd(l=>{
-      const slots={...l.slots};
-      Object.keys(slots).forEach(z=>{
-        slots[z]=slots[z].map(id=>id===playerId?null:id);
-      });
-      slots[zone]=[...slots[zone]];
-      slots[zone][idx]=playerId||null;
-      return {slots};
+      if(isSub){
+        const subs={...l.subs};
+        Object.keys(subs).forEach(z=>{ subs[z]=subs[z].map(id=>id===playerId?null:id); });
+        subs[zone]=[...subs[zone]];
+        subs[zone][idx]=playerId||null;
+        return {subs};
+      }else{
+        const slots={...l.slots};
+        Object.keys(slots).forEach(z=>{ slots[z]=slots[z].map(id=>id===playerId?null:id); });
+        slots[zone]=[...slots[zone]];
+        slots[zone][idx]=playerId||null;
+        return {slots};
+      }
     });
     setPicking(null);
   }
 
-  const usedIds = active ? Object.values(active.slots||{}).flat().filter(Boolean) : [];
+  const usedIds = active ? [
+    ...Object.values(active.slots||{}).flat(),
+    ...Object.values(active.subs||{}).flat()
+  ].filter(Boolean) : [];
   const bench   = (roster||[]).filter(p=>!usedIds.includes(p.id));
 
   const iS = (extra={})=>({padding:"8px 12px",background:C.surface,border:`1px solid ${C.border}`,
@@ -1728,7 +1743,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                       const isActive = picking?.zone===slot.zone&&picking?.idx===slot.idx;
                       return(
                         <div key={si}
-                          onClick={()=>setPicking({zone:slot.zone,idx:slot.idx})}
+                          onClick={()=>{setPicking({zone:slot.zone,idx:slot.idx,isSub:false});setPickSearch("");}}
                           style={{
                             position:"absolute",
                             left:slot.x+"%",
@@ -1764,6 +1779,32 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                             </div>
                           )}
                         </div>
+                        {/* Sub slot */}
+                        {(()=>{
+                          const subPid=(active.subs?.[slot.zone]||[])[slot.idx]||null;
+                          const subPlayer=subPid?(roster||[]).find(p=>p.id===subPid):null;
+                          const spc=subPlayer?posColor(primaryPos(subPlayer)):null;
+                          return(
+                            <div onClick={e=>{e.stopPropagation();setPicking({zone:slot.zone,idx:slot.idx,isSub:true});setPickSearch("");}}
+                              title={subPlayer?"Sub: "+subPlayer.name:"Add sub"}
+                              style={{
+                                position:"absolute",
+                                bottom:-18,
+                                left:"50%",
+                                transform:"translateX(-50%)",
+                                width:22,height:22,
+                                borderRadius:"50%",
+                                background:subPlayer?spc+"55":"rgba(255,255,255,0.08)",
+                                border:`1.5px dashed ${subPlayer?spc:"rgba(255,255,255,0.2)"}`,
+                                display:"flex",alignItems:"center",justifyContent:"center",
+                                cursor:"pointer",fontSize:8,fontWeight:900,
+                                color:subPlayer?spc:"rgba(255,255,255,0.3)",
+                                zIndex:2,
+                              }}>
+                              {subPlayer?subPlayer.number||"#":"+"}
+                            </div>
+                          );
+                        })()}
                       );
                     })}
                   </div>
@@ -1831,7 +1872,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div>
                 <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700,margin:0}}>
-                  {picking.zone} — Select Player
+                  {picking.isSub?"Sub for ":"Starter — "}{picking.zone}
                 </h3>
                 <div style={{color:C.muted,fontSize:11,marginTop:3}}>
                   Click to assign · currently {active?.slots[picking.zone]?.[picking.idx]
@@ -1843,9 +1884,18 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                 style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
             </div>
 
+            {/* Search bar */}
+            <input value={pickSearch} onChange={e=>setPickSearch(e.target.value)}
+              placeholder="Search players..."
+              autoFocus
+              style={{width:"100%",padding:"8px 12px",marginBottom:10,
+                background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:8,color:C.text,fontSize:13,outline:"none",
+                fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+
             <div style={{overflowY:"auto",flex:1}}>
               {/* Clear option */}
-              <div onClick={()=>assignPlayer(picking.zone,picking.idx,null)}
+              <div onClick={()=>assignPlayer(picking.zone,picking.idx,null,picking.isSub)}
                 style={{padding:"9px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",
                   background:C.surface,border:`1px solid ${C.border}`,
                   color:C.muted,fontSize:13}}>
@@ -1854,6 +1904,10 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
 
               {/* Roster grouped by zone fit */}
               {(roster||[])
+                .filter(p=>!pickSearch||
+                  p.name.toLowerCase().includes(pickSearch.toLowerCase())||
+                  allPos(p).some(pos=>pos.toLowerCase().includes(pickSearch.toLowerCase()))||
+                  String(p.number||"").includes(pickSearch))
                 .slice()
                 .sort((a,b)=>{
                   const zonePos={FWD:["ST","W","CAM"],MID:["CM","CDM","RM","LM","W","CAM"],
@@ -1869,7 +1923,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                   const isCurrent=active?.slots[picking.zone]?.[picking.idx]===p.id;
                   return(
                     <div key={p.id}
-                      onClick={()=>assignPlayer(picking.zone,picking.idx,p.id)}
+                      onClick={()=>assignPlayer(picking.zone,picking.idx,p.id,picking.isSub)}
                       style={{padding:"9px 12px",borderRadius:8,marginBottom:4,cursor:"pointer",
                         background:isCurrent?C.accent+"22":C.surface,
                         border:`1px solid ${isCurrent?C.accent:pc+"33"}`,
