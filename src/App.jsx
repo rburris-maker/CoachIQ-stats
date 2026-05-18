@@ -8658,7 +8658,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             </div>
           </div>
         </div>
-      </div>
 
       {/* ── Fullscreen Attendance Overlay ── */}
       {fullAttSel&&(()=>{
@@ -8770,6 +8769,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         );
       })()}
 
+      </div>
     );
   }
 
