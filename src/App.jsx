@@ -11569,6 +11569,7 @@ function PlayerPortalPage(){
       clean:          player.clean||"",
       fortyYard:      player.fortyYard||"",
       hundredMeter:   player.hundredMeter||"",
+      mileTime:       player.mileTime||"",
       photoUrl:       photoUrl,
     });
     setEditMode(true);
