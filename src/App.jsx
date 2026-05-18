@@ -7282,46 +7282,47 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               );
             })()}
 
-            {/* Bench */}
-            <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
-                {excludedRoster.length>0&&(
-                  <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))}
-                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
-                    Restore all ({excludedRoster.length})
-                  </button>
-                )}
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {benchRoster.length===0&&excludedRoster.length===0
-                  ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
-                  : benchRoster.map(p=>(
-                    <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
-                      <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>{p.number}</div>
-                      <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
-                      <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
-                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
-                    </div>
-                  ))
-                }
-              </div>
+          </div>
+
+          {/* Bench — separate card below pitch */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"12px 14px",marginTop:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
               {excludedRoster.length>0&&(
-                <div style={{marginTop:8}}>
-                  <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                    {excludedRoster.map(p=>(
-                      <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
-                        style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,
-                          display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
-                        <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
-                        <span style={{color:C.accent,fontSize:9}}>+</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))}
+                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
+                  Restore all ({excludedRoster.length})
+                </button>
               )}
             </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {benchRoster.length===0&&excludedRoster.length===0
+                ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
+                : benchRoster.map(p=>(
+                  <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
+                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>{p.number}</div>
+                    <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
+                    <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
+                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
+                  </div>
+                ))
+              }
+            </div>
+            {excludedRoster.length>0&&(
+              <div style={{marginTop:8}}>
+                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {excludedRoster.map(p=>(
+                    <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
+                      style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,
+                        display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
+                      <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
+                      <span style={{color:C.accent,fontSize:9}}>+</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Right column ──────────────────────────────────────── */}
