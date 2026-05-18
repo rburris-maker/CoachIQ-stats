@@ -7213,37 +7213,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               );
             })()}
           </div>
-          {/* ── OLD zone builder kept for reference — now hidden
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {ZONES.map(([zone,label])=>(
-                <div key={zone}>
-                  <div style={{color:ZONE_COL[zone],fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>{label.toUpperCase()}</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {(plan.lineup[zone]||[]).map((pid,idx)=>{
-                      const p = pid ? roster.find(r=>r.id===pid) : null;
-                      return(
-                        <div key={idx} onClick={()=>setPicking({zone,idx})}
-                          style={{flex:"1 1 80px",minWidth:70,padding:"8px 6px",borderRadius:9,cursor:"pointer",
-                            background:p?ZONE_COL[zone]+"11":C.surface,
-                            border:`1.5px solid ${p?ZONE_COL[zone]+"55":C.border}`,
-                            display:"flex",flexDirection:"column",alignItems:"center",gap:3,
-                            transition:"all .12s"}}
-                          onMouseEnter={e=>e.currentTarget.style.borderColor=ZONE_COL[zone]}
-                          onMouseLeave={e=>e.currentTarget.style.borderColor=p?ZONE_COL[zone]+"66":C.border}>
-                          {p ? <>
-                            <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`2px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posColor(primaryPos(p)),fontSize:16}}>{p.number}</div>
-                            <div style={{color:C.text,fontSize:10,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{p.name.split(" ")[1]||p.name}</div>
-                          </> : <>
-                            <div style={{width:32,height:32,borderRadius:7,background:C.border,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:18}}>+</div>
-                            <div style={{color:C.muted,fontSize:10}}>Empty</div>
-                          </>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+
 
             {/* Bench */}
             <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
