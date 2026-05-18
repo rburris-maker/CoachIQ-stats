@@ -4123,35 +4123,42 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   }
 
   async function handleJoinSession(sid){
-    // Fetch existing session
-    const {data} = await supabase.from("live_sessions").select("*").eq("id",sid);
-    if(!data||!data[0]) return;
-    const setup = data[0].game_setup;
+    try{
+      // Fetch existing session
+      const {data,error} = await supabase.from("live_sessions").select("*").eq("id",sid);
+      if(error||!data||!data[0]){ console.warn("Join: session not found",error); return; }
+      const setup = data[0].game_setup;
+      if(!setup){ console.warn("Join: no game_setup in session"); return; }
 
-    // Fetch events so far
-    const {data:evData} = await supabase.from("live_events").select("*").eq("session_id",sid).order("id",{ascending:true});
-    // Reconstruct state from events
-    const initStats={};
-    const initMins={};
-    PLAYERS.forEach(p=>{
-      initStats[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,
-        passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,
-        interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,minutesPlayed:0};
-      initMins[p.id]={startMin:0,totalMins:0};
-    });
-    var curMin=0;
-    (evData||[]).forEach(function(row){
-      applyRemoteEvent(row.event_type, row.payload);
-      if(row.payload?.min) curMin=Math.max(curMin,row.payload.min);
-    });
+      // Init player stats
+      const initStats={};
+      const initMins={};
+      PLAYERS.forEach(p=>{
+        initStats[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,
+          passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,
+          interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,minutesPlayed:0};
+        initMins[p.id]={startMin:0,totalMins:0};
+      });
 
-    sessionIdRef.current = sid;
-    setLive(setup); setStats(initStats); setMin(curMin); setEvents([]);
-    setBenched(new Set()); setPlayerMins(initMins); setHalfTime(false);
-    setSessionId(sid); setIsHost(false);
-    setPossession({home:0,away:0,current:null,lastTs:null});
-    setShowRolePicker(true); // prompt role selection
-    realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
+      // Try to fetch events (table may not exist — safe to skip)
+      var curMin=0;
+      try{
+        const {data:evData} = await supabase.from("live_events").select("*")
+          .eq("session_id",sid).order("id",{ascending:true});
+        (evData||[]).forEach(function(row){
+          if(row.event_type&&row.payload) applyRemoteEvent(row.event_type, row.payload);
+          if(row.payload?.min) curMin=Math.max(curMin,row.payload?.min||0);
+        });
+      }catch(evErr){ /* live_events table may not exist — continue without event replay */ }
+
+      sessionIdRef.current = sid;
+      setLive(setup); setStats(initStats); setMin(curMin); setEvents([]);
+      setBenched(new Set()); setPlayerMins(initMins); setHalfTime(false);
+      setSessionId(sid); setIsHost(false);
+      setPossession({home:0,away:0,current:null,lastTs:null});
+      setShowRolePicker(true);
+      realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
+    }catch(e){ console.error("handleJoinSession error:",e); }
   }
 
   function confirmRole(r){
@@ -4210,9 +4217,10 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
       {/* Lineup preview from game plan */}
       {(()=>{
-        if(!livePreload||!livePreload.lineup) return null;
-        const starterIds=new Set(Object.values(livePreload.lineup).flat().filter(Boolean));
-        const excludedIds=new Set(livePreload.benchExcluded||[]);
+        const pl=preloadRef.current;
+        if(!pl||!pl.lineup) return null;
+        const starterIds=new Set(Object.values(pl.lineup).flat().filter(Boolean));
+        const excludedIds=new Set(pl.benchExcluded||[]);
         const starters=(roster||[]).filter(function(p){return starterIds.has(p.id);});
         const bench=(roster||[]).filter(function(p){return !starterIds.has(p.id)&&!excludedIds.has(p.id);});
         const excluded=(roster||[]).filter(function(p){return excludedIds.has(p.id);});
