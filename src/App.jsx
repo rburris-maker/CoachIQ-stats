@@ -1742,7 +1742,8 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                       const zc = zoneColors[slot.zone]||"#fff";
                       const isActive = picking?.zone===slot.zone&&picking?.idx===slot.idx;
                       return(
-                        <div key={si}
+                        <React.Fragment key={si}>
+                        <div
                           onClick={()=>{setPicking({zone:slot.zone,idx:slot.idx,isSub:false});setPickSearch("");}}
                           style={{
                             position:"absolute",
@@ -1805,6 +1806,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                             </div>
                           );
                         })()}
+                        </React.Fragment>
                       );
                     })}
                   </div>
