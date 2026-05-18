@@ -1742,8 +1742,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                       const zc = zoneColors[slot.zone]||"#fff";
                       const isActive = picking?.zone===slot.zone&&picking?.idx===slot.idx;
                       return(
-                        <div key={si} style={{display:"contents"}}>
-                        <div
+                        <div key={si}
                           onClick={()=>{setPicking({zone:slot.zone,idx:slot.idx,isSub:false});setPickSearch("");}}
                           style={{
                             position:"absolute",
@@ -1779,8 +1778,6 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                               {slot.lbl}
                             </div>
                           )}
-                        </div>
-                        {/* Sub slot */}
                         {(()=>{
                           const subPid=(active.subs?.[slot.zone]||[])[slot.idx]||null;
                           const subPlayer=subPid?(roster||[]).find(p=>p.id===subPid):null;
