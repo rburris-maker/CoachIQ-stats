@@ -4204,13 +4204,96 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       </div>
 
+      {/* Lineup preview from game plan */}
+      {(()=>{
+        if(!livePreload||!livePreload.lineup) return null;
+        const starterIds=new Set(Object.values(livePreload.lineup).flat().filter(Boolean));
+        const excludedIds=new Set(livePreload.benchExcluded||[]);
+        const starters=(roster||[]).filter(function(p){return starterIds.has(p.id);});
+        const bench=(roster||[]).filter(function(p){return !starterIds.has(p.id)&&!excludedIds.has(p.id);});
+        const excluded=(roster||[]).filter(function(p){return excludedIds.has(p.id);});
+        if(starters.length===0) return(
+          <div style={{marginBottom:16,padding:"12px 14px",background:C.surface,
+            border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12}}>
+            ⚠️ No players assigned in game plan lineup — all players will be available
+          </div>
+        );
+        return(
+          <div style={{marginBottom:16,background:C.surface,border:`1px solid ${C.border}`,
+            borderRadius:10,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,
+              color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>
+              LINEUP FROM GAME PLAN ({starters.length}/11)
+            </div>
+            <div style={{padding:"10px 14px"}}>
+              <div style={{marginBottom:8}}>
+                <div style={{color:"#27a560",fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:5}}>
+                  STARTERS ({starters.length})
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {starters.map(function(p){
+                    return(
+                      <span key={p.id} style={{padding:"3px 8px",background:"#27a56018",
+                        border:"1px solid #27a56044",borderRadius:6,fontSize:11,
+                        color:"#27a560",fontWeight:600}}>
+                        #{p.number} {p.name.split(" ").pop()}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              {bench.length>0&&(
+                <div style={{marginBottom:bench.length>0&&excluded.length>0?8:0}}>
+                  <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:5}}>
+                    BENCH ({bench.length})
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                    {bench.map(function(p){
+                      return(
+                        <span key={p.id} style={{padding:"3px 8px",background:C.card,
+                          border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,
+                          color:C.muted}}>
+                          #{p.number} {p.name.split(" ").pop()}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {excluded.length>0&&(
+                <div>
+                  <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:5}}>
+                    NOT AVAILABLE ({excluded.length})
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                    {excluded.map(function(p){
+                      return(
+                        <span key={p.id} style={{padding:"3px 8px",background:C.surface,
+                          border:`1px dashed ${C.border}`,borderRadius:6,fontSize:11,
+                          color:C.muted,opacity:.5,textDecoration:"line-through"}}>
+                          {p.name.split(" ").pop()}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       <button onClick={startGame} disabled={!form.opponent}
         style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
         🔴 KICK OFF →
       </button>
 
-      {/* Join active session */}
-      <JoinActiveSession teamId={teamId} onJoin={handleJoinSession} userId={userId}/>
+      {/* Rejoin active session */}
+      <div style={{marginTop:24}}>
+        <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,
+          marginBottom:8,textAlign:"center"}}>— OR —</div>
+        <JoinActiveSession teamId={teamId} onJoin={handleJoinSession} userId={userId}/>
+      </div>
     </div>
   );
 
