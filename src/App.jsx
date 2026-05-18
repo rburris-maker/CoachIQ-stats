@@ -4133,7 +4133,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Reconstruct state from events
     const initStats={};
     const initMins={};
-    initPlayers.forEach(p=>{
+    PLAYERS.forEach(p=>{
       initStats[p.id]={playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,
         passesCompleted:0,passesAttempted:0,passesIncomplete:0,tackles:0,
         interceptions:0,aerialDuelsWon:0,dangerousTurnovers:0,fouls:0,saves:0,goalsConceded:0,minutesPlayed:0};
