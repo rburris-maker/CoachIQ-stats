@@ -4798,7 +4798,7 @@ export default function CoachIQStats(){
     ]},
     { label:"SQUAD", items:[
       {id:"roster",   icon:Users,           label:"Squad"},
-      {id:"lineups",  icon:Layout,          label:"Lineups"},
+      {id:"lineups",  icon:ClipboardList,          label:"Lineups"},
       {id:"tryouts",  icon:UserPlus,        label:"Tryouts"},
     ]},
     { label:"PLANNING", items:[
