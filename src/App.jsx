@@ -312,13 +312,17 @@ let C = {...THEMES.dark};
 
 // ─── POSITION METADATA ───────────────────────────────────────────────────────
 const POS_META = {
-  GK:{ label:"GK", color:"#ffb300", group:"Goalkeeper" },
-  CB:{ label:"CB", color:"#ff6b00", group:"Defender"   },
-  FB:{ label:"LB", color:"#ff8c00", group:"Defender"   },
-  DM:{ label:"CDM", color:"#ff4500", group:"Midfielder" },
-  CM:{ label:"CM", color:"#ffa040", group:"Midfielder" },
-  W: { label:"W",  color:"#ffcc00", group:"Midfielder" },
-  ST:{ label:"ST", color:"#ff2200", group:"Forward"    },
+  GK: { label:"GK",  color:"#ffb300", group:"Goalkeeper" },
+  CB: { label:"CB",  color:"#42a5f5", group:"Defender"   },
+  LB: { label:"LB",  color:"#1e88e5", group:"Defender"   },
+  RB: { label:"RB",  color:"#1e88e5", group:"Defender"   },
+  CM: { label:"CM",  color:"#ff6b00", group:"Midfielder" },
+  CAM:{ label:"CAM", color:"#ef5350", group:"Midfielder" },
+  CDM:{ label:"CDM", color:"#7e57c2", group:"Midfielder" },
+  RM: { label:"RM",  color:"#26a69a", group:"Midfielder" },
+  LM: { label:"LM",  color:"#26a69a", group:"Midfielder" },
+  W:  { label:"W",   color:"#ff7043", group:"Midfielder" },
+  ST: { label:"ST",  color:"#e53935", group:"Forward"    },
 };
 const posColor   = pos => POS_META[pos]?.color || "#fff";
 // helpers to support multi-position players (position stored as array)
