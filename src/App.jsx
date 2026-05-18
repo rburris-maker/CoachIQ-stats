@@ -3814,6 +3814,21 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     return ()=>clearInterval(timerRef.current);
   },[autoMin,live,halfTime]);
 
+  // ── Apply preload from game plan / calendar ─────────────────────────────────
+  useEffect(()=>{
+    if(!livePreload) return;
+    setForm({
+      opponent: livePreload.opponent||"",
+      location: livePreload.location||"Home",
+      formation: livePreload.formation||"4-3-3",
+      date: livePreload.date||new Date().toISOString().split("T")[0],
+    });
+    if(livePreload.benchExcluded&&livePreload.benchExcluded.length){
+      setBenched(new Set(livePreload.benchExcluded));
+    }
+    onClearPreload&&onClearPreload();
+  },[livePreload]);
+
   // ── Join session from notification ─────────────────────────────────────────
   useEffect(()=>{
     if(!joinSessionId) return;
@@ -4279,6 +4294,70 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             <div style={{color:"#ffffff33",fontSize:9,fontWeight:700}}>{connectedUsers.length} online</div>
           </div>
         </div>
+        {/* Game plan reference panel */}
+        {matchingPlan&&live&&(
+          <div style={{marginBottom:8}}>
+            <button onClick={()=>setShowPlanRef(v=>!v)}
+              style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",
+                background:showPlanRef?C.accent+"22":C.surface,
+                border:`1px solid ${showPlanRef?C.accent:C.border}`,
+                borderRadius:8,color:showPlanRef?C.accent:C.muted,
+                cursor:"pointer",fontWeight:700,fontSize:12,width:"100%",
+                justifyContent:"space-between"}}>
+              <span>📋 Game Plan — vs {matchingPlan.opponent}</span>
+              <span style={{fontSize:10}}>{showPlanRef?"▲ Hide":"▼ Show"}</span>
+            </button>
+            {showPlanRef&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:10,padding:"14px 16px",marginTop:6}}>
+                {matchingPlan.instructions&&(
+                  <div style={{marginBottom:12}}>
+                    <div style={{color:C.muted,fontSize:9,fontWeight:700,
+                      letterSpacing:1.5,marginBottom:6}}>MATCH INSTRUCTIONS</div>
+                    <div style={{color:C.text,fontSize:12,lineHeight:1.7,
+                      whiteSpace:"pre-wrap"}}>{matchingPlan.instructions}</div>
+                  </div>
+                )}
+                {matchingPlan.subs&&matchingPlan.subs.length>0&&(
+                  <div>
+                    <div style={{color:C.muted,fontSize:9,fontWeight:700,
+                      letterSpacing:1.5,marginBottom:6}}>PLANNED SUBS</div>
+                    {matchingPlan.subs.map(function(sub,si){
+                      var pOn=sub.playerOn?(PLAYERS||[]).find(function(p){return p.id===sub.playerOn;}):null;
+                      var pOff=sub.playerOff?(PLAYERS||[]).find(function(p){return p.id===sub.playerOff;}):null;
+                      return(
+                        <div key={sub.id||si} style={{display:"flex",alignItems:"center",
+                          gap:8,padding:"6px 10px",background:C.surface,
+                          borderRadius:7,marginBottom:4,fontSize:12}}>
+                          <span style={{color:C.accent,fontWeight:700,minWidth:44}}>
+                            {sub.minute||"—"}'
+                          </span>
+                          {pOn&&<span style={{color:"#27a560",fontWeight:600}}>
+                            ↑ #{pOn.number} {pOn.name.split(" ").pop()}
+                          </span>}
+                          {pOff&&<span style={{color:"#e53935",fontWeight:600,marginLeft:2}}>
+                            ↓ #{pOff.number} {pOff.name.split(" ").pop()}
+                          </span>}
+                          {sub.condition&&sub.condition!=="Regardless"&&(
+                            <span style={{color:C.muted,fontSize:10,marginLeft:"auto"}}>
+                              {sub.condition}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {!matchingPlan.instructions&&(!matchingPlan.subs||matchingPlan.subs.length===0)&&(
+                  <div style={{color:C.muted,fontSize:12,fontStyle:"italic"}}>
+                    No instructions or subs planned for this game.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {lobby&&(
           <div style={{background:"#1a0800",borderBottom:"1px solid #ff6b0033",padding:"10px 16px",textAlign:"center",flexShrink:0}}>
             <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Waiting for kick off...</div>
