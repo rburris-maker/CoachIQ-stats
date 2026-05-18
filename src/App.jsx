@@ -3736,7 +3736,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
 function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,userName,joinSessionId,onClearJoin,gamePlans,livePreload,onClearPreload}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Live game tracking and player ratings">{null}</ProGate>;
 
-  const PLAYERS = roster||[];
+  const PLAYERS = (roster||[]).filter(function(p){return !excluded.has(p.id);});
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [live,       setLive]       = useState(null);
@@ -3747,6 +3747,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [form,       setForm]       = useState({opponent:"",location:"Home",formation:"4-3-3",date:new Date().toISOString().split("T")[0]});
   const [activeStat, setActiveStat] = useState(null);
   const [benched,    setBenched]    = useState(new Set());
+  const [excluded,   setExcluded]   = useState(new Set());
   const [playerMins, setPlayerMins] = useState({});
   const [halfTime,   setHalfTime]   = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
@@ -3823,9 +3824,29 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       formation: livePreload.formation||"4-3-3",
       date: livePreload.date||new Date().toISOString().split("T")[0],
     });
-    if(livePreload.benchExcluded&&livePreload.benchExcluded.length){
-      setBenched(new Set(livePreload.benchExcluded));
+
+    // Apply game plan lineup if provided
+    if(livePreload.lineup&&roster&&roster.length){
+      // Starters = players in lineup slots
+      var starterIds=new Set(
+        Object.values(livePreload.lineup).flat().filter(Boolean)
+      );
+      // Excluded = not available for this game
+      var excludedIds=new Set(livePreload.benchExcluded||[]);
+
+      // Bench = in roster, not a starter, not excluded
+      var newBenched=new Set(
+        roster.filter(function(p){
+          return !starterIds.has(p.id)&&!excludedIds.has(p.id);
+        }).map(function(p){return p.id;})
+      );
+
+      setBenched(newBenched);
+      setExcluded(excludedIds);
+    } else if(livePreload.benchExcluded&&livePreload.benchExcluded.length){
+      setExcluded(new Set(livePreload.benchExcluded));
     }
+
     onClearPreload&&onClearPreload();
   },[livePreload]);
 
@@ -7102,6 +7123,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 opponent:plan.opponent,location:plan.location,
                 formation:plan.formation,date:plan.date,
                 benchExcluded:plan.benchExcluded||[],planId:plan.id,
+                lineup:plan.lineup||{},
               });
               setView&&setView("live");
             }}
