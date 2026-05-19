@@ -3270,6 +3270,134 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
                         <div style={{height:5,background:"#fff7ed",borderRadius:4}}><div style={{height:5,background:C.accent,borderRadius:4,width:(()=>{let d=0,t=0;weekData.days.forEach((day,di)=>{const key="w"+(weekIdx+1)+"d"+di;if(day.ball.title&&!day.ball.title.toLowerCase().includes("rest")){t++;if((roster||[]).some(p=>((p.workoutLog||{})[pw.id]||{})[key]?.ballDone)) d++;}});return t?Math.round(d/t*100):0;})()+"%" }}></div></div>
                       </div>
                     </div>
+
+                    {/* ── Detailed player progress table ── */}
+                    <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+                      <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+                        PLAYER PROGRESS — WEEK {weekIdx+1}
+                      </div>
+                      {/* Table header */}
+                      <div style={{display:"grid",gridTemplateColumns:"130px 80px 80px 60px 60px 80px",gap:6,padding:"4px 0",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
+                        {["Player","Cond","Ball","Avg RPE","Sore","Status"].map(h=>(
+                          <div key={h} style={{fontSize:9,color:C.muted,fontWeight:700,letterSpacing:1}}>{h.toUpperCase()}</div>
+                        ))}
+                      </div>
+                      {(roster||[]).map(function(p){
+                        const pc=posColor(primaryPos(p));
+                        var condDone=0,ballDone=0,condTotal=0,ballTotal=0;
+                        var rpeSum=0,rpeCount=0,soreSum=0,soreCount=0;
+                        weekData.days.forEach(function(day,di){
+                          const key="w"+(weekIdx+1)+"d"+di;
+                          const dl=((p.workoutLog||{})[pw.id]||{})[key]||{};
+                          if(day.cond.title&&day.cond.title!=="Rest") condTotal++;
+                          if(day.ball.title&&!day.ball.title.toLowerCase().includes("rest")) ballTotal++;
+                          if(dl.condDone) condDone++;
+                          if(dl.ballDone) ballDone++;
+                          if(dl.condRpe){rpeSum+=parseFloat(dl.condRpe)||0;rpeCount++;}
+                          if(dl.condSoreness){soreSum+=parseFloat(dl.condSoreness)||0;soreCount++;}
+                        });
+                        var avgRpe=rpeCount?Math.round(rpeSum/rpeCount*10)/10:null;
+                        var avgSore=soreCount?Math.round(soreSum/soreCount*10)/10:null;
+                        var flag=avgRpe&&avgRpe>=9?"High RPE":avgSore&&avgSore>=8?"High Soreness":null;
+                        var condPct=condTotal?Math.round(condDone/condTotal*100):0;
+                        var ballPct=ballTotal?Math.round(ballDone/ballTotal*100):0;
+                        var status=flag?"flag":condPct>=80&&ballPct>=80?"on-track":condPct>0||ballPct>0?"partial":"none";
+                        const statusStyles={
+                          "on-track":{bg:"#27a56018",col:"#27a560",label:"On track"},
+                          "partial":{bg:C.warning+"18",col:C.warning,label:"Partial"},
+                          "flag":{bg:C.danger+"18",col:C.danger,label:flag||"Flag"},
+                          "none":{bg:C.surface,col:C.muted,label:"No data"},
+                        };
+                        const ss=statusStyles[status];
+                        return(
+                          <div key={p.id} style={{display:"grid",gridTemplateColumns:"130px 80px 80px 60px 60px 80px",gap:6,padding:"7px 0",borderBottom:`1px solid ${C.border}`,alignItems:"center"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <div style={{width:22,height:22,borderRadius:5,background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:10,flexShrink:0}}>{p.number}</div>
+                              <span style={{color:C.text,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name.split(" ").pop()}</span>
+                            </div>
+                            {/* Cond progress */}
+                            <div>
+                              <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                                <span style={{fontSize:10,color:"#185fa5"}}>{condDone}/{condTotal}</span>
+                              </div>
+                              <div style={{height:4,background:"#e6f1fb",borderRadius:3}}><div style={{height:4,background:condPct>=80?"#27a560":"#378add",borderRadius:3,width:condPct+"%"}}/></div>
+                            </div>
+                            {/* Ball progress */}
+                            <div>
+                              <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                                <span style={{fontSize:10,color:C.accent}}>{ballDone}/{ballTotal}</span>
+                              </div>
+                              <div style={{height:4,background:"#fff7ed",borderRadius:3}}><div style={{height:4,background:ballPct>=80?"#27a560":C.accent,borderRadius:3,width:ballPct+"%"}}/></div>
+                            </div>
+                            {/* RPE */}
+                            <div style={{fontSize:12,color:avgRpe&&avgRpe>=9?C.danger:C.text,fontWeight:avgRpe&&avgRpe>=9?700:400}}>
+                              {avgRpe!==null?avgRpe:"—"}
+                            </div>
+                            {/* Soreness */}
+                            <div style={{fontSize:12,color:avgSore&&avgSore>=8?C.danger:avgSore&&avgSore>=6?C.warning:C.text,fontWeight:avgSore&&avgSore>=8?700:400}}>
+                              {avgSore!==null?avgSore:"—"}
+                            </div>
+                            {/* Status */}
+                            <div style={{background:ss.bg,color:ss.col,fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:20,textAlign:"center"}}>{ss.label}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* ── Benchmark leaderboard ── */}
+                    {(function(){
+                      var allBm=[].concat(prog.condBenchmarks||[]).concat(prog.ballBenchmarks||[]);
+                      var anyData=false;
+                      (roster||[]).forEach(function(p){
+                        var bmLog=((p.workoutLog||{})[pw.id]||{}).benchmarks||{};
+                        if(Object.keys(bmLog).length) anyData=true;
+                      });
+                      if(!anyData) return null;
+                      return(
+                        <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+                          <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+                            BENCHMARK RESULTS
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                            {allBm.map(function(bm){
+                              var isCond=prog.condBenchmarks.includes(bm);
+                              var col=isCond?"#378add":C.accent;
+                              var bg=isCond?"#e6f1fb":"#fff7ed";
+                              var results=(roster||[]).map(function(p){
+                                var bmLog=((p.workoutLog||{})[pw.id]||{}).benchmarks||{};
+                                var tests=["T0","T1","T2","T3"].map(function(k){return (bmLog[bm.name]||{})[k];}).filter(Boolean);
+                                if(!tests.length) return null;
+                                var best=bm.lower
+                                  ?tests.reduce(function(a,b){return a<b?a:b;})
+                                  :tests.reduce(function(a,b){return a>b?a:b;});
+                                return {player:p,best:best,tests:tests};
+                              }).filter(Boolean);
+                              if(!results.length) return null;
+                              results.sort(function(a,b){
+                                return bm.lower?(a.best>b.best?1:-1):(a.best<b.best?1:-1);
+                              });
+                              return(
+                                <div key={bm.name} style={{background:bg,borderRadius:9,padding:"10px 12px"}}>
+                                  <div style={{fontSize:11,fontWeight:600,color:"#111",marginBottom:2}}>{bm.name}</div>
+                                  <div style={{fontSize:9,color:"#888",marginBottom:7}}>Target: {bm.target}</div>
+                                  {results.slice(0,5).map(function(r,i){
+                                    var pc2=posColor(primaryPos(r.player));
+                                    return(
+                                      <div key={r.player.id} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",borderBottom:i<results.length-1?"0.5px solid rgba(0,0,0,0.06)":"none"}}>
+                                        <span style={{fontSize:10,color:"#888",minWidth:14}}>{i+1}</span>
+                                        <div style={{width:18,height:18,borderRadius:4,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:9,flexShrink:0}}>{r.player.number}</div>
+                                        <span style={{flex:1,fontSize:11,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.player.name.split(" ").pop()}</span>
+                                        <span style={{fontSize:11,fontWeight:700,color:i===0?col:"#555"}}>{r.best}{i===0&&" 🏆"}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
