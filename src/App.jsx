@@ -2792,6 +2792,162 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
 }
 
 // ─── ANALYTICS VIEW ───────────────────────────────────────────────────────────
+function WorkoutBuilderView({workouts, setWorkouts, roster}){
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({title:"",description:"",dueDate:"",exercises:[]});
+  const [newEx, setNewEx] = useState({name:"",sets:"",reps:"",duration:""});
+
+  function addExercise(){
+    if(!newEx.name.trim()) return;
+    setForm(f=>({...f,exercises:[...f.exercises,{...newEx,id:"e"+Date.now()}]}));
+    setNewEx({name:"",sets:"",reps:"",duration:""});
+  }
+  function createWorkout(){
+    if(!form.title.trim()) return;
+    const wk={...form,id:"wk"+Date.now(),createdAt:new Date().toISOString().split("T")[0]};
+    setWorkouts(prev=>[wk,...prev]);
+    setForm({title:"",description:"",dueDate:"",exercises:[]});
+    setCreating(false);
+  }
+
+  const iS=(extra={})=>({padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,
+    borderRadius:9,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",...extra});
+
+  return(
+    <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Workouts</h1>
+        </div>
+        <button onClick={()=>setCreating(true)}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>Assign Workout
+        </button>
+      </div>
+
+      {creating&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+          padding:20,marginBottom:20}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:14}}>
+            NEW WORKOUT
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div>
+              <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>TITLE</label>
+              <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
+                placeholder="e.g. Pre-Season Conditioning"
+                style={{...iS(),width:"100%"}}/>
+            </div>
+            <div>
+              <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DUE DATE</label>
+              <input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))}
+                style={{...iS(),width:"100%"}}/>
+            </div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DESCRIPTION (optional)</label>
+            <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}
+              placeholder="Focus area, notes for players..."
+              style={{...iS(),width:"100%"}}/>
+          </div>
+          {/* Exercises */}
+          <div style={{marginBottom:14}}>
+            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>EXERCISES</div>
+            {form.exercises.map(function(ex,i){
+              return(
+                <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,
+                  padding:"7px 10px",background:C.surface,borderRadius:8,marginBottom:6}}>
+                  <span style={{flex:1,color:C.text,fontSize:13,fontWeight:600}}>{ex.name}</span>
+                  <span style={{color:C.muted,fontSize:12}}>
+                    {ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}{ex.duration&&" · "+ex.duration}
+                  </span>
+                  <button onClick={()=>setForm(f=>({...f,exercises:f.exercises.filter((_,j)=>j!==i)}))}
+                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:16}}>×</button>
+                </div>
+              );
+            })}
+            <div style={{display:"grid",gridTemplateColumns:"2fr 60px 60px 100px 36px",gap:6,marginTop:8}}>
+              <input value={newEx.name} onChange={e=>setNewEx(x=>({...x,name:e.target.value}))}
+                onKeyDown={e=>e.key==="Enter"&&addExercise()}
+                placeholder="Exercise name" style={iS({padding:"7px 10px"})}/>
+              <input value={newEx.sets} onChange={e=>setNewEx(x=>({...x,sets:e.target.value}))}
+                placeholder="Sets" style={iS({padding:"7px 8px",textAlign:"center"})}/>
+              <input value={newEx.reps} onChange={e=>setNewEx(x=>({...x,reps:e.target.value}))}
+                placeholder="Reps" style={iS({padding:"7px 8px",textAlign:"center"})}/>
+              <input value={newEx.duration} onChange={e=>setNewEx(x=>({...x,duration:e.target.value}))}
+                placeholder="e.g. 30s rest" style={iS({padding:"7px 8px"})}/>
+              <button onClick={addExercise}
+                style={{background:C.accent,border:"none",borderRadius:9,color:"#000",
+                  fontWeight:800,fontSize:16,cursor:"pointer"}}>+</button>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={createWorkout} disabled={!form.title.trim()}
+              style={{flex:1,padding:"11px",background:form.title.trim()?C.accent:"#2a1000",
+                border:"none",borderRadius:10,color:form.title.trim()?"#000":C.muted,
+                fontWeight:800,fontSize:14,cursor:form.title.trim()?"pointer":"default",
+                fontFamily:"'Oswald',sans-serif"}}>
+              ASSIGN TO ALL PLAYERS
+            </button>
+            <button onClick={()=>setCreating(false)}
+              style={{padding:"11px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {workouts.length===0&&!creating&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+          padding:"48px 24px",textAlign:"center"}}>
+          <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
+          <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No workouts yet</div>
+          <div style={{color:C.muted,fontSize:13}}>Assign workouts and players track them on their portal</div>
+        </div>
+      )}
+
+      {workouts.map(function(wk){
+        return(
+          <div key={wk.id} style={{background:C.card,border:`1px solid ${C.border}`,
+            borderRadius:14,padding:18,marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              <div>
+                <div style={{color:C.text,fontWeight:700,fontSize:15}}>{wk.title}</div>
+                {wk.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{wk.description}</div>}
+                <div style={{color:C.muted,fontSize:11,marginTop:3}}>
+                  Assigned {wk.createdAt}{wk.dueDate&&" · Due "+wk.dueDate}
+                </div>
+              </div>
+              <button onClick={()=>{if(window.confirm("Delete this workout?"))setWorkouts(prev=>prev.filter(w=>w.id!==wk.id));}}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13}}>
+                Delete
+              </button>
+            </div>
+            {(wk.exercises||[]).length>0&&(
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {wk.exercises.map(function(ex){
+                  return(
+                    <span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:7,padding:"3px 10px",fontSize:12,color:C.muted}}>
+                      {ex.name}{ex.sets&&" · "+ex.sets+"×"}{ex.reps&&ex.reps}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
 function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Season analytics and reports">{null}</ProGate>;
 
@@ -5706,6 +5862,7 @@ export default function CoachIQStats(){
   const [lineups,     setLineupsState]   = useState([]);
   const [livePreload,  setLivePreload]    = useState(null);
   const [teamHub,      setTeamHubState]   = useState({coachMessage:'',featuredGameId:null,featuredGameLabel:'',featuredGameDate:'',featuredGameTime:''});
+  const [workouts,     setWorkoutsState]  = useState([]);
   const [tryouts,     setTryoutsState]  = useState([]);
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
@@ -5855,6 +6012,10 @@ export default function CoachIQStats(){
       setTemplatesState((tp.data?.[0]?.data) || []);
       setScheduleState((sc.data||[]).map(x=>x.data));
       setLineupsState((await supabase.from("lineups").select("*").eq("team_id",tid)).data?.map(x=>x.data)||[]);
+      try{
+        const {data:wkData}=await supabase.from("team_workouts").select("*").eq("team_id",tid).single();
+        if(wkData) setWorkoutsState(wkData.data||[]);
+      }catch(e){}
       try{
         const {data:hubData}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
         if(hubData) setTeamHubState({
@@ -6154,6 +6315,14 @@ export default function CoachIQStats(){
     }finally{
       setDataLoading(false);
     }
+  }
+
+  async function setWorkouts(val){
+    const resolved=typeof val==="function"?val(workouts):val;
+    setWorkoutsState(resolved);
+    try{
+      await supabase.from("team_workouts").upsert({team_id:safeTeamId,data:resolved},{onConflict:"team_id"});
+    }catch(e){ console.error("setWorkouts",e); }
   }
 
   async function saveTeamHub(updates){
@@ -13600,7 +13769,9 @@ function PlayerPortalPage(){
   var [draft,     setDraft]     = useState({});
   var [saving,    setSaving]    = useState(false);
   var [addingVid, setAddingVid] = useState(false);
-  var [hubSettings, setHubSettings] = useState({});
+  var [hubSettings,  setHubSettings]  = useState({});
+  var [teamWorkouts, setTeamWorkouts] = useState([]);
+  var [wkLog,        setWkLog]        = useState({});
   var [countdown, setCountdown] = useState({d:0,h:0,m:0,s:0,label:""});
   var [goals, setGoals] = useState({goals:0,assists:0,rating:0});
   var [goalsMode, setGoalsMode] = useState(false);
@@ -13645,6 +13816,7 @@ function PlayerPortalPage(){
         }
         if(!found){setError("Player not found.");setLoading(false);return;}
         setPlayer(Object.assign({},found,{teamId:tid}));
+        setWkLog(found.workoutLog||{});
         setPhotoUrl(found.photoUrl||"");
         setVideos(found.videoLinks||[]);
         var {data:teams} = await supabase.from("teams").select("name").eq("id",tid);
@@ -13655,6 +13827,10 @@ function PlayerPortalPage(){
         setSchedule((sData||[]).map(function(x){return x.data;}));
         var {data:pData} = await supabase.from("practices").select("*").eq("team_id",tid);
         setPractices((pData||[]).map(function(x){return x.data;}));
+        try{
+          var {data:wkRow}=await supabase.from("team_workouts").select("*").eq("team_id",tid).single();
+          if(wkRow) setTeamWorkouts(wkRow.data||[]);
+        }catch(e){}
         try{
           var {data:hubRow}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
           if(hubRow) setHubSettings({
@@ -13843,12 +14019,17 @@ function PlayerPortalPage(){
     committed:"Committed",not_recruiting:"Not Recruiting"}[player.recruitingStatus]||"";
   var recColor  = {open:A,d1:"#7c3aed",d2:"#1565c0",d3:"#2d7a3a",committed:"#2e7d32",not_recruiting:"#888"}[player.recruitingStatus]||A;
 
-  var TABS = [
+  var isRecruiterView = window.location.hash.startsWith("#/recruit/");
+  var TABS = isRecruiterView ? [
+    {t:"about",     l:"About"},
+    {t:"highlights",l:"Highlights"},
+    {t:"stats",     l:"Stats"},
+  ] : [
     {t:"about",     l:"About"},
     {t:"highlights",l:"Highlights"},
     {t:"schedule",  l:"Schedule"},
     {t:"stats",     l:"Stats"},
-    {t:"recruit",   l:"Recruit"},
+    {t:"workouts",  l:"Workouts"},
   ];
 
   // Card is defined as PortalCard outside this component — prevents focus loss
@@ -13999,10 +14180,16 @@ function PlayerPortalPage(){
                 </>
               ):!isViewOnly?(
                 <>
-                  <button onClick={copyViewLink}
+                  <button onClick={function(){
+                    var base=window.location.origin+window.location.pathname;
+                    var url=base+"#/recruit/"+playerId;
+                    navigator.clipboard.writeText(url).then(function(){
+                      setRecruitCopied(true);setTimeout(function(){setRecruitCopied(false);},2500);
+                    }).catch(function(){alert(url);});
+                  }}
                     style={{padding:"8px 16px",background:"#f5f5f5",border:"1px solid #ddd",
                       borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
-                    {viewCopied?"✓ Link Copied":"Share Profile"}
+                    {recruitCopied?"✓ Copied":"⭐ Recruiter Link"}
                   </button>
                   <button onClick={startEdit}
                     style={{padding:"8px 16px",background:A,border:"none",
@@ -14887,7 +15074,111 @@ function PlayerPortalPage(){
           );
         })()}
 
-                {tab==="recruit"&&(
+                {tab==="workouts"&&(
+          <div style={{maxWidth:680}}>
+            {teamWorkouts.length===0&&(
+              <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
+                padding:"48px 24px",textAlign:"center"}}>
+                <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
+                <div style={{fontWeight:700,color:"#999",marginBottom:4}}>No workouts assigned</div>
+                <div style={{fontSize:12,color:"#bbb"}}>Your coach will push workouts here</div>
+              </div>
+            )}
+            {[...teamWorkouts].sort(function(a,b){
+              return (b.createdAt||"").localeCompare(a.createdAt||"");
+            }).map(function(wk){
+              var log=wkLog[wk.id]||{};
+              var done=log.completed;
+              var exLogs=log.exercises||{};
+              return(
+                <div key={wk.id} style={{background:"#fff",border:"1px solid "+(done?"#27a560":"#e8eaed"),
+                  borderRadius:12,marginBottom:12,overflow:"hidden"}}>
+                  {/* Header */}
+                  <div style={{padding:"14px 16px",borderBottom:"1px solid #f0f0f0",
+                    display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                        <span style={{fontWeight:700,fontSize:15,color:"#111"}}>{wk.title}</span>
+                        {done&&<span style={{background:"#eaf3de",color:"#3b6d11",fontSize:10,
+                          fontWeight:700,padding:"2px 8px",borderRadius:20}}>✓ Done</span>}
+                      </div>
+                      {wk.description&&<div style={{color:"#888",fontSize:12}}>{wk.description}</div>}
+                      <div style={{color:"#bbb",fontSize:11,marginTop:2}}>
+                        {wk.createdAt&&"Assigned "+wk.createdAt}
+                        {wk.dueDate&&" · Due "+wk.dueDate}
+                      </div>
+                    </div>
+                    {!isViewOnly&&!isRecruiterView&&(
+                      <button onClick={function(){
+                        var newLog=Object.assign({},wkLog);
+                        newLog[wk.id]=Object.assign({},log,{
+                          completed:!done,
+                          completedAt:!done?new Date().toISOString().split("T")[0]:null,
+                        });
+                        setWkLog(newLog);
+                        saveField("workoutLog",newLog);
+                      }}
+                        style={{padding:"7px 14px",background:done?"#f5f5f5":A,
+                          border:"none",borderRadius:8,color:done?"#888":"#fff",
+                          cursor:"pointer",fontWeight:700,fontSize:12}}>
+                        {done?"Undo":"Mark Done"}
+                      </button>
+                    )}
+                  </div>
+                  {/* Exercises */}
+                  {(wk.exercises||[]).length>0&&(
+                    <div style={{padding:"10px 16px"}}>
+                      {(wk.exercises||[]).map(function(ex,ei){
+                        var exLog=exLogs[ex.id]||{};
+                        return(
+                          <div key={ex.id} style={{display:"flex",alignItems:"center",
+                            gap:10,padding:"7px 0",
+                            borderBottom:ei<wk.exercises.length-1?"1px solid #f5f5f5":"none"}}>
+                            <div style={{flex:1}}>
+                              <div style={{color:"#111",fontWeight:600,fontSize:13}}>{ex.name}</div>
+                              <div style={{color:"#aaa",fontSize:11}}>
+                                {ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}
+                                {ex.duration&&" · "+ex.duration}
+                              </div>
+                            </div>
+                            {!isViewOnly&&!isRecruiterView&&done&&(
+                              <input
+                                value={exLog.time||""}
+                                onChange={function(e){
+                                  var newLog=Object.assign({},wkLog);
+                                  var wkEntry=Object.assign({},wkLog[wk.id]||{});
+                                  var exEntry=Object.assign({},wkEntry.exercises||{});
+                                  exEntry[ex.id]=Object.assign({},exLog,{time:e.target.value});
+                                  wkEntry.exercises=exEntry;
+                                  newLog[wk.id]=wkEntry;
+                                  setWkLog(newLog);
+                                  saveField("workoutLog",newLog);
+                                }}
+                                placeholder="time / notes"
+                                style={{width:120,padding:"4px 8px",background:"#f9f9f9",
+                                  border:"1px solid #e0e0e0",borderRadius:6,
+                                  fontSize:12,color:"#111",outline:"none"}}/>
+                            )}
+                            {(isViewOnly||isRecruiterView)&&exLog.time&&(
+                              <span style={{color:"#888",fontSize:12}}>{exLog.time}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {log.completedAt&&(
+                    <div style={{padding:"6px 16px 10px",color:"#aaa",fontSize:11}}>
+                      Completed {log.completedAt}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab==="recruit"&&(
           <div style={{maxWidth:600}}>
             <PortalCard style={{background:A,border:"none"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
