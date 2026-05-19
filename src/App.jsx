@@ -7598,7 +7598,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
             </div>
             {topPlayers.map((p,i)=>(
               <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0}}>
-                <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:14,flexShrink:0}}>{p.number}</div>
+                <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:14,flexShrink:0}}>{p.number}</div>
                 <div style={{flex:1}}>
                   <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</div>
                   <div style={{height:4,background:C.border,borderRadius:99,marginTop:4,overflow:"hidden"}}>
@@ -8158,7 +8158,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                       style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
                         background:inUse?C.surface:C.bg,border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
                         opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:14,flexShrink:0}}>{p.number}</div>
+                      <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:14,flexShrink:0}}>{p.number}</div>
                       <div style={{flex:1}}>
                         <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
                         <div style={{display:"flex",gap:4,marginTop:2}}>
@@ -8295,7 +8295,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
                 : benchRoster.map(p=>(
                   <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
-                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:10}}>{p.number}</div>
+                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>{p.number}</div>
                     <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
                     <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
                       style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
@@ -9415,7 +9415,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     <div key={note.id} style={{background:C.surface,borderRadius:8,padding:"8px 10px",display:"flex",gap:7}}>
                       <div style={{width:22,height:22,borderRadius:5,flexShrink:0,background:posColor(primaryPos(p))+"22",
                         border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:10}}>
+                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>
                         {p?.number||"?"}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
