@@ -14237,8 +14237,7 @@ function PlayerPortalPage(){
                     lines.push("END:VEVENT");
                   });
                   lines.push("END:VCALENDAR");
-                  var blob=new Blob([lines.join("
-")],{type:"text/calendar;charset=utf-8"});
+                  var blob=new Blob([lines.join("\r\n")],{type:"text/calendar;charset=utf-8"});
                   var url=URL.createObjectURL(blob);
                   var a=document.createElement("a");
                   a.href=url; a.download=(teamName||"CoachIQ")+"_Schedule.ics"; a.click();
