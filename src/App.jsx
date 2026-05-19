@@ -313,17 +313,24 @@ let C = {...THEMES.dark};
 // ─── POSITION METADATA ───────────────────────────────────────────────────────
 const POS_META = {
   GK: { label:"GK",  color:"#ffb300", group:"Goalkeeper" },
-  CB: { label:"CB",  color:"#42a5f5", group:"Defender"   },
-  LB: { label:"LB",  color:"#1e88e5", group:"Defender"   },
-  RB: { label:"RB",  color:"#1e88e5", group:"Defender"   },
-  CM: { label:"CM",  color:"#ff6b00", group:"Midfielder" },
-  CAM:{ label:"CAM", color:"#ef5350", group:"Midfielder" },
-  CDM:{ label:"CDM", color:"#7e57c2", group:"Midfielder" },
-  RM: { label:"RM",  color:"#26a69a", group:"Midfielder" },
-  LM: { label:"LM",  color:"#26a69a", group:"Midfielder" },
-  W:  { label:"W",   color:"#ff7043", group:"Midfielder" },
+  DEF:{ label:"DEF", color:"#1e88e5", group:"Defense"    },
+  MID:{ label:"MID", color:"#ff6b00", group:"Midfield"   },
+  FWD:{ label:"FWD", color:"#e53935", group:"Forward"    },
+  // Legacy (used in formations only)
+  CB: { label:"CB",  color:"#1e88e5", group:"Defense"    },
+  LB: { label:"LB",  color:"#1e88e5", group:"Defense"    },
+  RB: { label:"RB",  color:"#1e88e5", group:"Defense"    },
+  CM: { label:"CM",  color:"#ff6b00", group:"Midfield"   },
+  CAM:{ label:"CAM", color:"#ef5350", group:"Midfield"   },
+  CDM:{ label:"CDM", color:"#7e57c2", group:"Midfield"   },
+  RM: { label:"RM",  color:"#26a69a", group:"Midfield"   },
+  LM: { label:"LM",  color:"#26a69a", group:"Midfield"   },
+  W:  { label:"W",   color:"#ff7043", group:"Midfield"   },
   ST: { label:"ST",  color:"#e53935", group:"Forward"    },
 };
+// Map old positions to simplified
+const SIMPLIFY_POS = {CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD",GK:"GK",DEF:"DEF",MID:"MID",FWD:"FWD"};
+const displayPos = pos => SIMPLIFY_POS[pos]||pos;
 const posColor   = pos => POS_META[pos]?.color || "#fff";
 // helpers to support multi-position players (position stored as array)
 const primaryPos = p => Array.isArray(p?.position) ? p.position[0] : (p?.position || "CM");
@@ -1097,7 +1104,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   const [addingSchool, setAddingSchool] = useState(false);
   const [newSchool,    setNewSchool]    = useState({school:"",division:"D1",contact:"",status:"identified",notes:""});
 
-  const POSITIONS  = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
+  const POSITIONS  = ["GK","DEF","MID","FWD"];
   const primaryColor = posColor(form.positions[0]||"CM");
 
   const SCORE_CATS = [
@@ -1128,7 +1135,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
   }
   function save(){
     if(!form.name.trim()){setErr("Name is required");return;}
-    onSave({...form,number:parseInt(form.number)||0,position:form.positions,positions:form.positions});
+    onSave({...form,number:String(form.number).trim()||"0",position:form.positions,positions:form.positions});
   }
 
   const iStyle=(extra={})=>({
@@ -1647,7 +1654,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                         {p.name}
                       </div>
                       <div style={{color:C.muted,fontSize:10}}>
-                        {allPos(p).join(" · ")}
+                        {[...new Set(allPos(p).map(displayPos))].join(" · ")}
                       </div>
                     </div>
                   </div>
@@ -2363,7 +2370,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                           {isAssigned&&!isCurrent&&<span style={{color:C.muted,fontSize:10,marginLeft:6}}>assigned</span>}
                         </div>
                         <div style={{color:C.muted,fontSize:11}}>
-                          {allPos(p).join(" · ")}
+                          {[...new Set(allPos(p).map(displayPos))].join(" · ")}
                           {p.grade&&` · Gr. ${p.grade}`}
                         </div>
                       </div>
@@ -3428,9 +3435,9 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
                     gap:8,padding:"8px 10px",background:C.surface,borderRadius:8,
                     border:`1px solid ${C.border}`}}>
                     <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
-                      background:pc+"22",border:`1.5px solid ${pc}44`,
+                      background:pc,border:"none",
                       display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:11}}>
                       {x.player.number}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
@@ -6385,6 +6392,25 @@ export default function CoachIQStats(){
       setTemplatesState((tp.data?.[0]?.data) || []);
       setScheduleState((sc.data||[]).map(x=>x.data));
       setLineupsState((await supabase.from("lineups").select("*").eq("team_id",tid)).data?.map(x=>x.data)||[]);
+      // Migrate old positions → GK/DEF/MID/FWD
+      const rosterRaw=(await supabase.from("rosters").select("*").eq("team_id",tid)).data||[];
+      if(rosterRaw[0]){
+        const needsMigration=(rosterRaw[0].players||[]).some(p=>{
+          const pos=Array.isArray(p.position)?p.position[0]:p.position;
+          return ["CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"].includes(pos);
+        });
+        if(needsMigration){
+          const migrated=(rosterRaw[0].players||[]).map(p=>({
+            ...p,
+            position:(Array.isArray(p.position)?p.position:[p.position||"MID"])
+              .map(pos=>({CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD",GK:"GK",DEF:"DEF",MID:"MID",FWD:"FWD"})[pos]||pos),
+            positions:(Array.isArray(p.positions)?p.positions:[p.positions||"MID"])
+              .map(pos=>({CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD",GK:"GK",DEF:"DEF",MID:"MID",FWD:"FWD"})[pos]||pos),
+          }));
+          await supabase.from("rosters").update({players:migrated}).eq("id",rosterRaw[0].id);
+          console.log("✓ Positions migrated to GK/DEF/MID/FWD");
+        }
+      }
       try{
         const {data:wkData}=await supabase.from("team_workouts").select("*").eq("team_id",tid).single();
         if(wkData) setWorkoutsState(wkData.data||[]);
@@ -9488,7 +9514,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                             {p.name}
                           </div>
                           <div style={{color:C.muted,fontSize:11}}>
-                            {allPos(p).join(" · ")}
+                            {[...new Set(allPos(p).map(displayPos))].join(" · ")}
                           </div>
                         </div>
                       </div>
@@ -11952,7 +11978,7 @@ function OnboardingWizard({teamName, onComplete}){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 <div>
                   <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>JERSEY #</label>
-                  <input type="number" min="1" max="99" value={player.number}
+                  <input type="text" pattern="0{0,2}|[0-9]{1,2}" value={player.number}
                     onChange={e=>setPlayer(p=>({...p,number:e.target.value}))}
                     placeholder="1–99" style={iS}/>
                 </div>
@@ -11965,9 +11991,9 @@ function OnboardingWizard({teamName, onComplete}){
                 </div>
               </div>
             </div>
-            <button onClick={()=>finish(false)} disabled={!player.name.trim()||!player.number}
+            <button onClick={()=>finish(false)} disabled={!player.name.trim()||player.number===""}
               style={{width:"100%",marginTop:16,padding:"13px",
-                background:player.name.trim()&&player.number?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+                background:player.name.trim()&&player.number!==""?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
                 color:player.name.trim()&&player.number?"#000":"#4a2a10",
                 fontWeight:900,fontSize:16,cursor:player.name.trim()&&player.number?"pointer":"default",
                 fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
@@ -14494,8 +14520,8 @@ function PlayerPortalPage(){
               ):(
                 <div className="portal-photo-circle" style={{background:posCol+"22",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
                   <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                    color:posCol,fontSize:32,lineHeight:1}}>#{player.number}</div>
-                  <div style={{color:posCol,fontSize:11,fontWeight:700,marginTop:2}}>
+                    color:"#fff",fontSize:32,lineHeight:1}}>#{player.number}</div>
+                  <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,fontWeight:700,marginTop:2}}>
                     {allPos(player)[0]||"FW"}
                   </div>
                 </div>
@@ -14556,7 +14582,7 @@ function PlayerPortalPage(){
                 )}
               </div>
               <div style={{color:"#999",fontSize:12,marginTop:4}}>
-                {allPos(player).join(" · ")}
+                {[...new Set(allPos(player).map(displayPos))].join(" · ")}
                 {player.gradYear&&" · Class of "+player.gradYear}
                 {teamName&&" · "+teamName}
               </div>
@@ -14649,17 +14675,17 @@ function PlayerPortalPage(){
                     </span>
                   )}
                 </div>
-                <div style={{display:"flex",gap:12}}>
-                  {[[countdown.d,"DAYS"],[countdown.h,"HRS"],[countdown.m,"MIN"],[countdown.s,"SEC"]].map(function(item){
+                <div style={{display:"flex",gap:8,flexWrap:"nowrap"}}>
+                  {[[countdown.d,"D"],[countdown.h,"H"],[countdown.m,"M"],[countdown.s,"S"]].map(function(item){
                     return(
                       <div key={item[1]} style={{textAlign:"center",background:"rgba(255,255,255,0.08)",
-                        borderRadius:10,padding:"12px 16px",minWidth:64}}>
+                        borderRadius:8,padding:"8px 0",flex:1,minWidth:0}}>
                         <div style={{color:A,fontFamily:"'Oswald',sans-serif",
-                          fontWeight:900,fontSize:32,lineHeight:1}}>
+                          fontWeight:900,fontSize:"clamp(18px,5vw,32px)",lineHeight:1}}>
                           {String(item[0]).padStart(2,"0")}
                         </div>
                         <div style={{color:"#ffffff55",fontSize:9,fontWeight:700,
-                          letterSpacing:1.5,marginTop:4}}>
+                          letterSpacing:1,marginTop:3}}>
                           {item[1]}
                         </div>
                       </div>
