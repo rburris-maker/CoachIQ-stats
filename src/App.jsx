@@ -14598,8 +14598,8 @@ function PlayerPortalPage(){
   return(
     <div style={{minHeight:"100vh",background:"#f5f7fa",fontFamily:"'Outfit',sans-serif"}}>
       <style>{`
-        .portal-banner{height:140px}
-        .portal-player-row{display:flex;align-items:flex-end;gap:20px;margin-top:-40px;padding-bottom:16px;flex-wrap:wrap}
+        .portal-banner{height:160px}
+        .portal-player-row{display:flex;align-items:flex-end;gap:20px;margin-top:-56px;padding-bottom:16px;flex-wrap:wrap}
         .portal-photo{width:112px;height:112px;flex-shrink:0}
         .portal-photo img,.portal-photo-circle{width:112px;height:112px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.2)}
         .portal-name{font-size:28px}
@@ -14615,8 +14615,8 @@ function PlayerPortalPage(){
         .portal-btn-primary{background:#ff6b00;border:none;color:#fff;font-weight:700}
         .portal-btn-secondary{background:#f5f5f5;border:1px solid #ddd;color:#555}
         @media(max-width:640px){
-          .portal-banner{height:100px}
-          .portal-player-row{flex-direction:column;align-items:flex-start;gap:10px;margin-top:-36px;padding:0 16px 12px}
+          .portal-banner{height:110px}
+          .portal-player-row{flex-direction:column;align-items:flex-start;gap:10px;margin-top:-44px;padding:0 16px 12px}
           .portal-photo{width:80px;height:80px}
           .portal-photo img,.portal-photo-circle{width:80px;height:80px;border-width:3px}
           .portal-name{font-size:22px}
@@ -14655,7 +14655,7 @@ function PlayerPortalPage(){
                     onChange={function(e){var f=e.target.files&&e.target.files[0];if(f)uploadPhoto(f);e.target.value='';}}/>}
                 </label>
               ):(
-                <div className="portal-photo-circle" style={{background:posCol+"22",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                <div className="portal-photo-circle" style={{background:posCol,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
                   <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
                     color:"#fff",fontSize:32,lineHeight:1}}>#{player.number}</div>
                   <div style={{color:"rgba(255,255,255,0.85)",fontSize:11,fontWeight:700,marginTop:2}}>
@@ -14694,8 +14694,8 @@ function PlayerPortalPage(){
             </div>
 
             {/* Name + info */}
-            <div style={{flex:1,minWidth:200,paddingBottom:8}}>
-              <h1 className="portal-name" style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontWeight:900,margin:"0 0 4px",lineHeight:1.1}}>{player.name}</h1>
+            <div style={{flex:1,minWidth:200,paddingBottom:8,paddingTop:4}}>
+              <h1 className="portal-name" style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontWeight:900,margin:"0 0 4px",lineHeight:1.1,textShadow:"0 1px 0 rgba(255,255,255,0.5)"}}>{player.name}</h1>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {editMode?(
                   <input value={draft.location||""} placeholder="City, State"
@@ -15090,7 +15090,7 @@ function PlayerPortalPage(){
               {teamName&&(
                 <PortalCard title="Team History" noPad>
                   <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
-                    <div style={{width:44,height:44,borderRadius:8,background:posCol+"22",
+                    <div style={{width:44,height:44,borderRadius:8,background:posCol,
                       display:"flex",alignItems:"center",justifyContent:"center",
                       fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:18,flexShrink:0}}>
                       {(teamName[0]||"T").toUpperCase()}
