@@ -5819,6 +5819,7 @@ export default function CoachIQStats(){
     { label:"PLANNING", items:[
       {id:"gameplan", icon:BookOpen,        label:"Game Plan",pro:true},
       {id:"practice", icon:Dumbbell,        label:"Practice"},
+      {id:"workouts", icon:Dumbbell,        label:"Workouts"},
     ]},
     { label:"INSIGHTS", items:[
       {id:"analytics",icon:BarChart2,       label:"Analytics",pro:true},
@@ -6946,6 +6947,7 @@ export default function CoachIQStats(){
             {view==="settings"  &&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups} setLivePreload={setLivePreload} setView={setView}/>}
+            {view==="workouts"   &&<WorkoutBuilderView workouts={workouts} setWorkouts={setWorkouts} roster={roster}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} setLivePreload={setLivePreload} setView={setView} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="lineups"   &&<LineupsView  lineups={lineups} setLineups={setLineups} roster={roster} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
