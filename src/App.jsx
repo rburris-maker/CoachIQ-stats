@@ -5705,6 +5705,7 @@ export default function CoachIQStats(){
   const [schedule,    setScheduleState] = useState([]);
   const [lineups,     setLineupsState]   = useState([]);
   const [livePreload,  setLivePreload]    = useState(null);
+  const [teamHub,      setTeamHubState]   = useState({coachMessage:'',featuredGameId:null,featuredGameLabel:'',featuredGameDate:'',featuredGameTime:''});
   const [tryouts,     setTryoutsState]  = useState([]);
   const [opponents,   setOpponentsState] = useState([]);
   const [dataLoading, setDataLoading]   = useState(false);
@@ -5854,6 +5855,10 @@ export default function CoachIQStats(){
       setTemplatesState((tp.data?.[0]?.data) || []);
       setScheduleState((sc.data||[]).map(x=>x.data));
       setLineupsState((await supabase.from("lineups").select("*").eq("team_id",tid)).data?.map(x=>x.data)||[]);
+      try{
+        const {data:hubData}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
+        if(hubData) setTeamHubState(hubData);
+      }catch(e){}
       setTryoutsState((tr.data||[]).map(x=>x.data));
       setOpponentsState((op.data||[]).map(x=>x.data));
     }catch(e){ console.error("loadTeamData error:",e); }
@@ -6143,6 +6148,14 @@ export default function CoachIQStats(){
     }finally{
       setDataLoading(false);
     }
+  }
+
+  async function saveTeamHub(updates){
+    const next={...teamHub,...updates};
+    setTeamHubState(next);
+    try{
+      await supabase.from("team_hub").upsert({team_id:safeTeamId,...next},{onConflict:"team_id"});
+    }catch(e){ console.error("saveTeamHub",e); }
   }
 
   async function renameTeam(id,name,type){
@@ -6748,7 +6761,7 @@ export default function CoachIQStats(){
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)} gamePlans={gamePlans} livePreload={livePreload} onClearPreload={()=>setLivePreload(null)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
-            {view==="settings"  &&<SettingsView isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
+            {view==="settings"  &&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups} setLivePreload={setLivePreload} setView={setView}/>}
             {view==="practice"  &&<PracticeView  practices={practices} setPractices={setPractices} gamePlans={gamePlans} roster={roster} drills={drills} setDrills={setDrills} templates={templates} setTemplates={setTemplates}/>}
@@ -13090,7 +13103,7 @@ function DrillCanvas({diagram, onSave, onClose}){
 }
 
 // ─── SETTINGS VIEW ────────────────────────────────────────────────────────────
-function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBrandLogo, onUpgrade, onManage, userId, safeTeamId, teams, addTeam, renameTeam, deleteTeam, activeTeamName}){
+function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBrandLogo, onUpgrade, onManage, userId, safeTeamId, teams, addTeam, renameTeam, deleteTeam, activeTeamName, teamHub, saveTeamHub, games}){
   const [name,    setName]    = useState(brandName||"");
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -13505,11 +13518,38 @@ function PlayerPortalPage(){
   var [draft,     setDraft]     = useState({});
   var [saving,    setSaving]    = useState(false);
   var [addingVid, setAddingVid] = useState(false);
+  var [hubSettings, setHubSettings] = useState({});
+  var [countdown, setCountdown] = useState({d:0,h:0,m:0,s:0,label:""});
+  var [goals, setGoals] = useState({goals:0,assists:0,rating:0});
+  var [goalsMode, setGoalsMode] = useState(false);
   var [photoUploading, setPhotoUploading] = useState(false);
   var [photoError, setPhotoError] = useState('');
   var [newVideo,  setNewVideo]  = useState({label:"",url:""});
 
   var A = "#ff6b00";
+
+  useEffect(function(){
+    if(!hubSettings.featuredGameDate) return;
+    function tick(){
+      var target=new Date((hubSettings.featuredGameDate+"T"+(hubSettings.featuredGameTime||"12:00")+":00"));
+      var now=new Date();
+      var diff=Math.max(0,target-now);
+      var d=Math.floor(diff/86400000);
+      var h=Math.floor((diff%86400000)/3600000);
+      var m=Math.floor((diff%3600000)/60000);
+      var s=Math.floor((diff%60000)/1000);
+      setCountdown({d,h,m,s,label:hubSettings.featuredGameLabel||""});
+    }
+    tick();
+    var iv=setInterval(tick,1000);
+    return function(){clearInterval(iv);};
+  },[hubSettings]);
+
+  useEffect(function(){
+    if(!player) return;
+    var saved=player.seasonGoals||{};
+    setGoals({goals:saved.goals||0,assists:saved.assists||0,rating:saved.rating||0});
+  },[player]);
 
   useEffect(function(){
     async function load(){
@@ -13533,6 +13573,10 @@ function PlayerPortalPage(){
         setSchedule((sData||[]).map(function(x){return x.data;}));
         var {data:pData} = await supabase.from("practices").select("*").eq("team_id",tid);
         setPractices((pData||[]).map(function(x){return x.data;}));
+        try{
+          var {data:hubRow}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
+          if(hubRow) setHubSettings(hubRow);
+        }catch(e){}
       }catch(e){setError("Failed to load.");}
       setLoading(false);
     }
@@ -13905,6 +13949,98 @@ function PlayerPortalPage(){
         {/* ══ ABOUT TAB ══ */}
         {tab==="about"&&(
           <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:20}}>
+
+            {/* Coach message */}
+            {hubSettings.coachMessage&&(
+              <div style={{gridColumn:"1/-1",background:"#fff7ed",border:"1px solid #fed7aa",
+                borderRadius:12,padding:"12px 16px",display:"flex",gap:12,alignItems:"flex-start"}}>
+                <div style={{fontSize:20,flexShrink:0}}>📌</div>
+                <div>
+                  <div style={{color:"#9a3412",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:3}}>
+                    FROM YOUR COACH
+                  </div>
+                  <div style={{color:"#7c2d12",fontSize:13,lineHeight:1.6}}>
+                    {hubSettings.coachMessage}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Big game countdown */}
+            {hubSettings.featuredGameDate&&countdown.label&&(
+              <div style={{gridColumn:"1/-1",background:"#111",borderRadius:14,
+                padding:"20px 24px",overflow:"hidden",position:"relative"}}>
+                <div style={{color:"#ffffff44",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>
+                  COUNTDOWN TO
+                </div>
+                <div style={{color:"#fff",fontFamily:"'Oswald',sans-serif",
+                  fontSize:20,fontWeight:900,marginBottom:16}}>
+                  {countdown.label}
+                  {hubSettings.featuredGameDate&&(
+                    <span style={{color:"#ffffff66",fontSize:13,fontWeight:400,marginLeft:8}}>
+                      {hubSettings.featuredGameDate}
+                    </span>
+                  )}
+                </div>
+                <div style={{display:"flex",gap:12}}>
+                  {[[countdown.d,"DAYS"],[countdown.h,"HRS"],[countdown.m,"MIN"],[countdown.s,"SEC"]].map(function(item){
+                    return(
+                      <div key={item[1]} style={{textAlign:"center",background:"rgba(255,255,255,0.08)",
+                        borderRadius:10,padding:"12px 16px",minWidth:64}}>
+                        <div style={{color:A,fontFamily:"'Oswald',sans-serif",
+                          fontWeight:900,fontSize:32,lineHeight:1}}>
+                          {String(item[0]).padStart(2,"0")}
+                        </div>
+                        <div style={{color:"#ffffff55",fontSize:9,fontWeight:700,
+                          letterSpacing:1.5,marginTop:4}}>
+                          {item[1]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming practice preview */}
+            {(()=>{
+              var nextPrac=(practices||[])
+                .filter(function(p){return (p.date||"")>=todayStr;})
+                .sort(function(a,b){return (a.date||"").localeCompare(b.date||"");})
+                [0];
+              if(!nextPrac) return null;
+              var blocks=nextPrac.blocks||{};
+              var drills=[].concat(blocks.warmup||[],blocks.main||[],blocks.cooldown||[]);
+              var focusColors={Mixed:A,Attacking:"#ff6b00",Defending:"#42a5f5",
+                Transition:"#7c6af5","Set Pieces":"#ffb300",Fitness:"#ef5350",Technical:"#66bb6a"};
+              var col=focusColors[nextPrac.focus]||A;
+              return(
+                <div style={{gridColumn:"1/-1",background:"#fff",
+                  border:"1px solid #e8eaed",borderRadius:12,padding:"14px 16px",
+                  borderLeft:"4px solid "+col}}>
+                  <div style={{color:"#999",fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:6}}>
+                    NEXT PRACTICE
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{flex:1}}>
+                      <div style={{color:"#111",fontWeight:700,fontSize:14}}>
+                        {nextPrac.title||nextPrac.focus||"Practice"} · {nextPrac.date}
+                      </div>
+                      <div style={{color:"#888",fontSize:12,marginTop:2}}>
+                        {nextPrac.duration>0&&nextPrac.duration+" min"}
+                        {drills.length>0&&" · "+drills.length+" drill"+(drills.length!==1?"s":"")}
+                        {nextPrac.objectives&&" · "+nextPrac.objectives}
+                      </div>
+                    </div>
+                    <span style={{background:col+"18",color:col,fontSize:10,
+                      fontWeight:700,padding:"3px 9px",borderRadius:20}}>
+                      {nextPrac.focus}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
 
             {/* Left sidebar */}
             <div>
@@ -14405,6 +14541,102 @@ function PlayerPortalPage(){
         {/* ══ STATS TAB ══ */}
         {tab==="stats"&&(
           <div style={{maxWidth:640}}>
+
+            {/* Season goals */}
+            <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
+              padding:16,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{color:"#999",fontSize:10,fontWeight:700,letterSpacing:1.5}}>
+                  SEASON GOALS
+                </div>
+                {!isViewOnly&&(
+                  <button onClick={function(){setGoalsMode(function(v){return !v;});}}
+                    style={{background:"transparent",border:"1px solid #ddd",borderRadius:6,
+                      padding:"3px 10px",color:"#888",fontSize:11,cursor:"pointer"}}>
+                    {goalsMode?"Save":"Edit"}
+                  </button>
+                )}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {[["Goals",goals.goals,"goals","#ff6b00"],
+                  ["Assists",goals.assists,"assists","#42a5f5"],
+                  ["Avg Rating",goals.rating,"rating","#27a560"]].map(function(item){
+                  var actual=item[0]==="Goals"?totalGoals:item[0]==="Assists"?totalAssists:
+                    avgRating?parseFloat(avgRating.toFixed(1)):0;
+                  var target=item[1];
+                  var pct=target>0?Math.min(100,Math.round(actual/target*100)):0;
+                  var col=item[3];
+                  return(
+                    <div key={item[0]} style={{background:"#f9f9f9",borderRadius:10,padding:12,
+                      border:"1px solid #eee"}}>
+                      <div style={{color:"#999",fontSize:10,marginBottom:6}}>{item[0]} goal</div>
+                      {goalsMode?(
+                        <input type="number" min="0" max="100"
+                          value={item[1]||""}
+                          onChange={function(e){
+                            var v=parseInt(e.target.value)||0;
+                            var upd=Object.assign({},goals);
+                            upd[item[2]]=v;
+                            setGoals(upd);
+                            saveField("seasonGoals",upd);
+                          }}
+                          style={{width:"100%",padding:"4px 8px",background:"#fff",
+                            border:"1px solid #ddd",borderRadius:6,fontSize:16,
+                            fontWeight:700,color:"#111",textAlign:"center",outline:"none"}}/>
+                      ):(
+                        <>
+                          <div style={{display:"flex",justifyContent:"space-between",
+                            alignItems:"baseline",marginBottom:6}}>
+                            <span style={{color:col,fontFamily:"'Oswald',sans-serif",
+                              fontWeight:900,fontSize:22}}>{actual}</span>
+                            <span style={{color:"#bbb",fontSize:11}}>/{target||"—"}</span>
+                          </div>
+                          {target>0&&(
+                            <div style={{background:"#e8e8e8",borderRadius:4,height:4,overflow:"hidden"}}>
+                              <div style={{width:pct+"%",height:"100%",background:col,
+                                borderRadius:4,transition:"width .4s"}}/>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Rating trend */}
+            {ratingList.length>1&&(
+              <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
+                padding:16,marginBottom:16}}>
+                <div style={{color:"#999",fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:12}}>
+                  RATING TREND — LAST {Math.min(8,ratingList.length)} GAMES
+                </div>
+                <div style={{display:"flex",alignItems:"flex-end",gap:4,height:60}}>
+                  {[...ratingList].slice(-8).map(function(x,i){
+                    var h=Math.round((x.r/10)*100);
+                    var col=x.r>=7?"#27a560":x.r>=5.5?"#f59e0b":"#e53935";
+                    return(
+                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",
+                        alignItems:"center",gap:2}}>
+                        <div style={{color:"#888",fontSize:8,fontWeight:600}}>
+                          {x.r.toFixed(1)}
+                        </div>
+                        <div style={{width:"100%",background:col,borderRadius:"3px 3px 0 0",
+                          height:Math.max(4,Math.round(h*0.5))+"px",
+                          transition:"height .3s"}}/>
+                        <div style={{color:"#bbb",fontSize:8,overflow:"hidden",
+                          textOverflow:"ellipsis",whiteSpace:"nowrap",width:"100%",
+                          textAlign:"center"}}>
+                          {(x.opp||"").split(" ")[0]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Season summary */}
             <PortalCard title="Season Summary">
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
