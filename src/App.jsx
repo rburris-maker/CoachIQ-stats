@@ -2795,8 +2795,8 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
 const PREBUILT_PROGRAMS = [
   {
     id:"summer-preseason-adv",
-    name:"Summer Preseason — Advanced",
-    subtitle:"8 weeks · Varsity / Competitive",
+    name:"Preseason — High School",
+    subtitle:"8 weeks · 4 phases · Varsity level",
     description:"Arrive at Day 1 of preseason as the fittest player on the field. Targets: beep test 11+, sub-5:30 mile, repeatable 30m sprints under 5% drop-off.",
     phases:[
       {label:"Acclimatize",color:"#27a560",weeks:[1]},
@@ -15618,7 +15618,8 @@ function PlayerPortalPage(){
                 </div>
               );
             })}
-            {teamWorkouts.length===0&&(
+            {(teamWorkouts||[]).filter(function(w){return w.type!=="program";}).length===0&&
+              (teamWorkouts||[]).filter(function(w){return w.type==="program";}).length===0&&(
               <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
                 padding:"48px 24px",textAlign:"center"}}>
                 <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
@@ -15626,7 +15627,7 @@ function PlayerPortalPage(){
                 <div style={{fontSize:12,color:"#bbb"}}>Your coach will push workouts here</div>
               </div>
             )}
-            {[...teamWorkouts].sort(function(a,b){
+            {[...teamWorkouts].filter(function(w){return w.type!=="program";}).sort(function(a,b){
               return (b.createdAt||"").localeCompare(a.createdAt||"");
             }).map(function(wk){
               var log=wkLog[wk.id]||{};
@@ -15650,7 +15651,7 @@ function PlayerPortalPage(){
                         {wk.dueDate&&" · Due "+wk.dueDate}
                       </div>
                     </div>
-                    {!isViewOnly&&!isRecruiterView&&(
+                    {!isViewOnly&&!isRecruiterView&&wk.type!=="program"&&(
                       <button onClick={function(){
                         var newLog=Object.assign({},wkLog);
                         newLog[wk.id]=Object.assign({},log,{
