@@ -8746,12 +8746,26 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                   {abs>0&&<span style={{color:C.danger,marginLeft:8}}>{abs} absent</span>}
                   {inj>0&&<span style={{color:C.warning,marginLeft:8}}>{inj} inj</span>}
                 </div>
-                <button onClick={()=>setFullAttSel(session.id)}
-                  style={{padding:"4px 10px",background:C.surface,border:`1px solid ${C.border}`,
-                    borderRadius:6,color:C.text,cursor:"pointer",fontSize:11,fontWeight:700,
-                    display:"flex",alignItems:"center",gap:4}}>
-                  ⛶ Full Screen
-                </button>
+                <div style={{display:"flex",gap:6}}>
+                  {pres>0&&(
+                    <button
+                      onClick={()=>{
+                        if(!window.confirm("Reset all attendance for this session? This cannot be undone.")) return;
+                        upd(()=>({attendance:{}}));
+                      }}
+                      style={{padding:"4px 10px",background:"transparent",
+                        border:`1px solid ${C.border}`,borderRadius:6,
+                        color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                      ↺ Reset
+                    </button>
+                  )}
+                  <button onClick={()=>setFullAttSel(session.id)}
+                    style={{padding:"4px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:6,color:C.text,cursor:"pointer",fontSize:11,fontWeight:700,
+                      display:"flex",alignItems:"center",gap:4}}>
+                    ⛶ Full Screen
+                  </button>
+                </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:360,overflowY:"auto"}}>
                 {roster.map(p=>{
@@ -14380,46 +14394,55 @@ function PlayerPortalPage(){
           if(!total) return null;
           var col=absent===0?"#27a560":absent<=2?"#f59e0b":"#e53935";
           return(
-            <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:14,
-              padding:20,marginTop:16}}>
-              <div style={{color:"#888",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:14}}>
+            <div style={{background:"var(--att-bg,#f9f9f9)",border:"1px solid var(--att-border,#eee)",
+              borderRadius:12,padding:16,marginTop:12}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:2,
+                color:"#999",marginBottom:12}}>
                 ATTENDANCE
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-                {[["Attended",present,"#27a560"],["Absent",absent,"#e53935"],["Injured",injured,"#f59e0b"]].map(function(item){
-                  return(
-                    <div key={item[0]} style={{background:"#222",borderRadius:10,padding:"14px",
-                      textAlign:"center",border:"1px solid "+item[2]+"33"}}>
-                      <div style={{color:item[2],fontFamily:"'Oswald',sans-serif",
-                        fontWeight:900,fontSize:24}}>{item[1]}/{total}</div>
-                      <div style={{color:"#888",fontSize:10,marginTop:2}}>{item[0]}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #2a2a2a"}}>
-                <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>
-                  RECENT SESSIONS
+              {/* Summary row */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                <div style={{flex:1,display:"flex",alignItems:"baseline",gap:6}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,
+                    color:"#27a560",lineHeight:1}}>{present}</span>
+                  <span style={{fontSize:13,color:"#999"}}>/ {total} sessions</span>
                 </div>
-                {[...donePrac].sort(function(a,b){
-                  return (b.date||"").localeCompare(a.date||"");
-                }).slice(0,8).map(function(s){
-                  var status=(s.attendance||{})[playerId];
-                  if(!status) return null;
-                  var sc=status==="present"?"#27a560":status==="absent"?"#e53935":"#f59e0b";
-                  var sl=status==="present"?"✓":status==="absent"?"✗":"⚕";
-                  return(
-                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,
-                      padding:"6px 0",borderBottom:"1px solid #1e1e1e"}}>
-                      <span style={{color:sc,fontWeight:700,fontSize:13,minWidth:16}}>{sl}</span>
-                      <span style={{color:"#ccc",fontSize:12,flex:1}}>
-                        {s.title||s.focus||"Practice"}
-                      </span>
-                      <span style={{color:"#888",fontSize:11}}>{s.date||""}</span>
-                    </div>
-                  );
-                })}
+                {absent>0&&(
+                  <span style={{background:"#fef2f2",color:"#e53935",fontSize:11,
+                    fontWeight:700,padding:"3px 9px",borderRadius:20,
+                    border:"1px solid #fecaca"}}>
+                    {absent} absent
+                  </span>
+                )}
+                {injured>0&&(
+                  <span style={{background:"#fffbeb",color:"#d97706",fontSize:11,
+                    fontWeight:700,padding:"3px 9px",borderRadius:20,
+                    border:"1px solid #fde68a"}}>
+                    {injured} injured
+                  </span>
+                )}
               </div>
+              {/* Recent sessions */}
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,
+                color:"#bbb",marginBottom:6}}>RECENT SESSIONS</div>
+              {[...donePrac].sort(function(a,b){
+                return (b.date||"").localeCompare(a.date||"");
+              }).slice(0,8).map(function(s){
+                var status=(s.attendance||{})[playerId];
+                if(!status) return null;
+                var sc=status==="present"?"#27a560":status==="absent"?"#e53935":"#d97706";
+                var sl=status==="present"?"✓":status==="absent"?"✗":"⚕";
+                return(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,
+                    padding:"6px 0",borderBottom:"1px solid #f0f0f0"}}>
+                    <span style={{color:sc,fontWeight:700,fontSize:12,minWidth:14}}>{sl}</span>
+                    <span style={{color:"#444",fontSize:12,flex:1}}>
+                      {s.title||s.focus||"Practice"}
+                    </span>
+                    <span style={{color:"#bbb",fontSize:11}}>{s.date||""}</span>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}
