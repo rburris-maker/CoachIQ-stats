@@ -5683,10 +5683,12 @@ export default function CoachIQStats(){
     async function checkSub(){
       if(!userId) return;
       try{
-        const {data:subData} = await supabase.from("teams").select("subscription_status",{filter:{user_id:userId}});
+        const {data:subData} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
         const statuses = (subData||[]).map(t=>t.subscription_status);
-        setIsElite(statuses.some(s=>s==="elite"));
-        setIsPro(statuses.some(s=>s==="elite"||s==="pro"));
+        if(statuses.length>0){
+          setIsElite(statuses.some(s=>s==="elite"));
+          setIsPro(statuses.some(s=>s==="elite"||s==="pro"));
+        }
       }catch(e){}
     }
     function onVisible(){ if(document.visibilityState==="visible") checkSub(); }
@@ -5719,16 +5721,20 @@ export default function CoachIQStats(){
       setTeamsState(myTeams);
       hasLoadedOnce.current = true;
       const tid = myTeams[0]?.id;
-      // Check subscription - pro or elite follows user account
+      // Check subscription using already-loaded team data + direct DB query
       try{
-        const {data:subData} = await supabase.from("teams").select("id,subscription_status",{filter:{user_id:userId}});
-        const statuses = (subData||[]).map(t=>t.subscription_status);
-        const isEliteUser = statuses.some(s=>s==="elite");
-        const isProUser   = isEliteUser || statuses.some(s=>s==="pro");
+        // Use .eq() not {filter:} — correct supabase-js v2 syntax
+        const {data:subData} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
+        const allStatuses = [
+          ...(subData||[]).map(t=>t.subscription_status),
+          ...myTeams.map(t=>t.subscription_status),
+        ];
+        const isEliteUser = allStatuses.some(s=>s==="elite");
+        const isProUser   = isEliteUser || allStatuses.some(s=>s==="pro");
         setIsElite(isEliteUser);
         setIsPro(isProUser);
-
       }catch(e){
+        // Fallback to myTeams data
         const statuses = myTeams.map(t=>t.subscription_status);
         setIsElite(statuses.some(s=>s==="elite"));
         setIsPro(statuses.some(s=>s==="pro"||s==="elite"));
@@ -12860,6 +12866,29 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
               {isElite&&<span style={{color:C.muted,fontSize:12}}>Unlimited teams · All Elite features</span>}
             </div>
           </div>
+          {/* Restore subscription button */}
+          {!isPro&&(
+            <div style={{marginBottom:12}}>
+              <button onClick={async()=>{
+                try{
+                  const {data} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
+                  const statuses=(data||[]).map(t=>t.subscription_status);
+                  const elite=statuses.some(s=>s==="elite");
+                  const pro=elite||statuses.some(s=>s==="pro");
+                  if(pro||elite){
+                    setIsElite(elite); setIsPro(pro);
+                    alert("Subscription restored! "+(elite?"Elite":"Pro")+" features unlocked.");
+                  } else {
+                    alert("No active subscription found on this account.\nIf you believe this is an error, contact support.");
+                  }
+                }catch(e){ alert("Could not check subscription: "+e.message); }
+              }} style={{width:"100%",padding:"11px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:9,color:C.text,
+                fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                🔄 Restore Subscription
+              </button>
+            </div>
+          )}
           {!isPro&&(
             <button onClick={onUpgrade}
               style={{padding:"9px 20px",background:C.accent,border:"none",borderRadius:9,
