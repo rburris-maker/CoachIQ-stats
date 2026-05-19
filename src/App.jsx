@@ -14146,6 +14146,7 @@ function PlayerPortalPage(){
   var [hubSettings,  setHubSettings]  = useState({});
   var [teamWorkouts, setTeamWorkouts] = useState([]);
   var [wkLog,        setWkLog]        = useState({});
+  var [selProgDay,    setSelProgDay]    = useState({});
   var [countdown, setCountdown] = useState({d:0,h:0,m:0,s:0,label:""});
   var [goals, setGoals] = useState({goals:0,assists:0,rating:0});
   var [goalsMode, setGoalsMode] = useState(false);
@@ -15457,7 +15458,8 @@ function PlayerPortalPage(){
               const weekIdx=(pw.currentWeek||1)-1;
               const weekData=prog.weeks[weekIdx];
               const phase=prog.phases.find(ph=>ph.weeks.includes(weekIdx+1));
-              var [selDay,setSelDay]=React.useState(null);
+              const selDay=selProgDay[pw.id]??null;
+              function setSelDay(v){setSelProgDay(p=>({...p,[pw.id]:v}));}
               const today=new Date().getDay();
               const dayMap=[1,2,3,4,5,6,0];
               const todayIdx=dayMap.indexOf(today);
