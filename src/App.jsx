@@ -14213,6 +14213,60 @@ function PlayerPortalPage(){
         {tab==="schedule"&&(
           <div style={{maxWidth:640}}>
 
+            {/* Export buttons */}
+            {upcoming.length>0&&(
+              <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+                <button onClick={function(){
+                  // Build ICS file from upcoming events
+                  var lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//CoachIQ//Player Schedule//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
+                  upcoming.forEach(function(e){
+                    var d=(e.date||"").replace(/-/g,"");
+                    var t=e.time?e.time.replace(":","")+"00":"090000";
+                    var start=d+"T"+t;
+                    var endH=e.time?String(parseInt(e.time.split(":")[0])+2).padStart(2,"0")+e.time.split(":")[1]+"00":"110000";
+                    var end=d+"T"+endH;
+                    var isGame=e.type==="game"||e.opponent;
+                    var title=isGame?"vs "+(e.opponent||"Game"):(e.title||"Practice");
+                    lines.push("BEGIN:VEVENT");
+                    lines.push("DTSTART:"+start);
+                    lines.push("DTEND:"+end);
+                    lines.push("SUMMARY:"+teamName+" — "+title);
+                    if(e.location) lines.push("LOCATION:"+e.location);
+                    lines.push("DESCRIPTION:CoachIQ · "+teamName);
+                    lines.push("UID:coachiq-"+e.id);
+                    lines.push("END:VEVENT");
+                  });
+                  lines.push("END:VCALENDAR");
+                  var blob=new Blob([lines.join("
+")],{type:"text/calendar;charset=utf-8"});
+                  var url=URL.createObjectURL(blob);
+                  var a=document.createElement("a");
+                  a.href=url; a.download=(teamName||"CoachIQ")+"_Schedule.ics"; a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                  style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
+                    background:"#fff",border:"1px solid #ddd",borderRadius:9,
+                    color:"#333",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  🍎 Apple / Outlook (.ics)
+                </button>
+                {upcoming[0]&&(
+                  <a href={(function(){
+                    var e=upcoming[0];
+                    var d=(e.date||"").replace(/-/g,"");
+                    var t=e.time?e.time.replace(":","")+"00":"090000";
+                    var endH=e.time?String(parseInt(e.time.split(":")[0])+2).padStart(2,"0")+e.time.split(":")[1]+"00":"110000";
+                    var title=encodeURIComponent(teamName+" Season Schedule");
+                    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+title+"&dates="+d+"T"+t+"/"+d+"T"+endH;
+                  })()} target="_blank" rel="noopener noreferrer"
+                    style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",
+                      background:"#fff",border:"1px solid #ddd",borderRadius:9,
+                      color:"#333",fontWeight:700,fontSize:13,textDecoration:"none"}}>
+                    📅 Add to Google Calendar
+                  </a>
+                )}
+              </div>
+            )}
+
             {/* Upcoming events - grouped */}
             {(()=>{
               var groups=[
