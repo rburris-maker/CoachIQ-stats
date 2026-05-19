@@ -14434,25 +14434,53 @@ function PlayerPortalPage(){
 
   return(
     <div style={{minHeight:"100vh",background:"#f5f7fa",fontFamily:"'Outfit',sans-serif"}}>
+      <style>{`
+        .portal-banner{height:140px}
+        .portal-player-row{display:flex;align-items:flex-end;gap:20px;margin-top:-40px;padding-bottom:16px;flex-wrap:wrap}
+        .portal-photo{width:112px;height:112px;flex-shrink:0}
+        .portal-photo img,.portal-photo-circle{width:112px;height:112px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+        .portal-name{font-size:28px}
+        .portal-actions{display:flex;gap:8px;padding-bottom:8px;flex-shrink:0}
+        .portal-tabs{display:flex;border-top:1px solid #f0f0f0;margin-top:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .portal-tabs::-webkit-scrollbar{display:none}
+        .portal-tab{padding:12px 20px;background:none;border:none;cursor:pointer;font-weight:600;font-size:13px;font-family:'Outfit',sans-serif;transition:color .12s;white-space:nowrap;flex-shrink:0}
+        .portal-content{max-width:960px;margin:0 auto;padding:24px 24px 80px}
+        .portal-about-grid{display:grid;grid-template-columns:280px 1fr;gap:20px}
+        .portal-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        .portal-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .portal-btn{padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px}
+        .portal-btn-primary{background:#ff6b00;border:none;color:#fff;font-weight:700}
+        .portal-btn-secondary{background:#f5f5f5;border:1px solid #ddd;color:#555}
+        @media(max-width:640px){
+          .portal-banner{height:100px}
+          .portal-player-row{flex-direction:column;align-items:flex-start;gap:10px;margin-top:-36px;padding:0 16px 12px}
+          .portal-photo{width:80px;height:80px}
+          .portal-photo img,.portal-photo-circle{width:80px;height:80px;border-width:3px}
+          .portal-name{font-size:22px}
+          .portal-actions{width:100%;justify-content:flex-end;padding:8px 0 4px}
+          .portal-tab{padding:10px 14px;font-size:12px}
+          .portal-content{padding:14px 14px 80px}
+          .portal-about-grid{grid-template-columns:1fr}
+          .portal-stats-grid{grid-template-columns:repeat(2,1fr)}
+          .portal-card-grid{grid-template-columns:1fr}
+          .portal-btn{padding:8px 12px;font-size:12px}
+        }
+      `}</style>
 
       {/* ── HEADER ── */}
       <div style={{background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.08)"}}>
 
         {/* Banner */}
-        <div style={{height:140,background:"linear-gradient(135deg, #ff6b00 0%, #e05500 100%)",
-          position:"relative"}}>
-          <div style={{position:"absolute",inset:0,opacity:.15,
-            backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",
-            backgroundSize:"20px 20px"}}/>
+        <div className="portal-banner" style={{background:"linear-gradient(135deg, #ff6b00 0%, #e05500 100%)",position:"relative"}}>
+          <div style={{position:"absolute",inset:0,opacity:.15,backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",backgroundSize:"20px 20px"}}/>
         </div>
 
         {/* Player row */}
-        <div style={{maxWidth:960,margin:"0 auto",padding:"0 24px"}}>
-          <div style={{display:"flex",alignItems:"flex-end",gap:20,
-            marginTop:-40,paddingBottom:16,flexWrap:"wrap"}}>
+        <div style={{maxWidth:960,margin:"0 auto",padding:"0 max(16px, env(safe-area-inset-left))"}}>
+          <div className="portal-player-row">
 
             {/* Photo */}
-            <div style={{position:"relative",flexShrink:0}}>
+            <div className="portal-photo" style={{position:"relative"}}>
               {(editMode?draft.photoUrl:photoUrl)?(
                 <label style={{cursor:editMode?"pointer":"default",display:"block"}}>
                   <img src={editMode?draft.photoUrl:photoUrl}
@@ -14464,10 +14492,7 @@ function PlayerPortalPage(){
                     onChange={function(e){var f=e.target.files&&e.target.files[0];if(f)uploadPhoto(f);e.target.value='';}}/>}
                 </label>
               ):(
-                <div style={{width:112,height:112,borderRadius:"50%",
-                  background:posCol+"22",border:"4px solid #fff",
-                  boxShadow:"0 2px 12px rgba(0,0,0,.2)",
-                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                <div className="portal-photo-circle" style={{background:posCol+"22",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
                   <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,
                     color:posCol,fontSize:32,lineHeight:1}}>#{player.number}</div>
                   <div style={{color:posCol,fontSize:11,fontWeight:700,marginTop:2}}>
@@ -14511,8 +14536,7 @@ function PlayerPortalPage(){
 
             {/* Name + info */}
             <div style={{flex:1,minWidth:200,paddingBottom:8}}>
-              <h1 style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontSize:28,
-                fontWeight:900,margin:"0 0 4px",lineHeight:1.1}}>{player.name}</h1>
+              <h1 className="portal-name" style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontWeight:900,margin:"0 0 4px",lineHeight:1.1}}>{player.name}</h1>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {editMode?(
                   <input value={draft.location||""} placeholder="City, State"
@@ -14539,17 +14563,15 @@ function PlayerPortalPage(){
             </div>
 
             {/* Action buttons */}
-            <div style={{display:"flex",gap:8,paddingBottom:8,flexShrink:0}}>
+            <div className="portal-actions">
               {editMode?(
                 <>
                   <button onClick={function(){setEditMode(false);}}
-                    style={{padding:"8px 16px",background:"#f5f5f5",border:"1px solid #ddd",
-                      borderRadius:8,color:"#666",cursor:"pointer",fontWeight:600,fontSize:12}}>
+                    className="portal-btn portal-btn-secondary">
                     Cancel
                   </button>
                   <button onClick={saveAll} disabled={saving}
-                    style={{padding:"8px 20px",background:A,border:"none",
-                      borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>
+                    className="portal-btn portal-btn-primary">
                     {saving?"Saving…":"✓ Save Changes"}
                   </button>
                 </>
@@ -14562,13 +14584,10 @@ function PlayerPortalPage(){
                       setRecruitCopied(true);setTimeout(function(){setRecruitCopied(false);},2500);
                     }).catch(function(){alert(url);});
                   }}
-                    style={{padding:"8px 16px",background:"#f5f5f5",border:"1px solid #ddd",
-                      borderRadius:8,color:"#555",cursor:"pointer",fontWeight:600,fontSize:12}}>
+                    className="portal-btn portal-btn-secondary">
                     {recruitCopied?"✓ Copied":"⭐ Recruiter Link"}
                   </button>
-                  <button onClick={startEdit}
-                    style={{padding:"8px 16px",background:A,border:"none",
-                      borderRadius:8,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>
+                  <button onClick={startEdit} className="portal-btn portal-btn-primary">
                     Edit Profile
                   </button>
                 </>
@@ -14577,14 +14596,12 @@ function PlayerPortalPage(){
           </div>
 
           {/* Tabs */}
-          <div style={{display:"flex",borderTop:"1px solid #f0f0f0",marginTop:4}}>
+          <div className="portal-tabs">
             {TABS.map(function(item){return(
               <button key={item.t} onClick={function(){setTab(item.t);}}
-                style={{padding:"12px 20px",background:"none",border:"none",
-                  borderBottom:"2px solid "+(tab===item.t?A:"transparent"),
-                  color:tab===item.t?A:"#777",cursor:"pointer",
-                  fontWeight:600,fontSize:13,fontFamily:"'Outfit',sans-serif",
-                  transition:"color .12s"}}>
+                className="portal-tab"
+                style={{borderBottom:"2px solid "+(tab===item.t?A:"transparent"),
+                  color:tab===item.t?A:"#777"}}>
                 {item.l}
               </button>
             );})}
@@ -14594,11 +14611,11 @@ function PlayerPortalPage(){
 
 
       {/* ── CONTENT ── */}
-      <div style={{maxWidth:960,margin:"0 auto",padding:"24px 24px 60px"}}>
+      <div className="portal-content">
 
         {/* ══ ABOUT TAB ══ */}
         {tab==="about"&&(
-          <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:20}}>
+          <div className="portal-about-grid">
 
             {/* Coach message */}
             {hubSettings.coachMessage&&(
