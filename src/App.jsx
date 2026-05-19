@@ -1642,7 +1642,7 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                       opacity:dragId===p.id?.4:1,
                       cursor:"grab",transition:"opacity .15s"}}>
                     <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                      background:pc+"22",border:`1.5px solid ${pc}44`,
+                      background:pc,border:"none",
                       display:"flex",alignItems:"center",justifyContent:"center",
                       fontFamily:"'Oswald',sans-serif",fontWeight:900,
                       color:pc,fontSize:12}}>
@@ -2358,9 +2358,9 @@ function LineupsView({lineups, setLineups, roster, teamName, activeTeamId}){
                         display:"flex",alignItems:"center",gap:10,
                         opacity:isAssigned&&!isCurrent?.5:1}}>
                       <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
-                        background:pc+"22",border:`1.5px solid ${pc}44`,
+                        background:pc,border:"none",
                         display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:13}}>
+                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:13}}>
                         {p.number||"#"}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
@@ -2592,7 +2592,7 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                         zIndex:2,whiteSpace:"nowrap"}}>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
                           <div style={{width:32,height:32,borderRadius:7,flexShrink:0,
-                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            background:pc,border:"none",
                             display:"flex",alignItems:"center",justifyContent:"center",
                             fontFamily:"'Oswald',sans-serif",fontWeight:900,
                             color:pc,fontSize:14}}>
@@ -2756,9 +2756,9 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                       style={{background:C.card,border:`1px solid ${sel===player.id?C.accent:C.border}`,borderRadius:12,padding:"14px 16px",cursor:"pointer",transition:"all .12s"}}>
                       <div style={{display:"flex",alignItems:"center",gap:12}}>
                         <div style={{width:44,height:44,borderRadius:10,flexShrink:0,
-                          background:pc+"22",border:`2px solid ${pc}44`,
+                          background:pc,border:"none",
                           display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:20}}>
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:20}}>
                           {player.number||"#"}
                         </div>
                         <div style={{flex:1}}>
@@ -3099,7 +3099,7 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
                       const pc=posColor(primaryPos(p));
                       return(
                         <div key={p.id} style={{padding:"8px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"flex-start",gap:10}}>
-                          <div style={{width:26,height:26,borderRadius:5,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>{p.number}</div>
+                          <div style={{width:26,height:26,borderRadius:5,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:11}}>{p.number}</div>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
                               <span style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</span>
@@ -3902,7 +3902,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   <div onClick={()=>setExpanded(open?null:row.playerId)}
                     style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:i===0?"#ff6b0010":C.surface,borderRadius:10,cursor:"pointer",border:i===0?"1px solid #ff6b0033":`1px solid ${C.border}`,transition:"all .15s"}}>
                     {i===0?<Award size={15} color="#ffb300"/>:<span style={{color:C.muted,fontSize:13,fontWeight:700,width:20,textAlign:"center"}}>{i+1}</span>}
-                    <div style={{width:32,height:32,borderRadius:8,background:posColor(primaryPos(row.player))+"22",border:`1.5px solid ${posColor(primaryPos(row.player))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(row.player)),fontSize:13,flexShrink:0}}>{row.player?.number}</div>
+                    <div style={{width:32,height:32,borderRadius:8,background:posColor(primaryPos(row.player))+"22",border:`1.5px solid ${posColor(primaryPos(row.player))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:13,flexShrink:0}}>{row.player?.number}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -5433,9 +5433,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                       cursor:"pointer",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>↓</button>
                   <div onClick={()=>canLog&&logStat(player.id)}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:canLog?"pointer":"default",width:"100%"}}>
-                    <div style={{width:42,height:42,borderRadius:9,background:pc+"22",border:`2px solid ${pc}55`,
+                    <div style={{width:42,height:42,borderRadius:9,background:pc,border:"none",
                       display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:20}}>
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:20}}>
                       {player.number}
                     </div>
                     <div style={{color:C.text,fontWeight:700,fontSize:10,textAlign:"center",maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -7549,9 +7549,9 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
                         const pc=posColor(primaryPos(p));
                         return(
                           <div key={pid} style={{width:30,height:30,borderRadius:7,
-                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            background:pc,border:"none",
                             display:"flex",alignItems:"center",justifyContent:"center",
-                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
+                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:12}}>
                             {p.number}
                           </div>
                         );
@@ -7598,7 +7598,7 @@ function HomeView({games, gamePlans, practices, roster, setView, teamName, sched
             </div>
             {topPlayers.map((p,i)=>(
               <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0}}>
-                <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
+                <div style={{width:32,height:32,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:14,flexShrink:0}}>{p.number}</div>
                 <div style={{flex:1}}>
                   <div style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</div>
                   <div style={{height:4,background:C.border,borderRadius:99,marginTop:4,overflow:"hidden"}}>
@@ -8158,7 +8158,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                       style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
                         background:inUse?C.surface:C.bg,border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
                         opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:14,flexShrink:0}}>{p.number}</div>
+                      <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p))+"22",border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:14,flexShrink:0}}>{p.number}</div>
                       <div style={{flex:1}}>
                         <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
                         <div style={{display:"flex",gap:4,marginTop:2}}>
@@ -8262,7 +8262,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                           zIndex:1}}>
                         {p?(
                           <>
-                            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:14,lineHeight:1}}>{p.number||"#"}</div>
+                            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:14,lineHeight:1}}>{p.number||"#"}</div>
                             <div style={{color:"rgba(255,255,255,.75)",fontSize:7,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:44,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>
                               {p.name.split(" ").pop()}
                             </div>
@@ -8295,7 +8295,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
                 : benchRoster.map(p=>(
                   <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
-                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>{p.number}</div>
+                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:10}}>{p.number}</div>
                     <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
                     <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
                       style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
@@ -8496,7 +8496,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                         padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
                         border:`1px solid ${threatCol}33`}}>
                         <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                          background:posColor(p.pos)+"22",border:`1.5px solid ${posColor(p.pos)}44`,
+                          background:posColor(p.pos),border:"none",
                           display:"flex",alignItems:"center",justifyContent:"center",
                           fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(p.pos),fontSize:11}}>
                           {p.pos}
@@ -9369,8 +9369,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                   return(
                     <div key={p.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:C.surface,borderRadius:7,
                       border:`1px solid ${status==="present"?C.accent+"22":status==="injured"?C.warning+"22":C.danger+"22"}`}}>
-                      <div style={{width:24,height:24,borderRadius:5,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:11}}>
+                      <div style={{width:24,height:24,borderRadius:5,flexShrink:0,background:pc,border:"none",
+                        display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>
                         {p.number}
                       </div>
                       <span style={{flex:1,color:C.text,fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -9415,7 +9415,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     <div key={note.id} style={{background:C.surface,borderRadius:8,padding:"8px 10px",display:"flex",gap:7}}>
                       <div style={{width:22,height:22,borderRadius:5,flexShrink:0,background:posColor(primaryPos(p))+"22",
                         border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:posColor(primaryPos(p)),fontSize:10}}>
+                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:10}}>
                         {p?.number||"?"}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
@@ -9503,9 +9503,9 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                       <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,
                         borderBottom:`1px solid ${C.border}`}}>
                         <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
-                          background:pc+"22",border:`2px solid ${pc}44`,
+                          background:pc,border:"none",
                           display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:16}}>
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:16}}>
                           {p.number}
                         </div>
                         <div style={{flex:1,minWidth:0}}>
@@ -11165,7 +11165,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
           <div style={{flex:1,overflowY:"auto",overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{borderBottom:`2px solid ${C.border}`}}><th style={{padding:"10px 16px",textAlign:"left",color:C.muted,fontWeight:600,fontSize:11,letterSpacing:1,position:"sticky",left:0,background:C.card,minWidth:160,zIndex:2}}>CANDIDATE</th>{customStats.map(stat=>(<th key={stat.id} style={{padding:"10px 14px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:10,letterSpacing:.5,minWidth:120,whiteSpace:"nowrap"}}><div>{stat.label.toUpperCase()}</div>{stat.unit&&<div style={{color:C.border,fontWeight:400,fontSize:9}}>{stat.unit}</div>}{isTimeStat(stat)&&<div style={{color:C.accent,fontSize:9,fontWeight:700,marginTop:1}}>⏱ MM:SS</div>}{isSecondsStat(stat)&&<div style={{color:"#42a5f5",fontSize:9,fontWeight:700,marginTop:1}}>⏱ Sec</div>}</th>))}</tr></thead>
-              <tbody>{allSorted.map((c,ri)=>{const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");return(<tr key={c.id} style={{borderBottom:`1px solid ${C.border}`,background:ri%2===0?C.card:C.surface}}><td style={{padding:"8px 16px",position:"sticky",left:0,background:ri%2===0?C.card:C.surface,zIndex:1}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:11}}>{(c.positions||[c.primaryPos||"CM"])[0]}</div><div><div style={{color:C.text,fontWeight:700,fontSize:13}}>{c.name}</div>{c.grade&&<div style={{color:C.muted,fontSize:10}}>Gr.{c.grade}</div>}</div></div></td>{customStats.map(stat=>{const key=c.id+"_"+stat.id;const val=(local[c.id]||{})[stat.id]||"";const best=(c.customStats||{})[stat.id];if(isTimeStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<div onKeyDown={e=>handleKeyNav(e,c.id,stat.id)}><TimeInput value={val} onChange={v=>updateLocal(c.id,stat.id,v)} placeholder="0:00" style={{...cell,ref:el=>{inputRefs.current[key]=el;}}}/></div></td>);if(isSecondsStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="0.01" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="4.97" style={cell}/></td>);return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="any" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="—" style={cell}/></td>);})}</tr>);})}</tbody>
+              <tbody>{allSorted.map((c,ri)=>{const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");return(<tr key={c.id} style={{borderBottom:`1px solid ${C.border}`,background:ri%2===0?C.card:C.surface}}><td style={{padding:"8px 16px",position:"sticky",left:0,background:ri%2===0?C.card:C.surface,zIndex:1}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>{(c.positions||[c.primaryPos||"CM"])[0]}</div><div><div style={{color:C.text,fontWeight:700,fontSize:13}}>{c.name}</div>{c.grade&&<div style={{color:C.muted,fontSize:10}}>Gr.{c.grade}</div>}</div></div></td>{customStats.map(stat=>{const key=c.id+"_"+stat.id;const val=(local[c.id]||{})[stat.id]||"";const best=(c.customStats||{})[stat.id];if(isTimeStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<div onKeyDown={e=>handleKeyNav(e,c.id,stat.id)}><TimeInput value={val} onChange={v=>updateLocal(c.id,stat.id,v)} placeholder="0:00" style={{...cell,ref:el=>{inputRefs.current[key]=el;}}}/></div></td>);if(isSecondsStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="0.01" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="4.97" style={cell}/></td>);return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="any" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="—" style={cell}/></td>);})}</tr>);})}</tbody>
             </table>
           </div>
           <div style={{padding:"14px 22px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end",flexShrink:0}}>
@@ -11233,7 +11233,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
                 :sorted.map((c,rank)=>{const avg=avgScore(c.scores),sc=HS_STATUS.find(s=>s.k===c.status),isSel=selCand===c.id,pc=posColor(c.primaryPos||c.positions?.[0]||"CM"),positions=c.positions||[c.primaryPos||"CM"];const bestTS=customStats.filter(s=>isTimeStat(s)||isSecondsStat(s)).find(s=>c.customStats?.[s.id]);const bth=bestTS?(c.customStatHistory||{})[bestTS.id]:null;const imp=bestTS&&bth?getImprovement(bth,bestTS):null;return(
                   <div key={c.id} onClick={()=>setSelCand(isSel?null:c.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,marginBottom:5,cursor:"pointer",transition:"all .12s",background:isSel?C.accent+"18":C.surface,border:`1px solid ${isSel?C.accent:C.border}`}}>
                     <div style={{width:20,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:13,textAlign:"center",flexShrink:0}}>{rank+1}</div>
-                    <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:11}}>{positions[0]}</div>
+                    <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>{positions[0]}</div>
                     <div style={{flex:1,minWidth:0}}><div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{display:"flex",gap:5,alignItems:"center"}}><div style={{color:C.muted,fontSize:10}}>{tryout.teamType==="highschool"?(c.grade?`Gr.${c.grade}`:""):(c.club||"")}</div>{bestTS&&c.customStats?.[bestTS.id]&&<div style={{color:C.accent,fontSize:10,fontWeight:700,fontFamily:"'Oswald',sans-serif"}}>{c.customStats[bestTS.id]}</div>}{imp&&<div style={{color:imp.improved?"#66bb6a":C.danger,fontSize:9,fontWeight:700}}>{imp.label}</div>}</div></div>
                     <div style={{textAlign:"right",flexShrink:0}}>{avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</div>}<div style={{color:sc?.color||C.muted,fontSize:9,fontWeight:700,letterSpacing:.5}}>{sc?.label}</div></div>
                   </div>
@@ -11242,7 +11242,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
             {selCandObj?(
               <div style={{display:"flex",flexDirection:"column",gap:12,maxHeight:"calc(100vh - 340px)",overflowY:"auto"}}>
                 <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
-                  <div style={{display:"flex",gap:6,flexShrink:0}}>{(selCandObj.positions||[selCandObj.primaryPos||"CM"]).map((pos,i)=>(<div key={pos} style={{width:i===0?52:36,height:i===0?52:36,borderRadius:i===0?12:8,background:posColor(pos)+"22",border:`2px solid ${posColor(pos)}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:i===0?18:13,opacity:i===0?1:.7}}>{pos}</div>))}</div>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>{(selCandObj.positions||[selCandObj.primaryPos||"CM"]).map((pos,i)=>(<div key={pos} style={{width:i===0?52:36,height:i===0?52:36,borderRadius:i===0?12:8,background:posColor(pos),border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:i===0?18:13,opacity:i===0?1:.7}}>{pos}</div>))}</div>
                   <div style={{flex:1}}><div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div><div style={{color:C.muted,fontSize:13,marginTop:2}}>{tryout.teamType==="highschool"?(selCandObj.grade?`Grade ${selCandObj.grade}`:""):(selCandObj.club||"")}</div></div>
                   {avgScore(selCandObj.scores)>0&&<div style={{textAlign:"center",flexShrink:0}}><div style={{color:rColor(avgScore(selCandObj.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:40,lineHeight:1}}>{avgScore(selCandObj.scores).toFixed(1)}</div><div style={{color:C.muted,fontSize:10,fontWeight:600}}>OVERALL</div></div>}
                   <button onClick={()=>deleteCandidate(selCandObj.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}><Trash2 size={15}/></button>
@@ -11309,7 +11309,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
                     const pc=posColor(c.primaryPos||c.positions?.[0]||"CM"),positions=c.positions||[c.primaryPos||"CM"],avg=avgScore(c.scores),fitCol=FIT_COLOR[c.fit]||C.muted;
                     return(<div key={c.id} onClick={()=>assignSlot(pickingSlot.zone,pickingSlot.idx,pickingSlot.isBackup,c.id)} style={{padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",background:"#1a0800",border:`1px solid ${pc}33`,display:"flex",alignItems:"center",gap:10}}>
                       <div style={{width:7,height:7,borderRadius:"50%",background:fitCol,flexShrink:0}}/>
-                      <div style={{width:28,height:28,borderRadius:7,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12,flexShrink:0}}>{positions[0]}</div>
+                      <div style={{width:28,height:28,borderRadius:7,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:12,flexShrink:0}}>{positions[0]}</div>
                       <div style={{flex:1}}><div style={{color:"rgba(255,255,255,.9)",fontWeight:700,fontSize:13}}>{c.name}</div><div style={{color:"rgba(255,255,255,.45)",fontSize:11}}>{positions.join(" / ")}{c.grade?` · Gr.${c.grade}`:""}</div></div>
                       {avg>0&&<span style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</span>}
                     </div>);
@@ -11461,7 +11461,7 @@ function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onS
                         background:isStarter?C.accent+"11":isSub?"#ffb30011":C.surface,
                         border:`1px solid ${isStarter?C.accent+"44":isSub?"#ffb30044":C.border}`,
                         borderRadius:8,cursor:"grab",opacity:isDraggingThis?.4:1,transition:"opacity .1s"}}>
-                      <div style={{width:24,height:24,borderRadius:6,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:10}}>{positions[0]}</div>
+                      <div style={{width:24,height:24,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>{positions[0]}</div>
                       <div style={{flex:1,minWidth:0}}><div style={{color:C.text,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>{positions.length>1&&<div style={{color:C.muted,fontSize:10}}>{positions.join(" / ")}</div>}</div>
                       {avg>0&&<span style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:13,flexShrink:0}}>{avg.toFixed(1)}</span>}
                       {isStarter&&<span style={{color:C.accent,fontSize:9,fontWeight:700,flexShrink:0}}>▶</span>}
@@ -11665,9 +11665,9 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
                         padding:"8px 12px",background:C.surface,borderRadius:9,marginBottom:5,
                         border:`1px solid ${C.border}`}}>
                         <div style={{width:28,height:28,borderRadius:7,flexShrink:0,
-                          background:pc+"22",border:`1.5px solid ${pc}44`,
+                          background:pc,border:"none",
                           display:"flex",alignItems:"center",justifyContent:"center",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:12}}>
+                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:12}}>
                           {(c.positions||[c.primaryPos||"CM"])[0]}
                         </div>
                         <div style={{flex:1}}>
@@ -11739,9 +11739,9 @@ function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
                           padding:"9px 12px",background:C.surface,borderRadius:9,marginBottom:6,
                           border:`1px solid ${C.border}`}}>
                           <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
-                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            background:pc,border:"none",
                             display:"flex",alignItems:"center",justifyContent:"center",
-                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:pc,fontSize:13}}>
+                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:13}}>
                             {(c.positions||[c.primaryPos||"CM"])[0]}
                           </div>
                           <div style={{flex:1}}>
@@ -12684,9 +12684,9 @@ function PlayerProfilePage(){
           {/* Player hero */}
           <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",border:"1px solid #3a1a00",
             borderRadius:18,padding:28,marginBottom:16,textAlign:"center"}}>
-            <div style={{width:72,height:72,borderRadius:16,background:pc+"22",border:`3px solid ${pc}55`,
+            <div style={{width:72,height:72,borderRadius:16,background:pc,border:"none",
               display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px",
-              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:32}}>
+              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:32}}>
               {p.number}
             </div>
             <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,marginBottom:6}}>{p.name}</div>
@@ -12979,7 +12979,7 @@ function GamePlanSharePage(){
                   display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
                   {p?(
                     <>
-                      <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:13,lineHeight:1}}>{p.number||"#"}</div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:13,lineHeight:1}}>{p.number||"#"}</div>
                       <div style={{color:"rgba(255,255,255,.75)",fontSize:6.5,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:42,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>{p.name.split(" ").pop()}</div>
                     </>
                   ):(
@@ -14040,7 +14040,7 @@ function PlayerCard({player,A}){
         <div style={{width:48,height:48,borderRadius:"50%",flexShrink:0,
           background:pc+"18",border:"2px solid "+pc+"33",
           display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:16}}>#{player.number}</div>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:16}}>#{player.number}</div>
         </div>
       )}
       <div style={{flex:1,minWidth:0}}>
@@ -14078,9 +14078,9 @@ function TeamPortalPage(){
 
   var POS_GROUPS=[
     {label:"Goalkeepers",keys:["GK"]},
-    {label:"Defenders",  keys:["CB","LB","RB"]},
-    {label:"Midfielders",keys:["CDM","CM","W","CAM"]},
-    {label:"Forwards",   keys:["ST","FW"]},
+    {label:"Defenders",  keys:["DEF","CB","LB","RB"]},
+    {label:"Midfielders",keys:["MID","CDM","CM","W","CAM","RM","LM"]},
+    {label:"Forwards",   keys:["FWD","ST","FW"]},
   ];
 
   var filtered=search
@@ -14536,16 +14536,15 @@ function PlayerPortalPage(){
                 </div>
               )}
               {editMode&&(
-                <div style={{marginTop:8,maxWidth:130}}>
-                  {/* Upload button */}
-                  <label style={{display:"block",cursor:"pointer"}}>
+                <div style={{marginTop:6,width:112}}>
+                  <label style={{display:"block",cursor:"pointer",marginBottom:4}}>
                     <div style={{
-                      padding:"6px 10px",background:photoUploading?"#2a2a2a":"#ff6b00",
-                      borderRadius:7,color:photoUploading?"#888":"#000",
-                      fontSize:11,fontWeight:700,textAlign:"center",
-                      border:"none",transition:"all .15s",
+                      padding:"5px 0",background:photoUploading?"#ccc":"#ff6b00",
+                      borderRadius:6,color:photoUploading?"#888":"#000",
+                      fontSize:10,fontWeight:700,textAlign:"center",
+                      width:"100%",transition:"opacity .15s",
                       opacity:photoUploading?0.6:1}}>
-                      {photoUploading?"Uploading...":"⬆ Upload Photo"}
+                      {photoUploading?"Uploading…":"⬆ Upload Photo"}
                     </div>
                     <input type="file" accept="image/*"
                       style={{display:"none"}}
@@ -14557,14 +14556,11 @@ function PlayerPortalPage(){
                       }}/>
                   </label>
                   {photoError&&(
-                    <div style={{color:"#e53935",fontSize:10,marginTop:4}}>{photoError}</div>
+                    <div style={{color:"#e53935",fontSize:10,marginBottom:4}}>{photoError}</div>
                   )}
-                  {/* URL fallback */}
-                  <div style={{color:"#888",fontSize:9,fontWeight:700,
-                    letterSpacing:.5,marginTop:8,marginBottom:3}}>OR PASTE URL</div>
-                  <input value={draft.photoUrl||""} placeholder="https://..."
+                  <input value={draft.photoUrl||""} placeholder="or paste URL…"
                     onChange={function(e){setDraft(function(d){return Object.assign({},d,{photoUrl:e.target.value});});}}
-                    style={{...iS,fontSize:10,padding:"4px 8px"}}/>
+                    style={{...iS,fontSize:10,padding:"4px 8px",width:"100%"}}/>
                 </div>
               )}
             </div>
@@ -14968,7 +14964,7 @@ function PlayerPortalPage(){
                   <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
                     <div style={{width:44,height:44,borderRadius:8,background:posCol+"22",
                       display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:posCol,fontSize:18,flexShrink:0}}>
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:18,flexShrink:0}}>
                       {(teamName[0]||"T").toUpperCase()}
                     </div>
                     <div>
@@ -17060,7 +17056,7 @@ function LiveJoinPage(){
                     transform:isFlash?"scale(0.95)":"scale(1)",
                     transition:"all .1s",cursor:canLog?"pointer":"default",
                     opacity:canLog||!activeStat?1:0.35}}>
-                  <div style={{width:42,height:42,borderRadius:9,background:pc+"22",
+                  <div style={{width:42,height:42,borderRadius:9,background:pc,
                     border:"2px solid "+pc+"55",display:"flex",alignItems:"center",
                     justifyContent:"center",fontFamily:"'Oswald',sans-serif",
                     fontWeight:900,color:pc,fontSize:20}}>
