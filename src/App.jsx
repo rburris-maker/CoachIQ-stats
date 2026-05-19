@@ -15771,6 +15771,84 @@ function PlayerPortalPage(){
                             </div>
                           );
                         })()}
+
+                        {/* ── Benchmarks ── */}
+                        {(function(){
+                          var prog2=PREBUILT_PROGRAMS.find(function(p){return p.id===pw.programId;});
+                          if(!prog2) return null;
+                          var allBm=[].concat(prog2.condBenchmarks||[]).concat(prog2.ballBenchmarks||[]);
+                          if(!allBm.length) return null;
+                          var bmLog=((wkLog[pw.id]||{}).benchmarks)||{};
+                          var TEST_KEYS=["T0","T1","T2","T3"];
+                          var testLabels=["T1·Wk1","T2·Wk3","T3·Wk6","T4·Wk8"];
+                          function getPR(bm){
+                            var vals=TEST_KEYS.map(function(k){return (bmLog[bm.name]||{})[k];}).filter(Boolean);
+                            if(!vals.length) return null;
+                            return bm.lower
+                              ?vals.reduce(function(a,b){return a<b?a:b;})
+                              :vals.reduce(function(a,b){return a>b?a:b;});
+                          }
+                          function saveBmField(name,key,val){
+                            var newLog=Object.assign({},wkLog);
+                            var pwEntry=Object.assign({},wkLog[pw.id]||{});
+                            var bms=Object.assign({},pwEntry.benchmarks||{});
+                            bms[name]=Object.assign({},bms[name]||{},{[key]:val});
+                            pwEntry.benchmarks=bms;
+                            newLog[pw.id]=pwEntry;
+                            setWkLog(newLog);
+                            saveField("workoutLog",newLog);
+                          }
+                          return(
+                            <div style={{borderTop:"1px solid #f0f0f0",padding:"14px 16px 10px"}}>
+                              <div style={{fontSize:11,color:"#888",fontWeight:700,letterSpacing:1,marginBottom:12}}>
+                                BENCHMARKS — LOG AT T1 / T2 / T3 / T4
+                              </div>
+                              {[
+                                {list:prog2.condBenchmarks,label:"CONDITIONING",bg:"#f0f6ff",border:"#bfdbfe",prCol:"#185fa5"},
+                                {list:prog2.ballBenchmarks,label:"BALL TRAINING",bg:"#fff7ed",border:"#fed7aa",prCol:"#c2410c"}
+                              ].map(function(section){
+                                return(
+                                  <div key={section.label} style={{marginBottom:12}}>
+                                    <div style={{fontSize:9,color:section.prCol,fontWeight:700,letterSpacing:1.5,marginBottom:7}}>{section.label}</div>
+                                    <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                                      {section.list.map(function(bm){
+                                        var pr=getPR(bm);
+                                        return(
+                                          <div key={bm.name} style={{background:section.bg,borderRadius:9,padding:"9px 11px"}}>
+                                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:7,flexWrap:"wrap"}}>
+                                              <span style={{fontSize:12,fontWeight:600,color:"#111",flex:1}}>{bm.name}</span>
+                                              <span style={{fontSize:10,color:"#888"}}>Target: {bm.target}</span>
+                                              {pr&&<span style={{background:section.bg,color:section.prCol,fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,border:"1px solid "+section.border}}>🏆 PR: {pr}</span>}
+                                            </div>
+                                            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
+                                              {TEST_KEYS.map(function(key,i){
+                                                var val=(bmLog[bm.name]||{})[key]||"";
+                                                var isNewPR=!!(val&&pr&&val===pr);
+                                                return(
+                                                  <div key={key}>
+                                                    <div style={{fontSize:8,color:"#aaa",marginBottom:2,textAlign:"center"}}>{testLabels[i]}</div>
+                                                    {!isViewOnly&&!isRecruiterView?(
+                                                      <input value={val}
+                                                        onChange={function(e){saveBmField(bm.name,key,e.target.value);}}
+                                                        placeholder="—"
+                                                        style={{width:"100%",padding:"5px 4px",border:"1px solid "+(isNewPR?section.prCol:section.border),borderRadius:5,fontSize:12,fontWeight:isNewPR?700:400,color:isNewPR?section.prCol:"#111",background:isNewPR?section.bg:"#fff",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+                                                    ):(
+                                                      <div style={{fontSize:12,color:isNewPR?section.prCol:"#888",fontWeight:isNewPR?700:400,textAlign:"center",padding:"5px 0"}}>{val||"—"}</div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
