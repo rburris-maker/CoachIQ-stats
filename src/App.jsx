@@ -5857,7 +5857,13 @@ export default function CoachIQStats(){
       setLineupsState((await supabase.from("lineups").select("*").eq("team_id",tid)).data?.map(x=>x.data)||[]);
       try{
         const {data:hubData}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
-        if(hubData) setTeamHubState(hubData);
+        if(hubData) setTeamHubState({
+          coachMessage:       hubData.coach_message||"",
+          featuredGameId:     hubData.featured_game_id||null,
+          featuredGameLabel:  hubData.featured_game_label||"",
+          featuredGameDate:   hubData.featured_game_date||"",
+          featuredGameTime:   hubData.featured_game_time||"",
+        });
       }catch(e){}
       setTryoutsState((tr.data||[]).map(x=>x.data));
       setOpponentsState((op.data||[]).map(x=>x.data));
@@ -6154,7 +6160,14 @@ export default function CoachIQStats(){
     const next={...teamHub,...updates};
     setTeamHubState(next);
     try{
-      await supabase.from("team_hub").upsert({team_id:safeTeamId,...next},{onConflict:"team_id"});
+      await supabase.from("team_hub").upsert({
+        team_id:          safeTeamId,
+        coach_message:    next.coachMessage||"",
+        featured_game_id: next.featuredGameId||null,
+        featured_game_label: next.featuredGameLabel||"",
+        featured_game_date:  next.featuredGameDate||"",
+        featured_game_time:  next.featuredGameTime||"",
+      },{onConflict:"team_id"});
     }catch(e){ console.error("saveTeamHub",e); }
   }
 
@@ -13644,7 +13657,13 @@ function PlayerPortalPage(){
         setPractices((pData||[]).map(function(x){return x.data;}));
         try{
           var {data:hubRow}=await supabase.from("team_hub").select("*").eq("team_id",tid).single();
-          if(hubRow) setHubSettings(hubRow);
+          if(hubRow) setHubSettings({
+            coachMessage:      hubRow.coach_message||"",
+            featuredGameId:    hubRow.featured_game_id||null,
+            featuredGameLabel: hubRow.featured_game_label||"",
+            featuredGameDate:  hubRow.featured_game_date||"",
+            featuredGameTime:  hubRow.featured_game_time||"",
+          });
         }catch(e){}
       }catch(e){setError("Failed to load.");}
       setLoading(false);
