@@ -5617,6 +5617,7 @@ export default function CoachIQStats(){
   const [session,       setSession]       = useState(()=>supabase.auth.getSession().data.session);
   const [authLoading,   setAuthLoading]   = useState(!supabase.auth.getSession().data.session);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [teamDropOpen, setTeamDropOpen]   = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [theme,         setTheme]         = useLocalStorage("coachiq_theme","dark");
   Object.assign(C, THEMES[theme] || THEMES.dark);
