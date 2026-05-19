@@ -13607,7 +13607,7 @@ function PlayerPortalPage(){
       var h=Math.floor((diff%86400000)/3600000);
       var m=Math.floor((diff%3600000)/60000);
       var s=Math.floor((diff%60000)/1000);
-      setCountdown({d,h,m,s,label:hubSettings.featuredGameLabel||""});
+      setCountdown({d,h,m,s,label:hubSettings.featuredGameLabel||"Big Game"});
     }
     tick();
     var iv=setInterval(tick,1000);
@@ -14036,7 +14036,7 @@ function PlayerPortalPage(){
             )}
 
             {/* Big game countdown */}
-            {hubSettings.featuredGameDate&&countdown.label&&(
+            {hubSettings.featuredGameDate&&(
               <div style={{gridColumn:"1/-1",background:"#111",borderRadius:14,
                 padding:"20px 24px",overflow:"hidden",position:"relative"}}>
                 <div style={{color:"#ffffff44",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>
