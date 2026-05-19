@@ -2794,8 +2794,14 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
 // ─── ANALYTICS VIEW ───────────────────────────────────────────────────────────
 function WorkoutBuilderView({workouts, setWorkouts, roster}){
   const [creating, setCreating] = useState(false);
+  const [wkTab, setWkTab] = useState("assigned"); // "assigned" | "templates"
+  const [expandedWk, setExpandedWk] = useState(null);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [form, setForm] = useState({title:"",description:"",dueDate:"",exercises:[]});
   const [newEx, setNewEx] = useState({name:"",sets:"",reps:"",duration:""});
+
+  const assigned = (workouts||[]).filter(w=>!w.isTemplate);
+  const templates = (workouts||[]).filter(w=>w.isTemplate);
 
   function addExercise(){
     if(!newEx.name.trim()) return;
@@ -2804,10 +2810,26 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
   }
   function createWorkout(){
     if(!form.title.trim()) return;
-    const wk={...form,id:"wk"+Date.now(),createdAt:new Date().toISOString().split("T")[0]};
-    setWorkouts(prev=>[wk,...prev]);
+    const base={...form,exercises:form.exercises,createdAt:new Date().toISOString().split("T")[0]};
+    if(saveAsTemplate){
+      const tpl={...base,id:"tpl"+Date.now(),isTemplate:true};
+      setWorkouts(prev=>[tpl,...prev]);
+    } else {
+      const wk={...base,id:"wk"+Date.now(),isTemplate:false};
+      setWorkouts(prev=>[wk,...prev]);
+    }
     setForm({title:"",description:"",dueDate:"",exercises:[]});
+    setSaveAsTemplate(false);
     setCreating(false);
+  }
+  function assignTemplate(tpl){
+    const wk={...tpl,id:"wk"+Date.now(),isTemplate:false,
+      createdAt:new Date().toISOString().split("T")[0],dueDate:""};
+    setWorkouts(prev=>[wk,...prev]);
+    setWkTab("assigned");
+  }
+  function getCompletions(wkId){
+    return (roster||[]).filter(p=>(p.workoutLog||{})[wkId]?.completed);
   }
 
   const iS=(extra={})=>({padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,
@@ -2815,7 +2837,7 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
     boxSizing:"border-box",...extra});
 
   return(
-    <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+    <div style={{padding:20,maxWidth:760,margin:"0 auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
           <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
@@ -2825,8 +2847,22 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
           style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
             border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
             fontFamily:"'Oswald',sans-serif"}}>
-          <Plus size={15}/>Assign Workout
+          <Plus size={15}/>New Workout
         </button>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:4,marginBottom:16,background:C.surface,
+        padding:4,borderRadius:10,border:`1px solid ${C.border}`}}>
+        {[["assigned","Assigned ("+assigned.length+")"],["templates","Templates ("+templates.length+")"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setWkTab(k)}
+            style={{flex:1,padding:"8px",border:"none",borderRadius:7,cursor:"pointer",
+              fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif",
+              background:wkTab===k?C.accent+"22":"transparent",
+              color:wkTab===k?C.accent:C.muted,transition:"all .15s"}}>
+            {l}
+          </button>
+        ))}
       </div>
 
       {creating&&(
@@ -2885,13 +2921,25 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
                   fontWeight:800,fontSize:16,cursor:"pointer"}}>+</button>
             </div>
           </div>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",
+              padding:"8px 12px",background:saveAsTemplate?C.accent+"18":C.surface,
+              border:`1px solid ${saveAsTemplate?C.accent:C.border}`,borderRadius:8}}>
+              <input type="checkbox" checked={saveAsTemplate}
+                onChange={e=>setSaveAsTemplate(e.target.checked)}
+                style={{accentColor:C.accent}}/>
+              <span style={{color:saveAsTemplate?C.accent:C.muted,fontSize:12,fontWeight:600}}>
+                Save as template
+              </span>
+            </label>
+          </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={createWorkout} disabled={!form.title.trim()}
               style={{flex:1,padding:"11px",background:form.title.trim()?C.accent:"#2a1000",
                 border:"none",borderRadius:10,color:form.title.trim()?"#000":C.muted,
                 fontWeight:800,fontSize:14,cursor:form.title.trim()?"pointer":"default",
                 fontFamily:"'Oswald',sans-serif"}}>
-              ASSIGN TO ALL PLAYERS
+              {saveAsTemplate?"SAVE TEMPLATE":"ASSIGN TO ALL PLAYERS"}
             </button>
             <button onClick={()=>setCreating(false)}
               style={{padding:"11px 18px",background:C.surface,border:`1px solid ${C.border}`,
@@ -2902,47 +2950,179 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
         </div>
       )}
 
-      {workouts.length===0&&!creating&&(
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
-          padding:"48px 24px",textAlign:"center"}}>
-          <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
-          <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No workouts yet</div>
-          <div style={{color:C.muted,fontSize:13}}>Assign workouts and players track them on their portal</div>
-        </div>
+      {/* Assigned tab */}
+      {wkTab==="assigned"&&(
+        <>
+          {assigned.length===0&&!creating&&(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+              padding:"48px 24px",textAlign:"center"}}>
+              <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
+              <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No workouts assigned</div>
+              <div style={{color:C.muted,fontSize:13}}>Create a workout or assign from a template</div>
+            </div>
+          )}
+          {assigned.map(function(wk){
+            const completions=getCompletions(wk.id);
+            const total=(roster||[]).length;
+            const isExpanded=expandedWk===wk.id;
+            return(
+              <div key={wk.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:14,marginBottom:10,overflow:"hidden"}}>
+                <div style={{padding:"14px 18px",display:"flex",
+                  justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15}}>{wk.title}</div>
+                    {wk.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{wk.description}</div>}
+                    <div style={{color:C.muted,fontSize:11,marginTop:3}}>
+                      Assigned {wk.createdAt}{wk.dueDate&&" · Due "+wk.dueDate}
+                    </div>
+                    <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                      {(wk.exercises||[]).map(function(ex){
+                        return(
+                          <span key={ex.id} style={{background:C.surface,
+                            border:`1px solid ${C.border}`,borderRadius:6,
+                            padding:"2px 8px",fontSize:11,color:C.muted}}>
+                            {ex.name}{ex.sets&&" "+ex.sets+"×"}{ex.reps&&ex.reps}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:12}}>
+                    {/* Completion badge */}
+                    <div style={{background:completions.length===total&&total>0?"#27a56022":C.surface,
+                      border:`1px solid ${completions.length===total&&total>0?"#27a56044":C.border}`,
+                      borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
+                      <div style={{color:completions.length===total&&total>0?"#27a560":C.text,
+                        fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
+                        {completions.length}/{total}
+                      </div>
+                      <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1}}>DONE</div>
+                    </div>
+                    <button onClick={()=>setExpandedWk(isExpanded?null:wk.id)}
+                      style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
+                        padding:"5px 10px",color:isExpanded?C.accent:C.muted,cursor:"pointer",
+                        fontSize:11,fontWeight:700}}>
+                      {isExpanded?"▲ Hide":"▼ Results"}
+                    </button>
+                    <button onClick={()=>{if(window.confirm("Delete this workout?"))setWorkouts(prev=>prev.filter(w=>w.id!==wk.id));}}
+                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:11}}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                {/* Player results */}
+                {isExpanded&&(
+                  <div style={{borderTop:`1px solid ${C.border}`,background:C.surface}}>
+                    <div style={{padding:"8px 18px 4px",color:C.muted,fontSize:9,
+                      fontWeight:700,letterSpacing:1.5}}>PLAYER RESULTS</div>
+                    {(roster||[]).map(function(p){
+                      const pLog=(p.workoutLog||{})[wk.id]||{};
+                      const done=pLog.completed;
+                      const pc=posColor(primaryPos(p));
+                      return(
+                        <div key={p.id} style={{padding:"8px 18px",
+                          borderBottom:`1px solid ${C.border}`,
+                          display:"flex",alignItems:"flex-start",gap:10}}>
+                          <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
+                            background:pc+"22",border:`1.5px solid ${pc}44`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>
+                            {p.number}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                              <span style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</span>
+                              {done
+                                ? <span style={{background:"#27a56018",color:"#27a560",fontSize:10,
+                                    fontWeight:700,padding:"1px 7px",borderRadius:20}}>
+                                    ✓ {pLog.completedAt||"Done"}
+                                  </span>
+                                : <span style={{color:C.muted,fontSize:11}}>Not completed</span>
+                              }
+                            </div>
+                            {done&&(wk.exercises||[]).length>0&&(
+                              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
+                                {(wk.exercises||[]).map(function(ex){
+                                  const exLog=(pLog.exercises||{})[ex.id]||{};
+                                  if(!exLog.reps&&!exLog.weight&&!exLog.time&&!exLog.notes) return null;
+                                  return(
+                                    <div key={ex.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                                      borderRadius:6,padding:"3px 8px",fontSize:11}}>
+                                      <span style={{color:C.muted}}>{ex.name}: </span>
+                                      {exLog.reps&&<span style={{color:C.text}}>{exLog.reps} reps </span>}
+                                      {exLog.weight&&<span style={{color:C.text}}>@ {exLog.weight} </span>}
+                                      {exLog.time&&<span style={{color:C.text}}>{exLog.time} </span>}
+                                      {exLog.notes&&<span style={{color:C.muted,fontStyle:"italic"}}>{exLog.notes}</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {done&&pLog.notes&&(
+                              <div style={{color:C.muted,fontSize:11,marginTop:4,fontStyle:"italic"}}>
+                                "{pLog.notes}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
       )}
 
-      {workouts.map(function(wk){
-        return(
-          <div key={wk.id} style={{background:C.card,border:`1px solid ${C.border}`,
-            borderRadius:14,padding:18,marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-              <div>
-                <div style={{color:C.text,fontWeight:700,fontSize:15}}>{wk.title}</div>
-                {wk.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{wk.description}</div>}
-                <div style={{color:C.muted,fontSize:11,marginTop:3}}>
-                  Assigned {wk.createdAt}{wk.dueDate&&" · Due "+wk.dueDate}
+      {/* Templates tab */}
+      {wkTab==="templates"&&(
+        <>
+          {templates.length===0&&(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+              padding:"48px 24px",textAlign:"center"}}>
+              <div style={{fontSize:36,marginBottom:8}}>📋</div>
+              <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No templates yet</div>
+              <div style={{color:C.muted,fontSize:13}}>Check "Save as template" when creating a workout</div>
+            </div>
+          )}
+          {templates.map(function(tpl){
+            return(
+              <div key={tpl.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:14,padding:16,marginBottom:10,
+                display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:C.text,fontWeight:700,fontSize:14}}>{tpl.title}</div>
+                  {tpl.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{tpl.description}</div>}
+                  <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
+                    {(tpl.exercises||[]).map(function(ex){
+                      return(
+                        <span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,
+                          borderRadius:5,padding:"2px 7px",fontSize:11,color:C.muted}}>
+                          {ex.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                  <button onClick={()=>assignTemplate(tpl)}
+                    style={{padding:"7px 14px",background:C.accent,border:"none",
+                      borderRadius:8,color:"#000",fontWeight:800,fontSize:12,cursor:"pointer"}}>
+                    Assign →
+                  </button>
+                  <button onClick={()=>{if(window.confirm("Delete template?"))setWorkouts(prev=>prev.filter(w=>w.id!==tpl.id));}}
+                    style={{padding:"5px 10px",background:"none",border:"none",
+                      color:C.muted,cursor:"pointer",fontSize:11}}>
+                    Delete
+                  </button>
                 </div>
               </div>
-              <button onClick={()=>{if(window.confirm("Delete this workout?"))setWorkouts(prev=>prev.filter(w=>w.id!==wk.id));}}
-                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13}}>
-                Delete
-              </button>
-            </div>
-            {(wk.exercises||[]).length>0&&(
-              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                {wk.exercises.map(function(ex){
-                  return(
-                    <span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,
-                      borderRadius:7,padding:"3px 10px",fontSize:12,color:C.muted}}>
-                      {ex.name}{ex.sets&&" · "+ex.sets+"×"}{ex.reps&&ex.reps}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -15132,41 +15312,80 @@ function PlayerPortalPage(){
                     <div style={{padding:"10px 16px"}}>
                       {(wk.exercises||[]).map(function(ex,ei){
                         var exLog=exLogs[ex.id]||{};
+                        function saveExField(field,val){
+                          var newLog=Object.assign({},wkLog);
+                          var wkEntry=Object.assign({},wkLog[wk.id]||{});
+                          var exEntry=Object.assign({},wkEntry.exercises||{});
+                          exEntry[ex.id]=Object.assign({},exLog,{[field]:val});
+                          wkEntry.exercises=exEntry;
+                          newLog[wk.id]=wkEntry;
+                          setWkLog(newLog);
+                          saveField("workoutLog",newLog);
+                        }
                         return(
-                          <div key={ex.id} style={{display:"flex",alignItems:"center",
-                            gap:10,padding:"7px 0",
+                          <div key={ex.id} style={{padding:"10px 0",
                             borderBottom:ei<wk.exercises.length-1?"1px solid #f5f5f5":"none"}}>
-                            <div style={{flex:1}}>
-                              <div style={{color:"#111",fontWeight:600,fontSize:13}}>{ex.name}</div>
-                              <div style={{color:"#aaa",fontSize:11}}>
-                                {ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}
-                                {ex.duration&&" · "+ex.duration}
+                            <div style={{display:"flex",alignItems:"center",
+                              gap:8,marginBottom:done?6:0}}>
+                              <div style={{flex:1}}>
+                                <div style={{color:"#111",fontWeight:600,fontSize:13}}>{ex.name}</div>
+                                <div style={{color:"#aaa",fontSize:11}}>
+                                  {ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}
+                                  {ex.duration&&" · "+ex.duration}
+                                </div>
                               </div>
                             </div>
-                            {!isViewOnly&&!isRecruiterView&&done&&(
-                              <input
-                                value={exLog.time||""}
-                                onChange={function(e){
-                                  var newLog=Object.assign({},wkLog);
-                                  var wkEntry=Object.assign({},wkLog[wk.id]||{});
-                                  var exEntry=Object.assign({},wkEntry.exercises||{});
-                                  exEntry[ex.id]=Object.assign({},exLog,{time:e.target.value});
-                                  wkEntry.exercises=exEntry;
-                                  newLog[wk.id]=wkEntry;
-                                  setWkLog(newLog);
-                                  saveField("workoutLog",newLog);
-                                }}
-                                placeholder="time / notes"
-                                style={{width:120,padding:"4px 8px",background:"#f9f9f9",
-                                  border:"1px solid #e0e0e0",borderRadius:6,
-                                  fontSize:12,color:"#111",outline:"none"}}/>
+                            {done&&!isViewOnly&&!isRecruiterView&&(
+                              <div style={{display:"grid",
+                                gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
+                                {[["reps","Reps done"],["weight","Weight"],
+                                  ["time","Time"],["notes","Notes"]].map(function(f){
+                                  return(
+                                    <div key={f[0]}>
+                                      <div style={{color:"#bbb",fontSize:9,fontWeight:700,
+                                        letterSpacing:1,marginBottom:2}}>{f[1].toUpperCase()}</div>
+                                      <input value={exLog[f[0]]||""}
+                                        onChange={function(e){saveExField(f[0],e.target.value);}}
+                                        placeholder="—"
+                                        style={{width:"100%",padding:"5px 7px",
+                                          background:"#f9f9f9",border:"1px solid #e8eaed",
+                                          borderRadius:6,fontSize:12,color:"#111",
+                                          outline:"none",boxSizing:"border-box"}}/>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
-                            {(isViewOnly||isRecruiterView)&&exLog.time&&(
-                              <span style={{color:"#888",fontSize:12}}>{exLog.time}</span>
+                            {(isViewOnly||isRecruiterView)&&done&&(exLog.reps||exLog.weight||exLog.time||exLog.notes)&&(
+                              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
+                                {exLog.reps&&<span style={{color:"#888",fontSize:11}}>{exLog.reps} reps</span>}
+                                {exLog.weight&&<span style={{color:"#888",fontSize:11}}>@ {exLog.weight}</span>}
+                                {exLog.time&&<span style={{color:"#888",fontSize:11}}>{exLog.time}</span>}
+                                {exLog.notes&&<span style={{color:"#aaa",fontSize:11,fontStyle:"italic"}}>{exLog.notes}</span>}
+                              </div>
                             )}
                           </div>
                         );
                       })}
+                      {/* Overall workout notes */}
+                      {done&&!isViewOnly&&!isRecruiterView&&(
+                        <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
+                          <div style={{color:"#bbb",fontSize:9,fontWeight:700,
+                            letterSpacing:1,marginBottom:4}}>WORKOUT NOTES</div>
+                          <input
+                            value={log.notes||""}
+                            onChange={function(e){
+                              var newLog=Object.assign({},wkLog);
+                              newLog[wk.id]=Object.assign({},log,{notes:e.target.value});
+                              setWkLog(newLog);
+                              saveField("workoutLog",newLog);
+                            }}
+                            placeholder="How did it feel? Any issues?"
+                            style={{width:"100%",padding:"7px 10px",background:"#f9f9f9",
+                              border:"1px solid #e8eaed",borderRadius:7,fontSize:12,
+                              color:"#111",outline:"none",boxSizing:"border-box"}}/>
+                        </div>
+                      )}
                     </div>
                   )}
                   {log.completedAt&&(
