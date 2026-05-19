@@ -13143,6 +13143,75 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
       <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>ACCOUNT</div>
       <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginBottom:24}}>Settings</h1>
 
+      {/* ── Player Hub ── */}
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:16}}>PLAYER HUB</div>
+        <div style={{marginBottom:16}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
+            PINNED MESSAGE TO PLAYERS
+          </label>
+          <textarea
+            value={(teamHub||{}).coachMessage||""}
+            onChange={e=>saveTeamHub&&saveTeamHub({coachMessage:e.target.value})}
+            placeholder="e.g. Great work this week — pressing triggers on Tuesday. Stay sharp!"
+            rows={3}
+            style={{width:"100%",padding:"10px 12px",background:C.surface,
+              border:`1px solid ${C.border}`,borderRadius:9,color:C.text,
+              fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+              resize:"vertical",boxSizing:"border-box"}}/>
+          <div style={{color:C.muted,fontSize:11,marginTop:4}}>
+            Shown at the top of every player portal. Leave blank to hide.
+          </div>
+        </div>
+        <div>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
+            BIG GAME COUNTDOWN
+          </label>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
+            <select
+              value={(teamHub||{}).featuredGameId||""}
+              onChange={e=>{
+                const g=(games||[]).find(x=>x.id===e.target.value);
+                saveTeamHub&&saveTeamHub({
+                  featuredGameId:e.target.value||null,
+                  featuredGameLabel:g?`vs ${g.opponent}`:"",
+                  featuredGameDate:g?.date||"",
+                  featuredGameTime:g?.time||"",
+                });
+              }}
+              style={{flex:1,padding:"9px 12px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:9,color:C.text,
+                fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}>
+              <option value="">— No featured game —</option>
+              {(games||[])
+                .filter(g=>g.date>=new Date().toISOString().split("T")[0])
+                .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+                .map(g=>(
+                  <option key={g.id} value={g.id}>
+                    {g.date} · vs {g.opponent}{g.location?` (${g.location})`:""}
+                  </option>
+                ))
+              }
+            </select>
+            {(teamHub||{}).featuredGameId&&(
+              <button onClick={()=>saveTeamHub&&saveTeamHub({featuredGameId:null,featuredGameLabel:"",featuredGameDate:"",featuredGameTime:""})}
+                style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.muted,cursor:"pointer",fontSize:12}}>
+                Clear
+              </button>
+            )}
+          </div>
+          {(teamHub||{}).featuredGameId&&(
+            <div style={{color:C.accent,fontSize:12,fontWeight:600}}>
+              ✓ Counting down to: {(teamHub||{}).featuredGameLabel} · {(teamHub||{}).featuredGameDate}
+            </div>
+          )}
+          <div style={{color:C.muted,fontSize:11,marginTop:4}}>
+            Shows a live D · H · M · S countdown on every player portal.
+          </div>
+        </div>
+      </div>
+
       {/* Subscription card */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:24,marginBottom:16}}>
         <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>SUBSCRIPTION</div>
