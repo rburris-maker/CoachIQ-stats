@@ -6369,76 +6369,100 @@ export default function CoachIQStats(){
           zIndex:50,
         }}>
           {/* Logo + collapse toggle */}
-          <div style={{padding:"0 10px",borderBottom:`1px solid ${C.sidebarBorder}`,display:"flex",alignItems:"center",justifyContent:"space-between",height:64,flexShrink:0}}>
+          <div style={{padding:"0 12px",borderBottom:`1px solid ${C.sidebarBorder}`,display:"flex",alignItems:"center",justifyContent:"space-between",height:56,flexShrink:0}}>
             {sidebarCollapsed ? (
-              /* Collapsed: just the M logo, click to expand */
               <button onClick={()=>setSidebarCollapsed(false)}
                 style={{background:"none",border:"none",cursor:"pointer",padding:0,margin:"0 auto",display:"flex"}}>
-                <AppLogo size={38} glow={true}/>
+                <AppLogo size={34} glow={true}/>
               </button>
             ) : (
               <>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <AppLogo size={38} glow={true}/>
-                  <div>
-                    <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:13,letterSpacing:1,whiteSpace:"nowrap",textTransform:"uppercase"}}>
-                      COACH<span style={{color:C.accent}}>IQ</span>
-                    </div>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <AppLogo size={34} glow={true}/>
+                  <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,whiteSpace:"nowrap"}}>
+                    COACH<span style={{color:C.accent}}>IQ</span>
                   </div>
+                  {isElite&&(
+                    <div style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:4,padding:"2px 6px"}}>
+                      <span style={{color:C.accent,fontSize:8,fontWeight:800,letterSpacing:1}}>ELITE</span>
+                    </div>
+                  )}
+                  {isPro&&!isElite&&(
+                    <div style={{background:"#7c3aed22",border:"1px solid #7c3aed44",borderRadius:4,padding:"2px 6px"}}>
+                      <span style={{color:"#7c3aed",fontSize:8,fontWeight:800,letterSpacing:1}}>PRO</span>
+                    </div>
+                  )}
                 </div>
-                {/* Collapse button — always visible when expanded */}
                 <button onClick={()=>setSidebarCollapsed(true)}
-                  style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
-                    color:C.muted,cursor:"pointer",padding:"5px 7px",flexShrink:0,
-                    display:"flex",alignItems:"center",justifyContent:"center"}}
+                  style={{background:"transparent",border:"none",color:"#ffffff44",cursor:"pointer",
+                    padding:"4px",display:"flex",alignItems:"center",justifyContent:"center"}}
                   title="Collapse sidebar">
-                  <ChevronDown size={14} style={{transform:"rotate(90deg)"}}/>
+                  <ChevronDown size={13} style={{transform:"rotate(90deg)"}}/>
                 </button>
               </>
             )}
           </div>
 
-          {/* Team switcher — full when expanded, icon button when collapsed */}
-          <div style={{borderBottom:`1px solid ${C.sidebarBorder}`,padding: sidebarCollapsed?"8px 10px":"12px 14px",flexShrink:0}}>
+          {/* Team switcher */}
+          <div style={{borderBottom:`1px solid ${C.sidebarBorder}`,padding:sidebarCollapsed?"8px 10px":"10px 12px",flexShrink:0,position:"relative"}}>
             {sidebarCollapsed ? (
-              /* Collapsed: show active team initial as a clickable button */
-              <div style={{position:"relative"}}>
-                <button
-                  onClick={()=>setSidebarCollapsed(false)}
-                  title={`Team: ${teams.find(t=>t.id===safeTeamId)?.name||"Team"} — expand to switch`}
-                  style={{width:40,height:40,borderRadius:9,margin:"0 auto",display:"flex",
-                    alignItems:"center",justifyContent:"center",cursor:"pointer",
-                    background:C.accent+"22",border:`1px solid ${C.accent}44`,
-                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16,color:C.accent}}>
-                  {(teams.find(t=>t.id===safeTeamId)?.name||"T")[0].toUpperCase()}
-                </button>
-              </div>
+              <button onClick={()=>setSidebarCollapsed(false)}
+                title={`Team: ${teams.find(t=>t.id===safeTeamId)?.name||"Team"}`}
+                style={{width:40,height:40,borderRadius:9,margin:"0 auto",display:"flex",
+                  alignItems:"center",justifyContent:"center",cursor:"pointer",
+                  background:C.accent+"22",border:`1px solid ${C.accent}44`,
+                  fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16,color:C.accent}}>
+                {(activeTeam?.name||"T")[0].toUpperCase()}
+              </button>
             ) : (
               <>
-                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>TEAM</div>
-                {teams.length>1?(
-                  <select
-                    value={safeTeamId||""}
-                    onChange={e=>switchTeam(e.target.value)}
-                    style={{width:"100%",padding:"8px 10px",background:C.surface,
-                      border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
-                      fontSize:13,fontWeight:600,cursor:"pointer",outline:"none",
-                      fontFamily:"'Outfit',sans-serif"}}>
-                    {teams.map(t=>(
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                ):(
-                  <div style={{color:C.text,fontWeight:700,fontSize:14,padding:"4px 2px"}}>
+                <button onClick={()=>setTeamDropOpen(v=>!v)}
+                  style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 11px",
+                    background:C.surface,border:`1px solid ${C.border}`,
+                    borderLeft:`3px solid ${C.accent}`,
+                    borderRadius:8,cursor:"pointer",textAlign:"left"}}>
+                  <div style={{width:22,height:22,borderRadius:5,flexShrink:0,
+                    background:C.accent+"33",border:`1px solid ${C.accent}55`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:11,color:C.accent}}>
+                    {(activeTeam?.name||"T")[0].toUpperCase()}
+                  </div>
+                  <span style={{color:C.text,fontWeight:700,fontSize:13,flex:1,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {activeTeam?.name||"My Team"}
+                  </span>
+                  {teams.length>1&&(
+                    <ChevronDown size={12} style={{color:C.muted,flexShrink:0,
+                      transform:teamDropOpen?"rotate(180deg)":"none",transition:"transform .15s"}}/>
+                  )}
+                </button>
+                {teamDropOpen&&teams.length>1&&(
+                  <div style={{position:"absolute",left:12,right:12,top:"100%",zIndex:200,
+                    background:C.card,border:`1px solid ${C.border}`,borderRadius:9,
+                    overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,.4)",marginTop:4}}>
+                    {teams.map(t=>(
+                      <button key={t.id}
+                        onClick={()=>{switchTeam(t.id);setTeamDropOpen(false);}}
+                        style={{width:"100%",display:"flex",alignItems:"center",gap:8,
+                          padding:"9px 12px",background:t.id===safeTeamId?C.accent+"18":C.card,
+                          border:"none",borderBottom:`1px solid ${C.border}`,
+                          color:t.id===safeTeamId?C.accent:C.text,
+                          cursor:"pointer",fontSize:13,fontWeight:t.id===safeTeamId?700:500,
+                          textAlign:"left",fontFamily:"'Outfit',sans-serif"}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",flexShrink:0,
+                          background:t.id===safeTeamId?C.accent:C.muted}}/>
+                        {t.name}
+                        {t.id===safeTeamId&&<span style={{marginLeft:"auto",fontSize:11,opacity:.7}}>✓</span>}
+                      </button>
+                    ))}
+                    <button onClick={()=>{setView("settings");setTeamDropOpen(false);}}
+                      style={{width:"100%",padding:"8px 12px",background:"transparent",border:"none",
+                        color:C.muted,fontSize:11,cursor:"pointer",textAlign:"left",
+                        fontFamily:"'Outfit',sans-serif"}}>
+                      + New team / Manage
+                    </button>
                   </div>
                 )}
-                <button onClick={()=>setView("settings")}
-                  style={{marginTop:8,width:"100%",padding:"5px 0",background:"transparent",
-                    border:"none",color:C.muted,fontSize:10,cursor:"pointer",
-                    textAlign:"left",fontFamily:"'Outfit',sans-serif"}}>
-                  ⚙ Manage teams in Settings
-                </button>
               </>
             )}
           </div>
@@ -6446,12 +6470,18 @@ export default function CoachIQStats(){
 
 
           {/* Nav groups */}
-          <nav style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-            {SIDEBAR_GROUPS.map(group=>(
-              <div key={group.label} style={{marginBottom:4}}>
+          <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}
+            onClick={()=>teamDropOpen&&setTeamDropOpen(false)}>
+            {SIDEBAR_GROUPS.map((group,gi)=>(
+              <div key={group.label} style={{marginBottom:2}}>
                 {!sidebarCollapsed&&(
-                  <div style={{color:"#5a3020",fontSize:9,fontWeight:700,letterSpacing:2,
-                    padding:"12px 16px 4px",textTransform:"uppercase"}}>{group.label}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:5,
+                    padding:"10px 14px 3px",opacity:.5}}>
+                    <div style={{width:4,height:4,borderRadius:"50%",background:C.muted,flexShrink:0}}/>
+                    <span style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:2}}>
+                      {group.label}
+                    </span>
+                  </div>
                 )}
                 {group.items.map(item=>{
                   const Icon=item.icon;
@@ -6463,25 +6493,28 @@ export default function CoachIQStats(){
                       title={sidebarCollapsed?item.label:undefined}
                       style={{
                         display:"flex",alignItems:"center",position:"relative",
-                        gap:sidebarCollapsed?0:10,
-                        width:"100%",padding: sidebarCollapsed?"12px 0":"9px 16px",
-                        justifyContent: sidebarCollapsed?"center":"flex-start",
-                        background: active?"#ff6b0018":"transparent",
+                        gap:sidebarCollapsed?0:9,
+                        width:"100%",
+                        padding:sidebarCollapsed?"11px 0":"8px 14px",
+                        justifyContent:sidebarCollapsed?"center":"flex-start",
+                        background:active?C.accent+"15":"transparent",
                         border:"none",
-                        borderLeft: active?`3px solid ${C.accent}`:"3px solid transparent",
-                        color: active?C.accent:C.muted,
-                        cursor:"pointer",fontWeight:active?700:500,fontSize:13,
-                        transition:"all .12s",textAlign:"left",
-                      }}>
-                      <Icon size={16} style={{flexShrink:0}}/>
+                        borderLeft:active?`2px solid ${C.accent}`:"2px solid transparent",
+                        color:active?C.accent:"#ffffff66",
+                        cursor:"pointer",fontWeight:active?700:400,fontSize:12,
+                        transition:"all .1s",textAlign:"left",
+                      }}
+                      onMouseEnter={e=>{if(!active){e.currentTarget.style.background=C.accent+"08";e.currentTarget.style.color="#ffffffaa";}}}
+                      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#ffffff66";}}}>
+                      <Icon size={15} style={{flexShrink:0}}/>
                       {!sidebarCollapsed&&(
                         <span style={{whiteSpace:"nowrap",flex:1}}>{item.label}</span>
                       )}
                       {item.id==="live"&&!sidebarCollapsed&&(
-                        <span style={{width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite",flexShrink:0}}/>
+                        <span style={{width:5,height:5,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite",flexShrink:0}}/>
                       )}
                       {item.id==="live"&&sidebarCollapsed&&(
-                        <span style={{position:"absolute",top:8,right:8,width:6,height:6,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite"}}/>
+                        <span style={{position:"absolute",top:8,right:8,width:5,height:5,borderRadius:"50%",background:C.danger,animation:"pulse 2s infinite"}}/>
                       )}
                     </button>
                   );
@@ -6490,23 +6523,64 @@ export default function CoachIQStats(){
             ))}
           </nav>
 
-          {/* Season record at bottom */}
-          {!sidebarCollapsed&&(()=>{
-            const ts=teamSum(games);
-            return(
-              <div style={{padding:"12px 16px",borderTop:`1px solid ${C.sidebarBorder}`}}>
-                <div style={{color:"#ffffff88",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>THIS SEASON</div>
-                <div style={{display:"flex",gap:10}}>
-                  {[["W",ts.wins,C.accent],["D",ts.draws,C.warning],["L",ts.losses,C.danger]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,textAlign:"center"}}>
-                      <div style={{color:c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{v}</div>
-                      <div style={{color:"#ffffff66",fontSize:10,fontWeight:600}}>{l}</div>
-                    </div>
-                  ))}
+          {/* Bottom: season record + user row */}
+          <div style={{borderTop:`1px solid ${C.sidebarBorder}`,flexShrink:0}}>
+            {!sidebarCollapsed&&(()=>{
+              const ts=teamSum(games);
+              return(
+                <div style={{padding:"10px 14px 8px"}}>
+                  <div style={{display:"flex",gap:8,marginBottom:8}}>
+                    {[["W",ts.wins,C.accent],["D",ts.draws,C.warning],["L",ts.losses,C.danger]].map(([l,v,c])=>(
+                      <div key={l} style={{flex:1,textAlign:"center",background:c+"11",
+                        borderRadius:7,padding:"5px 4px",border:`1px solid ${c}22`}}>
+                        <div style={{color:c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:17,lineHeight:1}}>{v}</div>
+                        <div style={{color:c+"99",fontSize:9,fontWeight:700,marginTop:1}}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+            {/* User row */}
+            <div style={{padding:sidebarCollapsed?"8px 10px":"8px 12px 10px",
+              display:"flex",alignItems:"center",gap:8}}>
+              {sidebarCollapsed ? (
+                <button onClick={handleSignOut}
+                  title="Sign out"
+                  style={{width:40,height:40,borderRadius:"50%",margin:"0 auto",
+                    background:C.surface,border:`1px solid ${C.border}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    cursor:"pointer",color:C.muted,fontSize:12,fontWeight:700}}>
+                  {(session?.user?.email||"?")[0].toUpperCase()}
+                </button>
+              ) : (
+                <>
+                  <div style={{width:28,height:28,borderRadius:"50%",flexShrink:0,
+                    background:C.surface,border:`1px solid ${C.border}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:11,fontWeight:700,color:C.muted}}>
+                    {(session?.user?.email||"?")[0].toUpperCase()}
+                  </div>
+                  <span style={{color:"#ffffff55",fontSize:10,flex:1,overflow:"hidden",
+                    textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {session?.user?.email?.split("@")[0]||"coach"}
+                  </span>
+                  <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")}
+                    title={theme==="dark"?"Light mode":"Dark mode"}
+                    style={{background:"transparent",border:"none",color:"#ffffff44",
+                      cursor:"pointer",padding:"4px",fontSize:13,lineHeight:1}}>
+                    {theme==="dark"?"☀":"☾"}
+                  </button>
+                  <button onClick={handleSignOut}
+                    title="Sign out"
+                    style={{background:"transparent",border:"none",color:"#ffffff44",
+                      cursor:"pointer",padding:"4px",fontSize:13,lineHeight:1}}>
+                    →
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ═══ MAIN CONTENT ══════════════════════════════════════════════ */}
@@ -7879,6 +7953,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
   const [fullAttSel,setFullAttSel]  = useState(null);
+  const [teamDropOpen,setTeamDropOpen]= useState(false);
   const [diagramCard, setDiagramCard] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft,   setTitleDraft]   = useState("");
