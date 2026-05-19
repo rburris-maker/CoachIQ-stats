@@ -14630,7 +14630,7 @@ function PlayerPortalPage(){
                 {[["Goals",goals.goals,"goals","#ff6b00"],
                   ["Assists",goals.assists,"assists","#42a5f5"],
                   ["Avg Rating",goals.rating,"rating","#27a560"]].map(function(item){
-                  var actual=item[0]==="Goals"?totalGoals:item[0]==="Assists"?totalAssists:
+                  var actual=item[0]==="Goals"?(tots&&tots.goals||0):item[0]==="Assists"?(tots&&tots.assists||0):
                     avgRating?parseFloat(avgRating.toFixed(1)):0;
                   var target=item[1];
                   var pct=target>0?Math.min(100,Math.round(actual/target*100)):0;
