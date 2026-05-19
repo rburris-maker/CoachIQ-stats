@@ -3902,7 +3902,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   <div onClick={()=>setExpanded(open?null:row.playerId)}
                     style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:i===0?"#ff6b0010":C.surface,borderRadius:10,cursor:"pointer",border:i===0?"1px solid #ff6b0033":`1px solid ${C.border}`,transition:"all .15s"}}>
                     {i===0?<Award size={15} color="#ffb300"/>:<span style={{color:C.muted,fontSize:13,fontWeight:700,width:20,textAlign:"center"}}>{i+1}</span>}
-                    <div style={{width:32,height:32,borderRadius:8,background:posColor(primaryPos(row.player))+"22",border:`1.5px solid ${posColor(primaryPos(row.player))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff"),fontSize:13,flexShrink:0}}>{row.player?.number}</div>
+                    <div style={{width:32,height:32,borderRadius:8,background:posColor(primaryPos(row.player))+"22",border:`1.5px solid ${posColor(primaryPos(row.player))}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:13,flexShrink:0}}>{row.player?.number}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
