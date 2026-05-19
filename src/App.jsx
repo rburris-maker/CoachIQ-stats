@@ -13505,6 +13505,8 @@ function PlayerPortalPage(){
   var [draft,     setDraft]     = useState({});
   var [saving,    setSaving]    = useState(false);
   var [addingVid, setAddingVid] = useState(false);
+  var [photoUploading, setPhotoUploading] = useState(false);
+  var [photoError, setPhotoError] = useState('');
   var [newVideo,  setNewVideo]  = useState({label:"",url:""});
 
   var A = "#ff6b00";
@@ -13546,6 +13548,43 @@ function PlayerPortalPage(){
       });
       await supabase.from("rosters").update({players:updated}).eq("id",rosters[0].id);
     }
+  }
+
+  async function uploadPhoto(file){
+    if(!file||!player) return;
+    setPhotoUploading(true);
+    setPhotoError('');
+    try{
+      var ext = file.name.split('.').pop().toLowerCase();
+      var allowed = ['jpg','jpeg','png','gif','webp'];
+      if(!allowed.includes(ext)){
+        setPhotoError('Only JPG, PNG, GIF or WEBP allowed');
+        setPhotoUploading(false);
+        return;
+      }
+      if(file.size > 5*1024*1024){
+        setPhotoError('File must be under 5MB');
+        setPhotoUploading(false);
+        return;
+      }
+      var path = 'players/'+playerId+'.'+ext;
+      var {error:upErr} = await supabase.storage
+        .from('player-photos')
+        .upload(path, file, {upsert:true, contentType:file.type});
+      if(upErr) throw upErr;
+      var {data:urlData} = supabase.storage
+        .from('player-photos')
+        .getPublicUrl(path);
+      var publicUrl = urlData.publicUrl;
+      // Cache-bust so browser shows new photo immediately
+      publicUrl = publicUrl + '?t=' + Date.now();
+      setPhotoUrl(publicUrl);
+      setDraft(function(d){ return Object.assign({},d,{photoUrl:publicUrl}); });
+      await saveField('photoUrl', publicUrl);
+    }catch(e){
+      setPhotoError(e.message||'Upload failed');
+    }
+    setPhotoUploading(false);
   }
 
   function startEdit(){
@@ -13727,10 +13766,15 @@ function PlayerPortalPage(){
             {/* Photo */}
             <div style={{position:"relative",flexShrink:0}}>
               {(editMode?draft.photoUrl:photoUrl)?(
-                <img src={editMode?draft.photoUrl:photoUrl}
-                  alt={player.name} onError={function(){}}
-                  style={{width:112,height:112,borderRadius:"50%",objectFit:"cover",
-                    border:"4px solid #fff",boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}/>
+                <label style={{cursor:editMode?"pointer":"default",display:"block"}}>
+                  <img src={editMode?draft.photoUrl:photoUrl}
+                    alt={player.name} onError={function(){}}
+                    style={{width:112,height:112,borderRadius:"50%",objectFit:"cover",
+                      border:"4px solid #fff",boxShadow:"0 2px 12px rgba(0,0,0,.2)",
+                      display:"block"}}/>
+                  {editMode&&<input type="file" accept="image/*" style={{display:"none"}}
+                    onChange={function(e){var f=e.target.files&&e.target.files[0];if(f)uploadPhoto(f);e.target.value='';}}/>}
+                </label>
               ):(
                 <div style={{width:112,height:112,borderRadius:"50%",
                   background:posCol+"22",border:"4px solid #fff",
@@ -13745,9 +13789,32 @@ function PlayerPortalPage(){
               )}
               {editMode&&(
                 <div style={{marginTop:8,maxWidth:130}}>
+                  {/* Upload button */}
+                  <label style={{display:"block",cursor:"pointer"}}>
+                    <div style={{
+                      padding:"6px 10px",background:photoUploading?"#2a2a2a":"#ff6b00",
+                      borderRadius:7,color:photoUploading?"#888":"#000",
+                      fontSize:11,fontWeight:700,textAlign:"center",
+                      border:"none",transition:"all .15s",
+                      opacity:photoUploading?0.6:1}}>
+                      {photoUploading?"Uploading...":"⬆ Upload Photo"}
+                    </div>
+                    <input type="file" accept="image/*"
+                      style={{display:"none"}}
+                      disabled={photoUploading}
+                      onChange={function(e){
+                        var file=e.target.files&&e.target.files[0];
+                        if(file) uploadPhoto(file);
+                        e.target.value='';
+                      }}/>
+                  </label>
+                  {photoError&&(
+                    <div style={{color:"#e53935",fontSize:10,marginTop:4}}>{photoError}</div>
+                  )}
+                  {/* URL fallback */}
                   <div style={{color:"#888",fontSize:9,fontWeight:700,
-                    letterSpacing:.5,marginBottom:3}}>PHOTO URL</div>
-                  <input value={draft.photoUrl||""} placeholder="Paste image URL..."
+                    letterSpacing:.5,marginTop:8,marginBottom:3}}>OR PASTE URL</div>
+                  <input value={draft.photoUrl||""} placeholder="https://..."
                     onChange={function(e){setDraft(function(d){return Object.assign({},d,{photoUrl:e.target.value});});}}
                     style={{...iS,fontSize:10,padding:"4px 8px"}}/>
                 </div>
