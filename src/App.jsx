@@ -3205,8 +3205,8 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
                       <div style={{display:"grid",gridTemplateColumns:"50px repeat(7,1fr)",gap:5,minWidth:520}}>
                         {/* Header */}
                         <div></div>
-                        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>(
-                          <div key={d} style={{textAlign:"center",fontSize:9,color:C.muted,fontWeight:700,paddingBottom:4}}>{d.toUpperCase()}</div>
+                        {[1,2,3,4,5,6,7].map(d=>(
+                          <div key={d} style={{textAlign:"center",fontSize:9,color:C.muted,fontWeight:700,paddingBottom:4}}>{"D"+d}</div>
                         ))}
                         {/* Conditioning row */}
                         <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:6}}>
@@ -15460,9 +15460,6 @@ function PlayerPortalPage(){
               const phase=prog.phases.find(ph=>ph.weeks.includes(weekIdx+1));
               const selDay=selProgDay[pw.id]??null;
               function setSelDay(v){setSelProgDay(p=>({...p,[pw.id]:v}));}
-              const today=new Date().getDay();
-              const dayMap=[1,2,3,4,5,6,0];
-              const todayIdx=dayMap.indexOf(today);
               return(
                 <div key={pw.id} style={{marginBottom:20}}>
                   <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:14,overflow:"hidden"}}>
@@ -15494,15 +15491,15 @@ function PlayerPortalPage(){
                           {weekData.days.map(function(day,di){
                             const key="w"+(weekIdx+1)+"d"+di;
                             const dayLog=(wkLog[pw.id]||{})[key]||{};
-                            const isToday=di===todayIdx;
                             const condDone=dayLog.condDone;
                             const ballDone=dayLog.ballDone;
                             const isSelected=selDay===di;
+                            const bothDone=condDone&&(day.ball.title&&!day.ball.title.toLowerCase().includes("rest")?ballDone:true);
                             return(
                               <div key={di} onClick={()=>setSelDay(isSelected?null:di)}
-                                style={{cursor:"pointer",border:"1.5px solid "+(isSelected?A:isToday?"#378add":"#e8eaed"),borderRadius:9,overflow:"hidden",background:isSelected?A+"08":"#fff"}}>
-                                <div style={{textAlign:"center",padding:"4px 2px",background:isToday?"#378add":isSelected?A+"18":"#f9f9f9",borderBottom:"1px solid #f0f0f0"}}>
-                                  <div style={{fontSize:8,fontWeight:700,color:isToday?"#fff":isSelected?A:"#999"}}>{day.day.toUpperCase()}</div>
+                                style={{cursor:"pointer",border:"1.5px solid "+(isSelected?A:bothDone?"#27a560":"#e8eaed"),borderRadius:9,overflow:"hidden",background:isSelected?A+"08":"#fff"}}>
+                                <div style={{textAlign:"center",padding:"4px 2px",background:isSelected?A+"18":bothDone?"#eaf3de":"#f9f9f9",borderBottom:"1px solid #f0f0f0"}}>
+                                  <div style={{fontSize:8,fontWeight:700,color:isSelected?A:bothDone?"#3b6d11":"#999"}}>{"DAY "+(di+1)}</div>
                                 </div>
                                 <div style={{padding:"4px 3px",display:"flex",flexDirection:"column",gap:3}}>
                                   <div style={{height:16,borderRadius:3,background:condDone?"#27a560":day.cond.title&&day.cond.title!=="Rest"?"#e6f1fb":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -15534,7 +15531,7 @@ function PlayerPortalPage(){
                           return(
                             <div style={{borderTop:"1px solid #f0f0f0",paddingTop:12}}>
                               <div style={{fontSize:11,color:"#888",fontWeight:700,letterSpacing:1,marginBottom:10}}>
-                                {day.day.toUpperCase()} — DETAIL
+                                {"DAY "+(selDay+1)+" — "+day.cond.title}
                               </div>
                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                                 {/* Conditioning card */}
