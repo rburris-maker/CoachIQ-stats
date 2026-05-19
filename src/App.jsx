@@ -2863,154 +2863,67 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
         </div>
       )}
 
-      {/* Attendance leaderboard */}
+      {/* Attendance */}
       {(()=>{
         const donePractices=(practices||[]).filter(function(p){
           return Object.keys(p.attendance||{}).length>0;
         });
         if(!donePractices.length) return null;
         const attStats=(roster||[]).map(function(p){
-          var present=0,absent=0,injured=0,total=0;
+          var present=0,absent=0,total=0;
           donePractices.forEach(function(s){
             var att=s.attendance||{};
             if(att[p.id]!==undefined){
               total++;
               if(att[p.id]==="present") present++;
               else if(att[p.id]==="absent") absent++;
-              else if(att[p.id]==="injured") injured++;
             }
           });
-          return {player:p,present,absent,injured,total,
-            rate:total>0?Math.round(present/total*100):null};
-        }).filter(function(x){return x.total>0;})
-          .sort(function(a,b){return (a.rate||0)-(b.rate||0);}); // worst first
-        const best=[...attStats].sort(function(a,b){return (b.rate||0)-(a.rate||0);}).slice(0,5);
-        const worst=attStats.slice(0,5);
+          if(!total) return null;
+          return {player:p,present,absent,total};
+        }).filter(Boolean)
+          .sort(function(a,b){ return a.absent-b.absent||(b.present-a.present); });
+        if(!attStats.length) return null;
         return(
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
             padding:"18px 20px",marginBottom:20}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2}}>
-                ATTENDANCE — {donePractices.length} SESSION{donePractices.length!==1?"S":""}
-              </div>
-              <div style={{display:"flex",gap:16}}>
-                <span style={{color:"#27a560",fontSize:12,fontWeight:700}}>
-                  ✓ Best Attendance
-                </span>
-                <span style={{color:C.danger,fontSize:12,fontWeight:700}}>
-                  ✗ Most Missed
-                </span>
-              </div>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>
+              ATTENDANCE — {donePractices.length} SESSION{donePractices.length!==1?"S":""}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-              {/* Best */}
-              <div>
-                <div style={{color:"#27a560",fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>
-                  MOST CONSISTENT
-                </div>
-                {best.map(function(x,i){
-                  const pc=posColor(primaryPos(x.player));
-                  return(
-                    <div key={x.player.id} style={{display:"flex",alignItems:"center",
-                      gap:10,padding:"8px 0",
-                      borderBottom:`1px solid ${C.border}`}}>
-                      <span style={{color:C.muted,fontSize:12,minWidth:16}}>{i+1}</span>
-                      <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                        background:pc+"22",border:`1.5px solid ${pc}44`,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:12}}>
-                        {x.player.number}
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{color:C.text,fontWeight:600,fontSize:13,
-                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {x.player.name}
-                        </div>
-                        <div style={{color:C.muted,fontSize:10}}>
-                          {x.present}/{x.total} sessions
-                        </div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",
-                          fontWeight:900,fontSize:16}}>{x.rate}%</div>
+            <div style={{display:"grid",
+              gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
+              {attStats.map(function(x){
+                const pc=posColor(primaryPos(x.player));
+                const col=x.absent===0?"#27a560":x.absent<=2?C.warning:C.danger;
+                return(
+                  <div key={x.player.id} style={{display:"flex",alignItems:"center",
+                    gap:8,padding:"8px 10px",background:C.surface,borderRadius:8,
+                    border:`1px solid ${C.border}`}}>
+                    <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
+                      background:pc+"22",border:`1.5px solid ${pc}44`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>
+                      {x.player.number}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:C.text,fontSize:12,fontWeight:600,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {x.player.name.split(" ").pop()}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-              {/* Worst */}
-              <div>
-                <div style={{color:C.danger,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>
-                  MOST ABSENCES
-                </div>
-                {worst.map(function(x,i){
-                  const pc=posColor(primaryPos(x.player));
-                  return(
-                    <div key={x.player.id} style={{display:"flex",alignItems:"center",
-                      gap:10,padding:"8px 0",
-                      borderBottom:`1px solid ${C.border}`}}>
-                      <span style={{color:C.muted,fontSize:12,minWidth:16}}>{i+1}</span>
-                      <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                        background:pc+"22",border:`1.5px solid ${pc}44`,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:12}}>
-                        {x.player.number}
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{color:C.text,fontWeight:600,fontSize:13,
-                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {x.player.name}
-                        </div>
-                        <div style={{color:C.muted,fontSize:10}}>
-                          {x.absent} absent{x.injured>0?`, ${x.injured} injured`:""}
-                        </div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{color:x.rate<70?C.danger:x.rate<85?C.warning:"#27a560",
-                          fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>
-                          {x.rate}%
-                        </div>
-                      </div>
+                    <div style={{color:col,fontWeight:700,fontSize:12,
+                      fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
+                      {x.present}/{x.total}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-            {/* Full table toggle */}
-            {attStats.length>5&&(
-              <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
-                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>
-                  FULL SQUAD — {attStats.length} PLAYERS
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-                  {[...attStats].sort(function(a,b){return (b.rate||0)-(a.rate||0);}).map(function(x){
-                    const pc=posColor(primaryPos(x.player));
-                    const col=x.rate>=90?"#27a560":x.rate>=75?C.warning:C.danger;
-                    return(
-                      <div key={x.player.id} style={{display:"flex",alignItems:"center",
-                        gap:8,padding:"6px 8px",background:C.surface,borderRadius:8}}>
-                        <div style={{width:24,height:24,borderRadius:5,flexShrink:0,
-                          background:pc+"22",display:"flex",alignItems:"center",
-                          justifyContent:"center",fontFamily:"'Oswald',sans-serif",
-                          fontWeight:900,color:pc,fontSize:11}}>
-                          {x.player.number}
-                        </div>
-                        <span style={{flex:1,color:C.text,fontSize:12,overflow:"hidden",
-                          textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {x.player.name.split(" ").pop()}
-                        </span>
-                        <span style={{color:col,fontWeight:700,fontSize:12}}>{x.rate}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         );
       })()}
 
-      {/* Top players */}
+            {/* Top players */}
       {topPlayers.length>0&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px"}}>
           <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>TOP PERFORMERS</div>
@@ -14465,46 +14378,32 @@ function PlayerPortalPage(){
             }
           });
           if(!total) return null;
-          var rate=Math.round(present/total*100);
-          var col=rate>=90?"#27a560":rate>=75?"#f59e0b":"#e53935";
+          var col=absent===0?"#27a560":absent<=2?"#f59e0b":"#e53935";
           return(
             <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:14,
               padding:20,marginTop:16}}>
               <div style={{color:"#888",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:14}}>
                 ATTENDANCE
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:16}}>
-                <div style={{textAlign:"center"}}>
-                  <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,
-                    fontSize:40,lineHeight:1}}>{rate}%</div>
-                  <div style={{color:"#888",fontSize:11,marginTop:4}}>attendance rate</div>
-                </div>
-                {/* Bar */}
-                <div style={{flex:1}}>
-                  <div style={{background:"#2a2a2a",borderRadius:8,height:12,overflow:"hidden",marginBottom:6}}>
-                    <div style={{width:rate+"%",height:"100%",background:col,borderRadius:8,
-                      transition:"width .4s"}}/>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888"}}>
-                    <span>{present} present</span>
-                    <span>{total} sessions</span>
-                  </div>
-                </div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                {[["Present",present,"#27a560"],["Absent",absent,"#e53935"],["Injured",injured,"#f59e0b"]].map(function(item){
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                {[["Attended",present,"#27a560"],["Absent",absent,"#e53935"],["Injured",injured,"#f59e0b"]].map(function(item){
                   return(
-                    <div key={item[0]} style={{background:"#222",borderRadius:10,padding:"12px",
+                    <div key={item[0]} style={{background:"#222",borderRadius:10,padding:"14px",
                       textAlign:"center",border:"1px solid "+item[2]+"33"}}>
-                      <div style={{color:item[2],fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{item[1]}</div>
+                      <div style={{color:item[2],fontFamily:"'Oswald',sans-serif",
+                        fontWeight:900,fontSize:24}}>{item[1]}/{total}</div>
                       <div style={{color:"#888",fontSize:10,marginTop:2}}>{item[0]}</div>
                     </div>
                   );
                 })}
               </div>
               <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #2a2a2a"}}>
-                <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>RECENT SESSIONS</div>
-                {[...donePrac].sort(function(a,b){return (b.date||"").localeCompare(a.date||"");}).slice(0,6).map(function(s){
+                <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>
+                  RECENT SESSIONS
+                </div>
+                {[...donePrac].sort(function(a,b){
+                  return (b.date||"").localeCompare(a.date||"");
+                }).slice(0,8).map(function(s){
                   var status=(s.attendance||{})[playerId];
                   if(!status) return null;
                   var sc=status==="present"?"#27a560":status==="absent"?"#e53935":"#f59e0b";
@@ -14513,7 +14412,9 @@ function PlayerPortalPage(){
                     <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,
                       padding:"6px 0",borderBottom:"1px solid #1e1e1e"}}>
                       <span style={{color:sc,fontWeight:700,fontSize:13,minWidth:16}}>{sl}</span>
-                      <span style={{color:"#ccc",fontSize:12,flex:1}}>{s.title||s.focus||"Practice"}</span>
+                      <span style={{color:"#ccc",fontSize:12,flex:1}}>
+                        {s.title||s.focus||"Practice"}
+                      </span>
                       <span style={{color:"#888",fontSize:11}}>{s.date||""}</span>
                     </div>
                   );
@@ -14523,7 +14424,7 @@ function PlayerPortalPage(){
           );
         })()}
 
-        {tab==="recruit"&&(
+                {tab==="recruit"&&(
           <div style={{maxWidth:600}}>
             <PortalCard style={{background:A,border:"none"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
