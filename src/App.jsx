@@ -15631,11 +15631,21 @@ function PlayerPortalPage(){
             {(teamWorkouts||[]).filter(w=>w.type==="program").map(function(pw){
               const prog=PREBUILT_PROGRAMS.find(p=>p.id===pw.programId);
               if(!prog) return null;
-              const weekIdx=(pw.currentWeek||1)-1;
+              // Player's own week — stored in their log, falls back to coach's week
+              const playerWeek=(wkLog[pw.id]||{}).playerWeek||(pw.currentWeek||1);
+              const weekIdx=Math.min(Math.max(playerWeek-1,0),prog.weeks.length-1);
               const weekData=prog.weeks[weekIdx];
               const phase=prog.phases.find(ph=>ph.weeks.includes(weekIdx+1));
               const selDay=selProgDay[pw.id]??null;
               function setSelDay(v){setSelProgDay(p=>({...p,[pw.id]:v}));}
+              function setPlayerWeek(w){
+                var clamped=Math.min(Math.max(w,1),prog.weeks.length);
+                var newLog=Object.assign({},wkLog);
+                newLog[pw.id]=Object.assign({},wkLog[pw.id]||{},{playerWeek:clamped});
+                setWkLog(newLog);
+                saveField("workoutLog",newLog);
+                setSelProgDay(function(p){return Object.assign({},p,{[pw.id]:null});});
+              }
               return(
                 <div key={pw.id} style={{marginBottom:20}}>
                   <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:14,overflow:"hidden"}}>
@@ -15644,7 +15654,34 @@ function PlayerPortalPage(){
                         <span style={{fontWeight:700,fontSize:15,color:"#111"}}>{pw.title}</span>
                         {phase&&<span style={{background:phase.color+"22",color:phase.color,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{phase.label}</span>}
                       </div>
-                      <div style={{color:"#888",fontSize:12}}>Week {weekIdx+1} of 8{weekData&&" · "+weekData.note}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{color:"#888",fontSize:12}}>Week {weekIdx+1} of 8{weekData&&" · "+weekData.note}</span>
+                        {!isViewOnly&&!isRecruiterView&&(
+                          <div style={{display:"flex",gap:4,marginLeft:"auto"}}>
+                            <button
+                              onClick={function(){setPlayerWeek(weekIdx);}}
+                              disabled={weekIdx===0}
+                              style={{padding:"3px 10px",background:"transparent",
+                                border:"1px solid #e0e0e0",borderRadius:6,
+                                color:weekIdx===0?"#ccc":"#555",cursor:weekIdx===0?"default":"pointer",
+                                fontSize:11,fontWeight:600}}>
+                              ← Prev
+                            </button>
+                            <button
+                              onClick={function(){setPlayerWeek(weekIdx+2);}}
+                              disabled={weekIdx>=prog.weeks.length-1}
+                              style={{padding:"3px 10px",
+                                background:weekIdx<prog.weeks.length-1?"#ff6b00":"transparent",
+                                border:"1px solid "+(weekIdx<prog.weeks.length-1?"#ff6b00":"#e0e0e0"),
+                                borderRadius:6,
+                                color:weekIdx>=prog.weeks.length-1?"#ccc":"#000",
+                                cursor:weekIdx>=prog.weeks.length-1?"default":"pointer",
+                                fontSize:11,fontWeight:700}}>
+                              Next Week →
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       {/* Phase mini bars */}
                       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:10}}>
                         {prog.phases.map(function(ph){
