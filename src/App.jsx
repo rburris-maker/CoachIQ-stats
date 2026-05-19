@@ -2792,16 +2792,125 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
 }
 
 // ─── ANALYTICS VIEW ───────────────────────────────────────────────────────────
-function WorkoutBuilderView({workouts, setWorkouts, roster}){
-  const [creating, setCreating] = useState(false);
-  const [wkTab, setWkTab] = useState("assigned"); // "assigned" | "templates"
-  const [expandedWk, setExpandedWk] = useState(null);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [form, setForm] = useState({title:"",description:"",dueDate:"",exercises:[]});
-  const [newEx, setNewEx] = useState({name:"",sets:"",reps:"",duration:""});
+const PREBUILT_PROGRAMS = [
+  {
+    id:"summer-preseason-adv",
+    name:"Summer Preseason — Advanced",
+    subtitle:"8 weeks · Varsity / Competitive",
+    description:"Arrive at Day 1 of preseason as the fittest player on the field. Targets: beep test 11+, sub-5:30 mile, repeatable 30m sprints under 5% drop-off.",
+    phases:[
+      {label:"Acclimatize",color:"#27a560",weeks:[1]},
+      {label:"Build",      color:"#378add",weeks:[2,3]},
+      {label:"Peak",       color:"#e24b4a",weeks:[4,5,6]},
+      {label:"Sharpen",    color:"#ba7517",weeks:[7,8]},
+    ],
+    condBenchmarks:[
+      {name:"Mile run",       target:"Sub-5:30",  unit:"min:sec"},
+      {name:"Beep test",      target:"11.0+",     unit:"level"},
+      {name:"40m sprint",     target:"Sub-5.4s",  unit:"sec"},
+      {name:"5-10-5 shuttle", target:"Sub-4.6s",  unit:"sec"},
+      {name:"Max push-ups",   target:"40+",       unit:"reps"},
+      {name:"Plank hold",     target:"3:00+",     unit:"min:sec"},
+      {name:"Broad jump",     target:"7'6\"+",    unit:"ft"},
+    ],
+    ballBenchmarks:[
+      {name:"Juggling (feet)",      target:"100+",     unit:"reps"},
+      {name:"Juggling (all-surf)",  target:"75+",      unit:"reps"},
+      {name:"Weak foot juggling",   target:"30+",      unit:"reps"},
+      {name:"Wall passes 60s",      target:"50+",      unit:"reps"},
+      {name:"Cone slalom (8 cone)", target:"Under 6s", unit:"sec"},
+      {name:"Shooting accuracy",    target:"8/10",     unit:"ratio"},
+    ],
+    weeks:[
+      {week:1,phase:"Acclimatize",phaseColor:"#27a560",note:"Heat acclimatization + movement screen. 3 hard sessions.",days:[
+        {day:"Mon",cond:{title:"Aerobic Base",duration:"40 min",items:["30 min continuous run — conversational pace","10 min mobility work after"]},ball:{title:"Ball Mastery + Juggling",duration:"35 min",items:["Toe taps 4×30s, sole rolls 4×30s","Inside-outside 100/foot, V-pulls 25/foot","Foundation taps 4×30s","Juggling: 5 PR attempts (feet only) — record your best"]}},
+        {day:"Tue",cond:{title:"Strength + Agility + Ball",duration:"75 min",items:["Dynamic warmup 12 min","4 rounds: 20 squats, 12 push-ups, 24 lunges, 45s plank, 15 glute bridges, 12 burpees, 10 single-leg deadlifts/leg","Agility: 5-10-5 ×5, T-drill ×5, box drill ×5 — full recovery","25 min ball: cone dribbling at speed, 1v1 moves"]},ball:{title:"Passing + First Touch",duration:"40 min",items:["Wall passes right 2-touch: 100, left 2-touch: 100","Wall passes right 1-touch: 50, left 1-touch: 50","First touch across body: 30 reps each side","Push-pull weight passes: 30/foot, long pass: 20/foot"]}},
+        {day:"Wed",cond:{title:"Fartlek",duration:"40 min",items:["10 min warmup","25 min fartlek: 90s moderate / 90s easy","5 min cooldown"]},ball:{title:"Dribbling + 1v1 Moves",duration:"35 min",items:["Cone slalom 10 runs both feet — controlled pace","Inside chop 25/side, outside chop 25/side","Stop-and-go 20/foot, scissor 25/foot","Free dribble 5 min — mix moves"]}},
+        {day:"Thu",cond:{title:"Strength + Agility + Ball",duration:"75 min",items:["Dynamic warmup","4 rounds strength — repeat Tuesday","Agility: 5-10-5, T-drill, box drill ×5 each — full recovery","20 min ball work"]},ball:{title:"Shooting + Finishing",duration:"40 min",items:["Warmup 50 touches/foot","Laces drive: 20 shots/foot, inside placement: 20/foot","Rolling ball into shot: 20/foot","Volley from drop: 15/foot, 5 PKs each side"]}},
+        {day:"Fri",cond:{title:"Tempo Introduction",duration:"30 min",items:["10 min warmup","3 × 5 min comfortably hard — short phrases only","2 min walk between, 5 min cooldown"]},ball:{title:"Weak Foot Only",duration:"35 min",items:["All toe taps + sole rolls weak foot: 5 min","200 inside-outside touches weak foot only","100 wall passes weak foot only","25 shots on target weak foot"]}},
+        {day:"Sat",cond:{title:"Long Run + Touches",duration:"65 min",items:["45 min run — last 15 min moderate pace","20 min ball work"]},ball:{title:"Combination Day",duration:"45 min",items:["10 min warmup: mastery + juggling","Cone slalom into finish: 20 reps","30+ min pickup if available","Solo: free play + freestyle"]}},
+        {day:"Sun",cond:{title:"Rest",duration:"",items:[]},ball:{title:"Light Touches or Rest",duration:"15 min",items:["Optional: 10 min juggling + free touches"]}},
+      ]},
+      {week:2,phase:"Build",phaseColor:"#378add",note:"Real volume now. Five hard sessions per week.",days:[
+        {day:"Mon",cond:{title:"Tempo Run",duration:"45 min",items:["12 min warmup","25 min at threshold pace — 3-4 word phrases","8 min cooldown"]},ball:{title:"Ball Mastery + Juggling",duration:"40 min",items:["All mastery moves 90s each","Juggling: feet → thigh → feet, target 30+ consecutive","Around-the-world juggle: 20 attempts","Moving juggle: walk 20 yards while juggling, 10 reps"]}},
+        {day:"Tue",cond:{title:"Strength + Plyos + Ball",duration:"90 min",items:["Dynamic warmup","5 rounds: 25 squats, 15 push-ups, 30 lunges, 60s plank, 20 glute bridges, 15 burpees, 12 single-leg deadlifts","Plyos: 5 broad jumps, 5 box jumps, 10 tuck jumps, 10 lateral bounds, 5 depth jumps","25 min ball: shooting + 1v1 work"]},ball:{title:"Passing + First Touch",duration:"50 min",items:["Wall passes 200/foot two-touch, 100/foot one-touch","First touch to cone gate: 25 reps each side","Aerial first touch: 30 reps/foot","Long passing accuracy: 30/foot"]}},
+        {day:"Wed",cond:{title:"Hill Sprints",duration:"45 min",items:["15 min warmup + 4 build-up sprints","10 × 30s hill sprints at 90% — walk down recovery","10 min cooldown"]},ball:{title:"Dribbling + 1v1 Moves",duration:"45 min",items:["Cone slalom: 5 controlled, 5 at 75% speed","Cruyff turn: 30 reps each side","Maradona spin: 20 reps each side","La Croqueta: 30 reps both directions","10 min free dribble using new moves"]}},
+        {day:"Thu",cond:{title:"Long Intervals",duration:"50 min",items:["12 min warmup","6 × 800m at 85% — 2 min walk recovery","8 min cooldown"]},ball:{title:"Shooting + Finishing",duration:"50 min",items:["50-touch wall warmup/foot","Stationary shots: 30/foot mixed inside + laces","Driven low from roll: 25/foot, curl far post: 20/foot","Volley 25/foot, half-volley 25/foot"]}},
+        {day:"Fri",cond:{title:"Strength + Ball",duration:"75 min",items:["5 rounds full strength circuit","30 min technical: 300 wall passes, 150 push-pull touches/foot, finishing reps"]},ball:{title:"Weak Foot Only",duration:"45 min",items:["350 weak-foot touches (mastery patterns)","150 weak-foot wall passes","Weak-foot juggling: 5 PR attempts","40 weak-foot shots, 20 weak-foot Cruyff turns"]}},
+        {day:"Sat",cond:{title:"Long Run + Small-Sided",duration:"95 min",items:["50 min run — last 20 min moderate pace","45–60 min pickup soccer if available"]},ball:{title:"Combination Day / Pickup",duration:"60 min",items:["15 min warmup: full mastery sequence","20 reps: cone dribble + 1v1 move + finish","30+ min pickup if available","Solo: 5 stations × 5 min circuit"]}},
+        {day:"Sun",cond:{title:"Rest",duration:"",items:[]},ball:{title:"Free Play or Rest",duration:"20 min",items:["Light touches if desired"]}},
+      ]},
+      {week:3,phase:"Build",phaseColor:"#378add",note:"Progressive week — same structure as Week 2, all volumes up.",days:[
+        {day:"Mon",cond:{title:"Tempo Run (30 min)",duration:"50 min",items:["12 min warmup","30 min at threshold — up from 25","8 min cooldown"]},ball:{title:"Ball Mastery + Juggling",duration:"45 min",items:["All mastery moves — 25% more volume","Add pendulum 40/foot, L-drag 25/foot, crossover taps 50 reps","Juggling: 3 PR attempts per session","Moving juggle: 30 yards, 10 reps"]}},
+        {day:"Tue",cond:{title:"Strength + Plyos + Ball",duration:"95 min",items:["6 rounds strength (up from 5)","All Phase 2 plyos","25 min ball work"]},ball:{title:"Passing + First Touch",duration:"50 min",items:["All Week 2 volumes + 50 reps wall passes","Aerial first touch + immediate pass: 40/foot","Long passing accuracy: 30/foot to target"]}},
+        {day:"Wed",cond:{title:"Hill Sprints (12)",duration:"50 min",items:["15 min warmup","12 × 30s hills — up from 10","10 min cooldown"]},ball:{title:"Dribbling + 1v1 Moves",duration:"45 min",items:["All Week 2 moves + 25% volume","Elastico introduction: 20 reps each side","Speed move circuit: move → sprint → move","Shadow defender: 5 sets × 10 reps"]}},
+        {day:"Thu",cond:{title:"Long Intervals (8×800m)",duration:"55 min",items:["12 min warmup","8 × 800m at 85% — up from 6","8 min cooldown"]},ball:{title:"Shooting + Finishing",duration:"55 min",items:["All Week 2 volumes + 25%","Bouncing ball strike: 15/foot (new)","Finishing under fatigue: sprint to ball + finish, 15/foot"]}},
+        {day:"Fri",cond:{title:"Strength + Ball",duration:"80 min",items:["6 rounds strength","30 min ball technical"]},ball:{title:"Weak Foot Only",duration:"45 min",items:["400+ total weak-foot touches","All Week 2 patterns + 25% volume","Target: 10+ consecutive weak-foot juggles"]}},
+        {day:"Sat",cond:{title:"Long Run (55 min)",duration:"100 min",items:["55 min run — up from 50","Pickup soccer if available"]},ball:{title:"Combination + Pickup",duration:"60 min",items:["Full mastery warmup 15 min","All Week 2 combination work","Pickup 30+ min if available"]}},
+        {day:"Sun",cond:{title:"Rest",duration:"",items:[]},ball:{title:"Rest or Light Touches",duration:"15 min",items:["Optional: 10 min juggling"]}},
+      ]},
+      {week:4,phase:"Peak",phaseColor:"#e24b4a",note:"DOUBLE SESSIONS Mon + Thu. Sleep 9+ hours. Eat enough.",days:[
+        {day:"Mon",cond:{title:"DOUBLE SESSION",duration:"AM 60 + PM 45 min",items:["AM: 10 min warmup + 4×6 min threshold, 90s walk between + 8 min cooldown","PM (6+ hrs after): 30 min sharp touches + wall passing under fatigue","PM light circuit: 3 rounds — 15 squats, 10 push-ups, 30s plank"]},ball:{title:"Ball Mastery + Juggling",duration:"50 min",items:["Mastery at speed: 50% more reps per 30s","Speed taps: 4×20s","Juggling: feet → thigh → head → thigh → feet, 5 reps","All-surface juggle: 5 min continuous attempts"]}},
+        {day:"Tue",cond:{title:"Complex Training + Ball",duration:"90 min",items:["Dynamic warmup","4 rounds complex: 5 jump squats + 5 broad jumps; 5 push-ups + 5 explosive push-ups; 8 lunges + 8 lateral bounds. 90s between","5 depth jumps from 18\" box","30 min ball: 1v1 to goal or cone dribbling + finishing"]},ball:{title:"Passing + First Touch",duration:"55 min",items:["Wall passes 250/foot mixing 1 and 2 touch","First touch + immediate move: 30/foot","Receive aerial + first-time pass: 40/foot","Long passing: 30 attempts/foot to 5-yard target"]}},
+        {day:"Wed",cond:{title:"Lactate Tolerance — KEY SESSION",duration:"60 min",items:["15 min warmup + 6 build-ups","6 × 300m at 95%, 90s walk recovery","Rest 5 min","4 × 200m near-max, 60s walk recovery","10 min cooldown — this session is supposed to hurt. Push through."]},ball:{title:"Dribbling at Match Speed",duration:"55 min",items:["Tight cone slalom (6 inch apart): 10 slow, 10 fast","Speed move circuit: Cruyff → sprint → scissor → sprint → La Croqueta → finish, 15 reps full effort, 1 min rest","Shadow defender: 5 sets × 10 reps mixed moves"]}},
+        {day:"Thu",cond:{title:"DOUBLE — Repeated Sprint Ability",duration:"AM 60 + PM 45 min",items:["AM: 15 min warmup + 4 build-ups + 4 progressive 20m strides","AM: 2 sets of (7×30m sprint, 25s between). 5 min rest between sets. 10 min cooldown","PM (6+ hrs): 45 min ball — 60 shots each foot, 1v1 dribbling at speed"]},ball:{title:"Shooting — Volume Day",duration:"60 min",items:["40 placement inside foot/foot, 40 laces drives/foot","30 curl shots/foot, 30 volleys/foot","25 half-volleys/foot, 20 bouncing strikes/foot","Finishing under fatigue: 10 sprints to ball + finish/foot","Total: 460+ shots. Your foot will be sore. That's the point."]}},
+        {day:"Fri",cond:{title:"Strength + Ball (Under Fatigue)",duration:"80 min",items:["6 rounds full strength circuit","30 min ball under fatigue — touches when tired are what matter"]},ball:{title:"Weak Foot Only",duration:"50 min",items:["Full Phase 2 weak foot session + 25% volume","30 weak-foot 1v1 moves: Cruyff, scissor, La Croqueta","60 weak-foot shots on target","50 weak-foot first-time passes — goal: 20+ consecutive"]}},
+        {day:"Sat",cond:{title:"Match Simulation",duration:"75 min",items:["15 min warmup","4 × (4 min moderate-hard + 1 min walk + 4 min high-intensity + 1 min walk) = 40 min work","Or 60–75 min full small-sided if available","10 min cooldown"]},ball:{title:"Match Application",duration:"60-75 min",items:["15 min warmup","Full small-sided game if available (45+ min priority)","Solo backup: technical circuit + 30 finishing reps + free play"]}},
+        {day:"Sun",cond:{title:"Full Rest (not optional)",duration:"",items:["Full rest — non-negotiable in peak weeks"]},ball:{title:"Full Rest",duration:"",items:[]}},
+      ]},
+      {week:5,phase:"Peak",phaseColor:"#e24b4a",note:"Peak progression. Double sessions continue. 9,000+ weekly touches.",days:[
+        {day:"Mon",cond:{title:"DOUBLE — 5×6 min Tempo",duration:"AM 65 + PM 45 min",items:["AM: 5×6 min threshold (up from 4), 90s walk","PM: Ball + light circuit (same as Week 4)"]},ball:{title:"Ball Mastery + Juggling",duration:"50 min",items:["All mastery at speed — add Roulette (Zidane spin): 20 reps each side","Moving juggle: 30 yards, 5 reps","Weekly touch target: 9,000+"]}},
+        {day:"Tue",cond:{title:"Complex Training + Plyos",duration:"95 min",items:["5 rounds complex training","Add 6th round this week","30 min ball"]},ball:{title:"Passing + First Touch",duration:"55 min",items:["Wall passes 300/foot (up from 250)","All Week 4 patterns + 25% volume","Combination wall play: receive, turn, strike — 25/foot"]}},
+        {day:"Wed",cond:{title:"Lactate — 8×300m",duration:"65 min",items:["8 × 300m at 95% (up from 6)","5 × 200m near-max (up from 4)","Same structure as Week 4"]},ball:{title:"Dribbling + Double Moves",duration:"55 min",items:["Double-move combos: scissor into chop, step-over into Cruyff","All Week 4 speed work + volume","Cone slalom under timing: best of 5 attempts"]}},
+        {day:"Thu",cond:{title:"DOUBLE — RSA 3 Sets",duration:"AM 65 + PM 45 min",items:["AM: 3 sets of (7×30m, 25s recovery) — up from 2 sets","PM: 45 min ball finishing + 1v1"]},ball:{title:"Shooting + Finishing",duration:"60 min",items:["Maintain 460+ shots","Add: 1v1 to goal vs shadow keeper: 20 reps","Finishing under fatigue: increase to 15 sprints/foot"]}},
+        {day:"Fri",cond:{title:"Strength + Ball",duration:"80 min",items:["6 rounds strength","30 min ball under fatigue"]},ball:{title:"Weak Foot Only",duration:"50 min",items:["500+ total weak-foot touches","All Week 4 weak foot + 25% volume","Goal: 20+ consecutive weak-foot juggles"]}},
+        {day:"Sat",cond:{title:"Match Simulation (5 blocks)",duration:"80 min",items:["5 × simulation blocks (up from 4)","Same structure as Week 4"]},ball:{title:"Match Application",duration:"60-75 min",items:["Full small-sided game priority","Solo: full technical circuit + free play"]}},
+        {day:"Sun",cond:{title:"Full Rest",duration:"",items:["Full rest — mandatory"]},ball:{title:"Rest",duration:"",items:[]}},
+      ]},
+      {week:6,phase:"Peak",phaseColor:"#e24b4a",note:"HEAVIEST WEEK. Eat. Sleep. Hydrate. If you survive Week 6, preseason will feel easy.",days:[
+        {day:"Mon",cond:{title:"DOUBLE — 5×7 min Tempo",duration:"AM 70 + PM 45 min",items:["AM: 5×7 min threshold (up from 5×6)","PM: Ball + light circuit"]},ball:{title:"Ball Mastery + Juggling",duration:"50 min",items:["6×30s per mastery pattern (up from 4×30s)","Juggling: 5 PR attempts — target 75+ consecutive","Elastico: 30 reps each side"]}},
+        {day:"Tue",cond:{title:"Complex Training — 6 Rounds",duration:"100 min",items:["6 rounds complex training (peak week)","All plyos — full recovery","30 min ball work"]},ball:{title:"Passing + First Touch",duration:"55 min",items:["300/foot — all passages","Double combination wall play","NOTE: if legs are wrecked from conditioning, hold ball volume at Week 4 levels"]}},
+        {day:"Wed",cond:{title:"Lactate — 10×300m",duration:"70 min",items:["10 × 300m at 95% (up from 8)","6 × 200m near-max (up from 5)","Same structure as Week 4"]},ball:{title:"Dribbling — Full Move Library",duration:"55 min",items:["Full move library at speed","Double-move combos: 20 reps each","Free dribbling: 10 min quality"]}},
+        {day:"Thu",cond:{title:"DOUBLE — RSA 3×8 Sprints",duration:"AM 70 + PM 45 min",items:["AM: 3 sets of (8×30m, 20s recovery) — shorter rest than Week 5","PM: 45 min ball + 500-shot Thursday"]},ball:{title:"Shooting — Peak Volume",duration:"60 min",items:["500+ shots — highest week","All types: placement, laces, curl, volley, half-volley","Finishing under fatigue: 20 sprints/foot","1v1 to goal: 25 reps"]}},
+        {day:"Fri",cond:{title:"Strength 7 Rounds + Ball",duration:"85 min",items:["7 rounds strength (peak week)","30 min ball under fatigue"]},ball:{title:"Weak Foot Only — Peak",duration:"50 min",items:["500+ total weak-foot touches (peak)","Full Phase 3 weak foot session","Goal: 25+ consecutive weak-foot juggles"]}},
+        {day:"Sat",cond:{title:"Match Simulation (6 blocks)",duration:"90 min",items:["6 × simulation blocks (up from 5)","Or 75 min full small-sided game"]},ball:{title:"Match Application",duration:"60-75 min",items:["Full game priority","Solo: full technical circuit + 30 min shooting + free play"]}},
+        {day:"Sun",cond:{title:"Full Rest — Non-Negotiable",duration:"",items:["Full rest. This is not optional."]},ball:{title:"Rest",duration:"",items:[]}},
+      ]},
+      {week:7,phase:"Sharpen",phaseColor:"#ba7517",note:"Cut volume ~40%, hold intensity. Fitness is in the bank — sharpen it.",days:[
+        {day:"Mon",cond:{title:"Short Tempo",duration:"40 min",items:["10 min warmup","2×8 min at hard pace, 3 min walk between","8 min cooldown"]},ball:{title:"Ball Mastery + Juggling",duration:"40 min",items:["Full mastery at quality — not max volume","Juggling: 5 PR attempts — target 100+ consecutive","Freestyle: neck stalls, around-worlds, crossover juggles","Moving juggle: 50 yards, 3 reps"]}},
+        {day:"Tue",cond:{title:"Strength + Sharpness",duration:"60 min",items:["4 rounds strength — drop volume, hold quality","5 broad jumps, 5 box jumps, 5 depth jumps","25 min sharp ball: two-touch passing, first-time finishing"]},ball:{title:"Passing + First Touch",duration:"40 min",items:["150 wall passes each foot — all one-touch","First touch + go: 30 reps each foot","Long passing accuracy: 20 reps/foot"]}},
+        {day:"Wed",cond:{title:"Race-Pace Repeats",duration:"40 min",items:["12 min warmup","6 × 200m at near-max, full 2 min recovery","10 min cooldown"]},ball:{title:"Dribbling at Match Speed",duration:"45 min",items:["5 best moves at full speed — 20 reps each side","Cone slalom under timing: best of 5","Combination dribbling + finish: 20 reps full speed","Free dribbling: 10 min quality"]}},
+        {day:"Thu",cond:{title:"RSA Maintenance",duration:"45 min",items:["12 min warmup","1 set (7×30m, 25s recovery)","5 min rest","6 × 20m flying sprints — full recovery","10 min cooldown"]},ball:{title:"Shooting + Set Pieces",duration:"50 min",items:["30 min shooting — sharp, mixed types","20 PKs — 5 each corner (top L, top R, bottom L, bottom R)","30 free kicks from 22 yards — half over wall, half curl around","20 corner kick deliveries — 10 inswinging, 10 outswinging"]}},
+        {day:"Fri",cond:{title:"Light Strength + Touches",duration:"45 min",items:["3 rounds strength — perfect form","25 min juggling PR attempts + wall passing"]},ball:{title:"Weak Foot Maintenance",duration:"35 min",items:["250 weak-foot touches","100 weak-foot wall passes","30 weak-foot shots","Weak-foot juggling PR attempts"]}},
+        {day:"Sat",cond:{title:"Pickup / Small-Sided",duration:"60 min",items:["Pickup or small-sided as much as possible","Solo: 45 min sharp ball work + shooting"]},ball:{title:"Game Play",duration:"60 min",items:["Pickup if available — priority","Solo: 30 min finishing + 30 min free play"]}},
+        {day:"Sun",cond:{title:"Rest",duration:"",items:[]},ball:{title:"Rest",duration:"",items:[]}},
+      ]},
+      {week:8,phase:"Sharpen",phaseColor:"#ba7517",note:"Volume halves. Intensity stays. Tryouts Monday — you should be the fittest player on the field.",days:[
+        {day:"Mon",cond:{title:"Sharpening Tempo",duration:"30 min",items:["10 min warmup","2×5 min hard pace (down from 2×8)","8 min cooldown"]},ball:{title:"Quality Mastery",duration:"25 min",items:["Mastery at high quality — not volume","Juggling: 3 PR attempts"]}},
+        {day:"Tue",cond:{title:"Strength Maintenance",duration:"40 min",items:["2 rounds full strength — down from 4","5 broad jumps, 5 box jumps","20 min ball"]},ball:{title:"Sharp Passing",duration:"30 min",items:["100 wall passes each foot — one-touch","20 first-touch + finish reps"]}},
+        {day:"Wed",cond:{title:"Speed Day",duration:"35 min",items:["12 min warmup","6 × 40m at 90% — full recovery","4 × 20m flying sprints","10 min cooldown"]},ball:{title:"Sharp Dribbling",duration:"30 min",items:["5 best moves at speed — 10 reps each","Free dribbling: 10 min"]}},
+        {day:"Thu",cond:{title:"Touches Only",duration:"30 min",items:["30 min sharp ball work — juggling, free play","No conditioning today"]},ball:{title:"Finishing Touch-Up",duration:"35 min",items:["100 shots — mixed types, quality focus","10 PKs, 10 free kicks"]}},
+        {day:"Fri",cond:{title:"Easy Day",duration:"30 min",items:["15 min easy jog","15 min ball work + thorough mobility"]},ball:{title:"Weak Foot Light",duration:"25 min",items:["150 weak-foot touches","20 weak-foot shots"]}},
+        {day:"Sat",cond:{title:"Light Touches",duration:"20 min",items:["20 min easy ball work — no intensity","Rest the legs"]},ball:{title:"Free Play",duration:"30 min",items:["All touch, no measurement, just play"]}},
+        {day:"Sun",cond:{title:"Rest",duration:"",items:["Rest — tryouts tomorrow"]},ball:{title:"Rest",duration:"",items:["Rest — tryouts tomorrow"]}},
+      ]},
+    ],
+  },
+];
 
-  const assigned = (workouts||[]).filter(w=>!w.isTemplate);
+
+function WorkoutBuilderView({workouts, setWorkouts, roster}){
+  const [wkTab,         setWkTab]         = useState("assigned");
+  const [creating,      setCreating]      = useState(false);
+  const [expandedWk,    setExpandedWk]    = useState(null);
+  const [saveAsTemplate,setSaveAsTemplate]= useState(false);
+  const [form,          setForm]          = useState({title:"",description:"",dueDate:"",exercises:[]});
+  const [newEx,         setNewEx]         = useState({name:"",sets:"",reps:"",duration:""});
+  const [progView,      setProgView]      = useState(null); // {programId, weekIdx, dayIdx}
+
+  const assigned  = (workouts||[]).filter(w=>!w.isTemplate&&w.type!=="program");
   const templates = (workouts||[]).filter(w=>w.isTemplate);
+  const programs  = (workouts||[]).filter(w=>w.type==="program");
 
   function addExercise(){
     if(!newEx.name.trim()) return;
@@ -2810,26 +2919,43 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
   }
   function createWorkout(){
     if(!form.title.trim()) return;
-    const base={...form,exercises:form.exercises,createdAt:new Date().toISOString().split("T")[0]};
+    const base={...form,createdAt:new Date().toISOString().split("T")[0]};
     if(saveAsTemplate){
-      const tpl={...base,id:"tpl"+Date.now(),isTemplate:true};
-      setWorkouts(prev=>[tpl,...prev]);
+      setWorkouts(prev=>[{...base,id:"tpl"+Date.now(),isTemplate:true},...prev]);
     } else {
-      const wk={...base,id:"wk"+Date.now(),isTemplate:false};
-      setWorkouts(prev=>[wk,...prev]);
+      setWorkouts(prev=>[{...base,id:"wk"+Date.now(),isTemplate:false},...prev]);
     }
     setForm({title:"",description:"",dueDate:"",exercises:[]});
     setSaveAsTemplate(false);
     setCreating(false);
   }
   function assignTemplate(tpl){
-    const wk={...tpl,id:"wk"+Date.now(),isTemplate:false,
-      createdAt:new Date().toISOString().split("T")[0],dueDate:""};
+    const wk={...tpl,id:"wk"+Date.now(),isTemplate:false,createdAt:new Date().toISOString().split("T")[0],dueDate:""};
     setWorkouts(prev=>[wk,...prev]);
     setWkTab("assigned");
   }
+  function activateProgram(prog){
+    if(programs.find(p=>p.programId===prog.id)){
+      alert("This program is already active for your team."); return;
+    }
+    const entry={
+      id:"prog"+Date.now(),type:"program",programId:prog.id,
+      title:prog.name,description:prog.subtitle,
+      createdAt:new Date().toISOString().split("T")[0],
+      currentWeek:1,
+    };
+    setWorkouts(prev=>[entry,...prev]);
+    setWkTab("programs");
+  }
   function getCompletions(wkId){
     return (roster||[]).filter(p=>(p.workoutLog||{})[wkId]?.completed);
+  }
+  function getProgCompletion(progWorkoutId, weekIdx, dayIdx, track){
+    const key="w"+(weekIdx+1)+"d"+dayIdx;
+    return (roster||[]).filter(p=>{
+      const log=((p.workoutLog||{})[progWorkoutId]||{})[key]||{};
+      return track==="cond"?log.condDone:log.ballDone;
+    }).length;
   }
 
   const iS=(extra={})=>({padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,
@@ -2837,24 +2963,28 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
     boxSizing:"border-box",...extra});
 
   return(
-    <div style={{padding:20,maxWidth:760,margin:"0 auto"}}>
+    <div style={{padding:20,maxWidth:800,margin:"0 auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
           <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
           <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Workouts</h1>
         </div>
-        <button onClick={()=>setCreating(true)}
-          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
-            border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-            fontFamily:"'Oswald',sans-serif"}}>
-          <Plus size={15}/>New Workout
-        </button>
+        {wkTab!=="programs"&&(
+          <button onClick={()=>setCreating(true)}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+              border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+              fontFamily:"'Oswald',sans-serif"}}>
+            <Plus size={15}/>New Workout
+          </button>
+        )}
       </div>
 
       {/* Tab bar */}
       <div style={{display:"flex",gap:4,marginBottom:16,background:C.surface,
         padding:4,borderRadius:10,border:`1px solid ${C.border}`}}>
-        {[["assigned","Assigned ("+assigned.length+")"],["templates","Templates ("+templates.length+")"]].map(([k,l])=>(
+        {[["assigned","Assigned ("+assigned.length+")"],
+          ["templates","Templates ("+templates.length+")"],
+          ["programs","Programs ("+programs.length+")"]].map(([k,l])=>(
           <button key={k} onClick={()=>setWkTab(k)}
             style={{flex:1,padding:"8px",border:"none",borderRadius:7,cursor:"pointer",
               fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif",
@@ -2865,98 +2995,60 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
         ))}
       </div>
 
-      {creating&&(
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
-          padding:20,marginBottom:20}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:14}}>
-            NEW WORKOUT
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <div>
-              <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>TITLE</label>
-              <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
-                placeholder="e.g. Pre-Season Conditioning"
-                style={{...iS(),width:"100%"}}/>
-            </div>
-            <div>
-              <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DUE DATE</label>
-              <input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))}
-                style={{...iS(),width:"100%"}}/>
-            </div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DESCRIPTION (optional)</label>
-            <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}
-              placeholder="Focus area, notes for players..."
-              style={{...iS(),width:"100%"}}/>
-          </div>
-          {/* Exercises */}
-          <div style={{marginBottom:14}}>
-            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>EXERCISES</div>
-            {form.exercises.map(function(ex,i){
-              return(
-                <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,
-                  padding:"7px 10px",background:C.surface,borderRadius:8,marginBottom:6}}>
-                  <span style={{flex:1,color:C.text,fontSize:13,fontWeight:600}}>{ex.name}</span>
-                  <span style={{color:C.muted,fontSize:12}}>
-                    {ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}{ex.duration&&" · "+ex.duration}
-                  </span>
-                  <button onClick={()=>setForm(f=>({...f,exercises:f.exercises.filter((_,j)=>j!==i)}))}
-                    style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:16}}>×</button>
-                </div>
-              );
-            })}
-            <div style={{display:"grid",gridTemplateColumns:"2fr 60px 60px 100px 36px",gap:6,marginTop:8}}>
-              <input value={newEx.name} onChange={e=>setNewEx(x=>({...x,name:e.target.value}))}
-                onKeyDown={e=>e.key==="Enter"&&addExercise()}
-                placeholder="Exercise name" style={iS({padding:"7px 10px"})}/>
-              <input value={newEx.sets} onChange={e=>setNewEx(x=>({...x,sets:e.target.value}))}
-                placeholder="Sets" style={iS({padding:"7px 8px",textAlign:"center"})}/>
-              <input value={newEx.reps} onChange={e=>setNewEx(x=>({...x,reps:e.target.value}))}
-                placeholder="Reps" style={iS({padding:"7px 8px",textAlign:"center"})}/>
-              <input value={newEx.duration} onChange={e=>setNewEx(x=>({...x,duration:e.target.value}))}
-                placeholder="e.g. 30s rest" style={iS({padding:"7px 8px"})}/>
-              <button onClick={addExercise}
-                style={{background:C.accent,border:"none",borderRadius:9,color:"#000",
-                  fontWeight:800,fontSize:16,cursor:"pointer"}}>+</button>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8,marginBottom:10}}>
-            <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",
-              padding:"8px 12px",background:saveAsTemplate?C.accent+"18":C.surface,
-              border:`1px solid ${saveAsTemplate?C.accent:C.border}`,borderRadius:8}}>
-              <input type="checkbox" checked={saveAsTemplate}
-                onChange={e=>setSaveAsTemplate(e.target.checked)}
-                style={{accentColor:C.accent}}/>
-              <span style={{color:saveAsTemplate?C.accent:C.muted,fontSize:12,fontWeight:600}}>
-                Save as template
-              </span>
-            </label>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={createWorkout} disabled={!form.title.trim()}
-              style={{flex:1,padding:"11px",background:form.title.trim()?C.accent:"#2a1000",
-                border:"none",borderRadius:10,color:form.title.trim()?"#000":C.muted,
-                fontWeight:800,fontSize:14,cursor:form.title.trim()?"pointer":"default",
-                fontFamily:"'Oswald',sans-serif"}}>
-              {saveAsTemplate?"SAVE TEMPLATE":"ASSIGN TO ALL PLAYERS"}
-            </button>
-            <button onClick={()=>setCreating(false)}
-              style={{padding:"11px 18px",background:C.surface,border:`1px solid ${C.border}`,
-                borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Assigned tab */}
+      {/* ── ASSIGNED ── */}
       {wkTab==="assigned"&&(
         <>
+          {creating&&(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:14}}>NEW WORKOUT</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>TITLE</label>
+                  <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Pre-Season Conditioning" style={{...iS(),width:"100%"}}/>
+                </div>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DUE DATE</label>
+                  <input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} style={{...iS(),width:"100%"}}/>
+                </div>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4}}>DESCRIPTION (optional)</label>
+                <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Focus area, notes for players..." style={{...iS(),width:"100%"}}/>
+              </div>
+              <div style={{marginBottom:14}}>
+                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>EXERCISES</div>
+                {form.exercises.map(function(ex,i){return(
+                  <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:C.surface,borderRadius:8,marginBottom:6}}>
+                    <span style={{flex:1,color:C.text,fontSize:13,fontWeight:600}}>{ex.name}</span>
+                    <span style={{color:C.muted,fontSize:12}}>{ex.sets&&ex.sets+"×"}{ex.reps&&ex.reps+" reps"}{ex.duration&&" · "+ex.duration}</span>
+                    <button onClick={()=>setForm(f=>({...f,exercises:f.exercises.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:16}}>×</button>
+                  </div>
+                );})}
+                <div style={{display:"grid",gridTemplateColumns:"2fr 60px 60px 100px 36px",gap:6,marginTop:8}}>
+                  <input value={newEx.name} onChange={e=>setNewEx(x=>({...x,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addExercise()} placeholder="Exercise name" style={iS({padding:"7px 10px"})}/>
+                  <input value={newEx.sets} onChange={e=>setNewEx(x=>({...x,sets:e.target.value}))} placeholder="Sets" style={iS({padding:"7px 8px",textAlign:"center"})}/>
+                  <input value={newEx.reps} onChange={e=>setNewEx(x=>({...x,reps:e.target.value}))} placeholder="Reps" style={iS({padding:"7px 8px",textAlign:"center"})}/>
+                  <input value={newEx.duration} onChange={e=>setNewEx(x=>({...x,duration:e.target.value}))} placeholder="e.g. 30s rest" style={iS({padding:"7px 8px"})}/>
+                  <button onClick={addExercise} style={{background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:16,cursor:"pointer"}}>+</button>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"8px 12px",background:saveAsTemplate?C.accent+"18":C.surface,border:`1px solid ${saveAsTemplate?C.accent:C.border}`,borderRadius:8}}>
+                  <input type="checkbox" checked={saveAsTemplate} onChange={e=>setSaveAsTemplate(e.target.checked)} style={{accentColor:C.accent}}/>
+                  <span style={{color:saveAsTemplate?C.accent:C.muted,fontSize:12,fontWeight:600}}>Save as template</span>
+                </label>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={createWorkout} disabled={!form.title.trim()} style={{flex:1,padding:"11px",background:form.title.trim()?C.accent:"#2a1000",border:"none",borderRadius:10,color:form.title.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:form.title.trim()?"pointer":"default",fontFamily:"'Oswald',sans-serif"}}>
+                  {saveAsTemplate?"SAVE TEMPLATE":"ASSIGN TO ALL PLAYERS"}
+                </button>
+                <button onClick={()=>setCreating(false)} style={{padding:"11px 18px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+              </div>
+            </div>
+          )}
           {assigned.length===0&&!creating&&(
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
-              padding:"48px 24px",textAlign:"center"}}>
-              <div style={{fontSize:36,marginBottom:8}}>🏋️</div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+              <Dumbbell size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
               <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No workouts assigned</div>
               <div style={{color:C.muted,fontSize:13}}>Create a workout or assign from a template</div>
             </div>
@@ -2966,104 +3058,58 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
             const total=(roster||[]).length;
             const isExpanded=expandedWk===wk.id;
             return(
-              <div key={wk.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                borderRadius:14,marginBottom:10,overflow:"hidden"}}>
-                <div style={{padding:"14px 18px",display:"flex",
-                  justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div key={wk.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,marginBottom:10,overflow:"hidden"}}>
+                <div style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:C.text,fontWeight:700,fontSize:15}}>{wk.title}</div>
                     {wk.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{wk.description}</div>}
-                    <div style={{color:C.muted,fontSize:11,marginTop:3}}>
-                      Assigned {wk.createdAt}{wk.dueDate&&" · Due "+wk.dueDate}
-                    </div>
-                    <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-                      {(wk.exercises||[]).map(function(ex){
-                        return(
-                          <span key={ex.id} style={{background:C.surface,
-                            border:`1px solid ${C.border}`,borderRadius:6,
-                            padding:"2px 8px",fontSize:11,color:C.muted}}>
-                            {ex.name}{ex.sets&&" "+ex.sets+"×"}{ex.reps&&ex.reps}
-                          </span>
-                        );
-                      })}
+                    <div style={{color:C.muted,fontSize:11,marginTop:3}}>Assigned {wk.createdAt}{wk.dueDate&&" · Due "+wk.dueDate}</div>
+                    <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
+                      {(wk.exercises||[]).map(function(ex){return(
+                        <span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 8px",fontSize:11,color:C.muted}}>
+                          {ex.name}{ex.sets&&" "+ex.sets+"×"}{ex.reps&&ex.reps}
+                        </span>
+                      );})}
                     </div>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:12}}>
-                    {/* Completion badge */}
-                    <div style={{background:completions.length===total&&total>0?"#27a56022":C.surface,
-                      border:`1px solid ${completions.length===total&&total>0?"#27a56044":C.border}`,
-                      borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
-                      <div style={{color:completions.length===total&&total>0?"#27a560":C.text,
-                        fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
-                        {completions.length}/{total}
-                      </div>
+                    <div style={{background:completions.length===total&&total>0?"#27a56022":C.surface,border:`1px solid ${completions.length===total&&total>0?"#27a56044":C.border}`,borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
+                      <div style={{color:completions.length===total&&total>0?"#27a560":C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{completions.length}/{total}</div>
                       <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1}}>DONE</div>
                     </div>
-                    <button onClick={()=>setExpandedWk(isExpanded?null:wk.id)}
-                      style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
-                        padding:"5px 10px",color:isExpanded?C.accent:C.muted,cursor:"pointer",
-                        fontSize:11,fontWeight:700}}>
+                    <button onClick={()=>setExpandedWk(isExpanded?null:wk.id)} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"5px 10px",color:isExpanded?C.accent:C.muted,cursor:"pointer",fontSize:11,fontWeight:700}}>
                       {isExpanded?"▲ Hide":"▼ Results"}
                     </button>
-                    <button onClick={()=>{if(window.confirm("Delete this workout?"))setWorkouts(prev=>prev.filter(w=>w.id!==wk.id));}}
-                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:11}}>
-                      Delete
-                    </button>
+                    <button onClick={()=>{if(window.confirm("Delete this workout?"))setWorkouts(prev=>prev.filter(w=>w.id!==wk.id));}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:11}}>Delete</button>
                   </div>
                 </div>
-                {/* Player results */}
                 {isExpanded&&(
                   <div style={{borderTop:`1px solid ${C.border}`,background:C.surface}}>
-                    <div style={{padding:"8px 18px 4px",color:C.muted,fontSize:9,
-                      fontWeight:700,letterSpacing:1.5}}>PLAYER RESULTS</div>
+                    <div style={{padding:"8px 18px 4px",color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1.5}}>PLAYER RESULTS</div>
                     {(roster||[]).map(function(p){
                       const pLog=(p.workoutLog||{})[wk.id]||{};
                       const done=pLog.completed;
                       const pc=posColor(primaryPos(p));
                       return(
-                        <div key={p.id} style={{padding:"8px 18px",
-                          borderBottom:`1px solid ${C.border}`,
-                          display:"flex",alignItems:"flex-start",gap:10}}>
-                          <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
-                            background:pc+"22",border:`1.5px solid ${pc}44`,
-                            display:"flex",alignItems:"center",justifyContent:"center",
-                            fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>
-                            {p.number}
-                          </div>
+                        <div key={p.id} style={{padding:"8px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"flex-start",gap:10}}>
+                          <div style={{width:26,height:26,borderRadius:5,flexShrink:0,background:pc+"22",border:`1.5px solid ${pc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:pc,fontSize:11}}>{p.number}</div>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
                               <span style={{color:C.text,fontWeight:600,fontSize:13}}>{p.name}</span>
                               {done
-                                ? <span style={{background:"#27a56018",color:"#27a560",fontSize:10,
-                                    fontWeight:700,padding:"1px 7px",borderRadius:20}}>
-                                    ✓ {pLog.completedAt||"Done"}
-                                  </span>
-                                : <span style={{color:C.muted,fontSize:11}}>Not completed</span>
-                              }
+                                ?<span style={{background:"#27a56018",color:"#27a560",fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20}}>✓ {pLog.completedAt||"Done"}</span>
+                                :<span style={{color:C.muted,fontSize:11}}>Not completed</span>}
                             </div>
                             {done&&(wk.exercises||[]).length>0&&(
                               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
                                 {(wk.exercises||[]).map(function(ex){
                                   const exLog=(pLog.exercises||{})[ex.id]||{};
                                   if(!exLog.reps&&!exLog.weight&&!exLog.time&&!exLog.notes) return null;
-                                  return(
-                                    <div key={ex.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                                      borderRadius:6,padding:"3px 8px",fontSize:11}}>
-                                      <span style={{color:C.muted}}>{ex.name}: </span>
-                                      {exLog.reps&&<span style={{color:C.text}}>{exLog.reps} reps </span>}
-                                      {exLog.weight&&<span style={{color:C.text}}>@ {exLog.weight} </span>}
-                                      {exLog.time&&<span style={{color:C.text}}>{exLog.time} </span>}
-                                      {exLog.notes&&<span style={{color:C.muted,fontStyle:"italic"}}>{exLog.notes}</span>}
-                                    </div>
-                                  );
+                                  return(<div key={ex.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"3px 8px",fontSize:11}}><span style={{color:C.muted}}>{ex.name}: </span>{exLog.reps&&<span style={{color:C.text}}>{exLog.reps} reps </span>}{exLog.weight&&<span style={{color:C.text}}>@ {exLog.weight} </span>}{exLog.time&&<span style={{color:C.text}}>{exLog.time} </span>}{exLog.notes&&<span style={{color:C.muted,fontStyle:"italic"}}>{exLog.notes}</span>}</div>);
                                 })}
                               </div>
                             )}
-                            {done&&pLog.notes&&(
-                              <div style={{color:C.muted,fontSize:11,marginTop:4,fontStyle:"italic"}}>
-                                "{pLog.notes}"
-                              </div>
-                            )}
+                            {done&&pLog.notes&&<div style={{color:C.muted,fontSize:11,marginTop:4,fontStyle:"italic"}}>"{pLog.notes}"</div>}
                           </div>
                         </div>
                       );
@@ -3076,47 +3122,193 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
         </>
       )}
 
-      {/* Templates tab */}
+      {/* ── TEMPLATES ── */}
       {wkTab==="templates"&&(
         <>
           {templates.length===0&&(
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
-              padding:"48px 24px",textAlign:"center"}}>
-              <div style={{fontSize:36,marginBottom:8}}>📋</div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
               <div style={{color:C.text,fontSize:15,fontWeight:600,marginBottom:6}}>No templates yet</div>
               <div style={{color:C.muted,fontSize:13}}>Check "Save as template" when creating a workout</div>
             </div>
           )}
-          {templates.map(function(tpl){
+          {templates.map(function(tpl){return(
+            <div key={tpl.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:10,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:C.text,fontWeight:700,fontSize:14}}>{tpl.title}</div>
+                {tpl.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{tpl.description}</div>}
+                <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
+                  {(tpl.exercises||[]).map(ex=><span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:5,padding:"2px 7px",fontSize:11,color:C.muted}}>{ex.name}</span>)}
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                <button onClick={()=>assignTemplate(tpl)} style={{padding:"7px 14px",background:C.accent,border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:12,cursor:"pointer"}}>Assign →</button>
+                <button onClick={()=>{if(window.confirm("Delete template?"))setWorkouts(prev=>prev.filter(w=>w.id!==tpl.id));}} style={{padding:"5px 10px",background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:11}}>Delete</button>
+              </div>
+            </div>
+          );})}
+        </>
+      )}
+
+      {/* ── PROGRAMS ── */}
+      {wkTab==="programs"&&(
+        <>
+          {/* Active programs */}
+          {programs.map(function(pw){
+            const prog=PREBUILT_PROGRAMS.find(p=>p.id===pw.programId);
+            if(!prog) return null;
+            const weekIdx=(pw.currentWeek||1)-1;
+            const weekData=prog.weeks[weekIdx];
+            const phase=prog.phases.find(ph=>ph.weeks.includes(weekIdx+1));
+            const total=(roster||[]).length;
             return(
-              <div key={tpl.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                borderRadius:14,padding:16,marginBottom:10,
-                display:"flex",alignItems:"center",gap:12}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:C.text,fontWeight:700,fontSize:14}}>{tpl.title}</div>
-                  {tpl.description&&<div style={{color:C.muted,fontSize:12,marginTop:2}}>{tpl.description}</div>}
-                  <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
-                    {(tpl.exercises||[]).map(function(ex){
+              <div key={pw.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,marginBottom:16,overflow:"hidden"}}>
+                <div style={{padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{color:C.text,fontWeight:700,fontSize:16}}>{pw.title}</span>
+                        {phase&&<span style={{background:phase.color+"22",color:phase.color,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{phase.label}</span>}
+                      </div>
+                      <div style={{color:C.muted,fontSize:12}}>Week {weekIdx+1} of 8 · Activated {pw.createdAt}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      {weekIdx>0&&<button onClick={()=>setWorkouts(prev=>prev.map(w=>w.id===pw.id?{...w,currentWeek:(pw.currentWeek||1)-1}:w))} style={{padding:"6px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,cursor:"pointer",fontSize:11}}>← Prev</button>}
+                      {weekIdx<7&&<button onClick={()=>setWorkouts(prev=>prev.map(w=>w.id===pw.id?{...w,currentWeek:(pw.currentWeek||1)+1}:w))} style={{padding:"6px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>Next Week →</button>}
+                      <button onClick={()=>{if(window.confirm("Remove this program?"))setWorkouts(prev=>prev.filter(w=>w.id!==pw.id));}} style={{padding:"6px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,cursor:"pointer",fontSize:11}}>Remove</button>
+                    </div>
+                  </div>
+                  {/* Phase progress */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginTop:12}}>
+                    {prog.phases.map(function(ph){
+                      const phaseWeeks=ph.weeks;
+                      const done=phaseWeeks.every(w=>w<=weekIdx);
+                      const active=phaseWeeks.includes(weekIdx+1);
                       return(
-                        <span key={ex.id} style={{background:C.surface,border:`1px solid ${C.border}`,
-                          borderRadius:5,padding:"2px 7px",fontSize:11,color:C.muted}}>
-                          {ex.name}
-                        </span>
+                        <div key={ph.label} style={{background:active?ph.color+"18":done?ph.color+"0a":C.surface,border:`1px solid ${active?ph.color+"44":done?ph.color+"22":C.border}`,borderRadius:8,padding:"6px 10px"}}>
+                          <div style={{fontSize:9,color:active?ph.color:done?ph.color+"99":C.muted,fontWeight:700,letterSpacing:1}}>{ph.label.toUpperCase()}</div>
+                          <div style={{fontSize:11,color:active?ph.color:C.muted,marginTop:1}}>Wk {ph.weeks.join(",")} {active?"← Now":done?"✓":""}</div>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                  <button onClick={()=>assignTemplate(tpl)}
-                    style={{padding:"7px 14px",background:C.accent,border:"none",
-                      borderRadius:8,color:"#000",fontWeight:800,fontSize:12,cursor:"pointer"}}>
-                    Assign →
+                {/* Weekly two-track grid */}
+                {weekData&&(
+                  <div style={{padding:"14px 18px"}}>
+                    <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:8}}>WEEK {weekIdx+1} — {weekData.note||""}</div>
+                    {/* Legend */}
+                    <div style={{display:"flex",gap:12,marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:2,background:"#378add"}}></div><span style={{fontSize:10,color:C.muted}}>Conditioning</span></div>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:2,background:C.accent}}></div><span style={{fontSize:10,color:C.muted}}>Ball Training</span></div>
+                    </div>
+                    <div style={{overflowX:"auto"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"50px repeat(7,1fr)",gap:5,minWidth:520}}>
+                        {/* Header */}
+                        <div></div>
+                        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>(
+                          <div key={d} style={{textAlign:"center",fontSize:9,color:C.muted,fontWeight:700,paddingBottom:4}}>{d.toUpperCase()}</div>
+                        ))}
+                        {/* Conditioning row */}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:6}}>
+                          <span style={{fontSize:8,color:"#378add",fontWeight:700,letterSpacing:0.5}}>COND</span>
+                        </div>
+                        {weekData.days.map(function(day,di){
+                          const key="w"+(weekIdx+1)+"d"+di;
+                          const condDone=(roster||[]).filter(p=>((p.workoutLog||{})[pw.id]||{})[key]?.condDone).length;
+                          const isRest=!day.cond.title||day.cond.title==="Rest";
+                          return(
+                            <div key={di} style={{background:isRest?"transparent":condDone>0?"#e6f1fb":"var(--color-background-secondary) " ,border:isRest?"none":"0.5px solid "+(condDone>0?"#85b7eb":"var(--color-border-tertiary)"),borderRadius:7,padding:"6px 5px",textAlign:"center",minHeight:48,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                              {!isRest&&<>
+                                <div style={{fontSize:9,fontWeight:600,color:"#0c447c",lineHeight:1.2}}>{day.cond.title.split(" ").slice(0,3).join(" ")}</div>
+                                {condDone>0&&<div style={{fontSize:8,color:"#27a560",marginTop:2}}>{condDone}/{total}</div>}
+                              </>}
+                              {isRest&&<div style={{fontSize:9,color:C.muted}}>Rest</div>}
+                            </div>
+                          );
+                        })}
+                        {/* Ball row */}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:6}}>
+                          <span style={{fontSize:8,color:C.accent,fontWeight:700,letterSpacing:0.5}}>BALL</span>
+                        </div>
+                        {weekData.days.map(function(day,di){
+                          const key="w"+(weekIdx+1)+"d"+di;
+                          const ballDone=(roster||[]).filter(p=>((p.workoutLog||{})[pw.id]||{})[key]?.ballDone).length;
+                          const isLight=!day.ball.title||day.ball.title.toLowerCase().includes("rest");
+                          return(
+                            <div key={di} style={{background:isLight?"transparent":ballDone>0?"#fff7ed":"var(--color-background-secondary)",border:isLight?"none":"0.5px solid "+(ballDone>0?"#fed7aa":"var(--color-border-tertiary)"),borderRadius:7,padding:"6px 5px",textAlign:"center",minHeight:48,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                              {!isLight&&<>
+                                <div style={{fontSize:9,fontWeight:600,color:"#9a3412",lineHeight:1.2}}>{day.ball.title.split(" ").slice(0,3).join(" ")}</div>
+                                {ballDone>0&&<div style={{fontSize:8,color:"#27a560",marginTop:2}}>{ballDone}/{total}</div>}
+                              </>}
+                              {isLight&&<div style={{fontSize:9,color:C.muted}}>{day.ball.title||"Rest"}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* Completion summary */}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12}}>
+                      <div style={{background:C.surface,borderRadius:8,padding:"8px 12px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontSize:11,color:"#185fa5",fontWeight:600}}>Conditioning</span>
+                          <span style={{fontSize:11,color:C.text}}>{(()=>{let d=0;weekData.days.forEach((day,di)=>{const key="w"+(weekIdx+1)+"d"+di;if((roster||[]).some(p=>((p.workoutLog||{})[pw.id]||{})[key]?.condDone)) d++;});return d;})()}/{weekData.days.filter(d=>d.cond.title&&d.cond.title!=="Rest").length} days</span>
+                        </div>
+                        <div style={{height:5,background:"#e6f1fb",borderRadius:4}}><div style={{height:5,background:"#378add",borderRadius:4,width:(()=>{let d=0,t=0;weekData.days.forEach((day,di)=>{const key="w"+(weekIdx+1)+"d"+di;if(day.cond.title&&day.cond.title!=="Rest"){t++;if((roster||[]).some(p=>((p.workoutLog||{})[pw.id]||{})[key]?.condDone)) d++;}});return t?Math.round(d/t*100):0;})()+"%" }}></div></div>
+                      </div>
+                      <div style={{background:C.surface,borderRadius:8,padding:"8px 12px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontSize:11,color:C.accent,fontWeight:600}}>Ball Training</span>
+                          <span style={{fontSize:11,color:C.text}}>{(()=>{let d=0;weekData.days.forEach((day,di)=>{const key="w"+(weekIdx+1)+"d"+di;if((roster||[]).some(p=>((p.workoutLog||{})[pw.id]||{})[key]?.ballDone)) d++;});return d;})()}/{weekData.days.filter(d=>d.ball.title&&!d.ball.title.toLowerCase().includes("rest")).length} days</span>
+                        </div>
+                        <div style={{height:5,background:"#fff7ed",borderRadius:4}}><div style={{height:5,background:C.accent,borderRadius:4,width:(()=>{let d=0,t=0;weekData.days.forEach((day,di)=>{const key="w"+(weekIdx+1)+"d"+di;if(day.ball.title&&!day.ball.title.toLowerCase().includes("rest")){t++;if((roster||[]).some(p=>((p.workoutLog||{})[pw.id]||{})[key]?.ballDone)) d++;}});return t?Math.round(d/t*100):0;})()+"%" }}></div></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Available programs to activate */}
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:10,marginTop:programs.length?16:0}}>
+            {programs.length?"AVAILABLE PROGRAMS":"PROGRAM LIBRARY"}
+          </div>
+          {PREBUILT_PROGRAMS.map(function(prog){
+            const alreadyActive=programs.some(p=>p.programId===prog.id);
+            return(
+              <div key={prog.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:2}}>{prog.name}</div>
+                    <div style={{color:C.muted,fontSize:12,marginBottom:8}}>{prog.subtitle}</div>
+                    <div style={{color:C.muted,fontSize:12,marginBottom:10}}>{prog.description}</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {prog.phases.map(ph=>(
+                        <span key={ph.label} style={{background:ph.color+"18",color:ph.color,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20}}>
+                          {ph.label} (Wk {ph.weeks.join("-")})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={()=>!alreadyActive&&activateProgram(prog)}
+                    style={{padding:"10px 18px",background:alreadyActive?C.surface:C.accent,border:`1px solid ${alreadyActive?C.border:"transparent"}`,borderRadius:10,color:alreadyActive?C.muted:"#000",fontWeight:800,fontSize:13,cursor:alreadyActive?"default":"pointer",whiteSpace:"nowrap",fontFamily:"'Oswald',sans-serif"}}>
+                    {alreadyActive?"Active ✓":"Activate →"}
                   </button>
-                  <button onClick={()=>{if(window.confirm("Delete template?"))setWorkouts(prev=>prev.filter(w=>w.id!==tpl.id));}}
-                    style={{padding:"5px 10px",background:"none",border:"none",
-                      color:C.muted,cursor:"pointer",fontSize:11}}>
-                    Delete
-                  </button>
+                </div>
+                {/* Benchmarks preview */}
+                <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  <div>
+                    <div style={{color:"#378add",fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:6}}>CONDITIONING TARGETS</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                      {prog.condBenchmarks.map(b=><span key={b.name} style={{background:"#e6f1fb",color:"#0c447c",fontSize:10,padding:"2px 7px",borderRadius:5}}>{b.name}: {b.target}</span>)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{color:C.accent,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:6}}>BALL TARGETS</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                      {prog.ballBenchmarks.map(b=><span key={b.name} style={{background:"#fff7ed",color:"#9a3412",fontSize:10,padding:"2px 7px",borderRadius:5}}>{b.name}: {b.target}</span>)}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -15257,7 +15449,159 @@ function PlayerPortalPage(){
         })()}
 
                 {tab==="workouts"&&(
-          <div style={{maxWidth:680}}>
+          <div style={{maxWidth:700}}>
+            {/* Active programs first */}
+            {(teamWorkouts||[]).filter(w=>w.type==="program").map(function(pw){
+              const prog=PREBUILT_PROGRAMS.find(p=>p.id===pw.programId);
+              if(!prog) return null;
+              const weekIdx=(pw.currentWeek||1)-1;
+              const weekData=prog.weeks[weekIdx];
+              const phase=prog.phases.find(ph=>ph.weeks.includes(weekIdx+1));
+              var [selDay,setSelDay]=React.useState(null);
+              const today=new Date().getDay();
+              const dayMap=[1,2,3,4,5,6,0];
+              const todayIdx=dayMap.indexOf(today);
+              return(
+                <div key={pw.id} style={{marginBottom:20}}>
+                  <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:14,overflow:"hidden"}}>
+                    <div style={{padding:"14px 16px",borderBottom:"1px solid #f0f0f0"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{fontWeight:700,fontSize:15,color:"#111"}}>{pw.title}</span>
+                        {phase&&<span style={{background:phase.color+"22",color:phase.color,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{phase.label}</span>}
+                      </div>
+                      <div style={{color:"#888",fontSize:12}}>Week {weekIdx+1} of 8{weekData&&" · "+weekData.note}</div>
+                      {/* Phase mini bars */}
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:10}}>
+                        {prog.phases.map(function(ph){
+                          const active=ph.weeks.includes(weekIdx+1);
+                          const done=ph.weeks.every(w=>w<=weekIdx);
+                          return(<div key={ph.label} style={{textAlign:"center",padding:"4px 6px",background:active?ph.color+"18":done?ph.color+"0a":"#f9f9f9",borderRadius:6,border:"0.5px solid "+(active?ph.color+"44":"#e8eaed")}}>
+                            <div style={{fontSize:8,color:active?ph.color:done?ph.color+"99":"#bbb",fontWeight:700}}>{ph.label}</div>
+                            <div style={{fontSize:9,color:active?ph.color:"#bbb"}}>{active?"← Now":done?"✓":"Wk "+ph.weeks[0]}</div>
+                          </div>);
+                        })}
+                      </div>
+                    </div>
+                    {weekData&&(
+                      <div style={{padding:"12px 16px"}}>
+                        <div style={{display:"flex",gap:6,marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:7,height:7,borderRadius:2,background:"#378add"}}></div><span style={{fontSize:10,color:"#888"}}>Conditioning</span></div>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:7,height:7,borderRadius:2,background:A}}></div><span style={{fontSize:10,color:"#888"}}>Ball Training</span></div>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:12}}>
+                          {weekData.days.map(function(day,di){
+                            const key="w"+(weekIdx+1)+"d"+di;
+                            const dayLog=(wkLog[pw.id]||{})[key]||{};
+                            const isToday=di===todayIdx;
+                            const condDone=dayLog.condDone;
+                            const ballDone=dayLog.ballDone;
+                            const isSelected=selDay===di;
+                            return(
+                              <div key={di} onClick={()=>setSelDay(isSelected?null:di)}
+                                style={{cursor:"pointer",border:"1.5px solid "+(isSelected?A:isToday?"#378add":"#e8eaed"),borderRadius:9,overflow:"hidden",background:isSelected?A+"08":"#fff"}}>
+                                <div style={{textAlign:"center",padding:"4px 2px",background:isToday?"#378add":isSelected?A+"18":"#f9f9f9",borderBottom:"1px solid #f0f0f0"}}>
+                                  <div style={{fontSize:8,fontWeight:700,color:isToday?"#fff":isSelected?A:"#999"}}>{day.day.toUpperCase()}</div>
+                                </div>
+                                <div style={{padding:"4px 3px",display:"flex",flexDirection:"column",gap:3}}>
+                                  <div style={{height:16,borderRadius:3,background:condDone?"#27a560":day.cond.title&&day.cond.title!=="Rest"?"#e6f1fb":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                    {condDone&&<span style={{fontSize:8,color:"#fff"}}>✓</span>}
+                                    {!condDone&&day.cond.title&&day.cond.title!=="Rest"&&<span style={{fontSize:7,color:"#378add",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px",maxWidth:"100%"}}>{day.cond.title.split(" ")[0]}</span>}
+                                  </div>
+                                  <div style={{height:16,borderRadius:3,background:ballDone?"#27a560":day.ball.title&&!day.ball.title.toLowerCase().includes("rest")?"#fff7ed":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                    {ballDone&&<span style={{fontSize:8,color:"#fff"}}>✓</span>}
+                                    {!ballDone&&day.ball.title&&!day.ball.title.toLowerCase().includes("rest")&&<span style={{fontSize:7,color:A,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px",maxWidth:"100%"}}>{day.ball.title.split(" ")[0]}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Day detail */}
+                        {selDay!==null&&weekData.days[selDay]&&(function(){
+                          const day=weekData.days[selDay];
+                          const key="w"+(weekIdx+1)+"d"+selDay;
+                          const dayLog=(wkLog[pw.id]||{})[key]||{};
+                          function saveDayLog(updates){
+                            var newLog=Object.assign({},wkLog);
+                            var pwEntry=Object.assign({},wkLog[pw.id]||{});
+                            pwEntry[key]=Object.assign({},dayLog,updates);
+                            newLog[pw.id]=pwEntry;
+                            setWkLog(newLog);
+                            saveField("workoutLog",newLog);
+                          }
+                          return(
+                            <div style={{borderTop:"1px solid #f0f0f0",paddingTop:12}}>
+                              <div style={{fontSize:11,color:"#888",fontWeight:700,letterSpacing:1,marginBottom:10}}>
+                                {day.day.toUpperCase()} — DETAIL
+                              </div>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                                {/* Conditioning card */}
+                                <div style={{background:"#f0f6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:12}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                                    <div style={{width:7,height:7,borderRadius:2,background:"#378add"}}></div>
+                                    <span style={{fontSize:9,color:"#185fa5",fontWeight:700,letterSpacing:1}}>CONDITIONING</span>
+                                  </div>
+                                  <div style={{fontSize:13,fontWeight:700,color:"#111",marginBottom:2}}>{day.cond.title}</div>
+                                  {day.cond.duration&&<div style={{fontSize:11,color:"#888",marginBottom:8}}>{day.cond.duration}</div>}
+                                  <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+                                    {day.cond.items.map(function(item,i){return(
+                                      <div key={i} style={{fontSize:11,color:"#333",padding:"4px 6px",background:"rgba(255,255,255,0.6)",borderRadius:5}}>• {item}</div>
+                                    );})}
+                                  </div>
+                                  {!day.cond.title.includes("Rest")&&!isViewOnly&&!isRecruiterView&&(
+                                    <>
+                                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:6}}>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>DURATION</div><input value={dayLog.condDuration||""} onChange={e=>saveDayLog({condDuration:e.target.value})} placeholder="min" style={{width:"100%",padding:"4px 6px",border:"1px solid #bfdbfe",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>RPE (1-10)</div><input type="number" min="1" max="10" value={dayLog.condRpe||""} onChange={e=>saveDayLog({condRpe:e.target.value})} placeholder="7" style={{width:"100%",padding:"4px 6px",border:"1px solid #bfdbfe",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>RESTING HR</div><input type="number" value={dayLog.condHr||""} onChange={e=>saveDayLog({condHr:e.target.value})} placeholder="bpm" style={{width:"100%",padding:"4px 6px",border:"1px solid #bfdbfe",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>SORENESS</div><input type="number" min="1" max="10" value={dayLog.condSoreness||""} onChange={e=>saveDayLog({condSoreness:e.target.value})} placeholder="1-10" style={{width:"100%",padding:"4px 6px",border:"1px solid #bfdbfe",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                      </div>
+                                      <button onClick={()=>saveDayLog({condDone:!dayLog.condDone,condDoneAt:!dayLog.condDone?new Date().toISOString().split("T")[0]:null})}
+                                        style={{width:"100%",padding:"7px",background:dayLog.condDone?"#f5f5f5":"#378add",border:"none",borderRadius:7,color:dayLog.condDone?"#888":"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                                        {dayLog.condDone?"✓ Done — Undo":"Mark Conditioning Done"}
+                                      </button>
+                                    </>
+                                  )}
+                                  {(isViewOnly||isRecruiterView)&&dayLog.condDone&&<div style={{color:"#27a560",fontSize:11,fontWeight:700}}>✓ Completed {dayLog.condDoneAt||""}</div>}
+                                </div>
+                                {/* Ball card */}
+                                <div style={{background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:10,padding:12}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                                    <div style={{width:7,height:7,borderRadius:2,background:A}}></div>
+                                    <span style={{fontSize:9,color:"#c2410c",fontWeight:700,letterSpacing:1}}>BALL TRAINING</span>
+                                  </div>
+                                  <div style={{fontSize:13,fontWeight:700,color:"#111",marginBottom:2}}>{day.ball.title}</div>
+                                  {day.ball.duration&&<div style={{fontSize:11,color:"#888",marginBottom:8}}>{day.ball.duration}</div>}
+                                  <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+                                    {day.ball.items.map(function(item,i){return(
+                                      <div key={i} style={{fontSize:11,color:"#333",padding:"4px 6px",background:"rgba(255,255,255,0.6)",borderRadius:5}}>• {item}</div>
+                                    );})}
+                                  </div>
+                                  {!day.ball.title.toLowerCase().includes("rest")&&!isViewOnly&&!isRecruiterView&&(
+                                    <>
+                                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:6}}>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>TOUCHES</div><input type="number" value={dayLog.ballTouches||""} onChange={e=>saveDayLog({ballTouches:e.target.value})} placeholder="1200" style={{width:"100%",padding:"4px 6px",border:"1px solid #fed7aa",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                        <div><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>JUGGLING PR</div><input type="number" value={dayLog.ballJugPr||""} onChange={e=>saveDayLog({ballJugPr:e.target.value})} placeholder="reps" style={{width:"100%",padding:"4px 6px",border:"1px solid #fed7aa",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                      </div>
+                                      <div style={{marginBottom:6}}><div style={{fontSize:8,color:"#888",letterSpacing:1,marginBottom:2}}>MOVES WORKED</div><input value={dayLog.ballMoves||""} onChange={e=>saveDayLog({ballMoves:e.target.value})} placeholder="e.g. Cruyff, Maradona..." style={{width:"100%",padding:"4px 6px",border:"1px solid #fed7aa",borderRadius:5,fontSize:11,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/></div>
+                                      <button onClick={()=>saveDayLog({ballDone:!dayLog.ballDone,ballDoneAt:!dayLog.ballDone?new Date().toISOString().split("T")[0]:null})}
+                                        style={{width:"100%",padding:"7px",background:dayLog.ballDone?"#f5f5f5":A,border:"none",borderRadius:7,color:dayLog.ballDone?"#888":"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                                        {dayLog.ballDone?"✓ Done — Undo":"Mark Ball Session Done"}
+                                      </button>
+                                    </>
+                                  )}
+                                  {(isViewOnly||isRecruiterView)&&dayLog.ballDone&&<div style={{color:"#27a560",fontSize:11,fontWeight:700}}>✓ Completed {dayLog.ballDoneAt||""}</div>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             {teamWorkouts.length===0&&(
               <div style={{background:"#fff",border:"1px solid #e8eaed",borderRadius:12,
                 padding:"48px 24px",textAlign:"center"}}>
