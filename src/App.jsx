@@ -5663,12 +5663,56 @@ export default function CoachIQStats(){
   const hasLoadedOnce = useRef(false);
   const [saveQueue,   setSaveQueue]     = useState({});
 
+  // ── User-level subscription check (survives team deletion) ─────────────────
+  async function checkUserSubscription(uid, fallbackTeams){
+    try{
+      // Primary: per-user subscriptions table
+      const {data:subRow} = await supabase.from("subscriptions")
+        .select("status").eq("user_id", uid).single();
+      if(subRow?.status){
+        const elite = subRow.status==="elite";
+        const pro   = elite || subRow.status==="pro";
+        setIsElite(elite); setIsPro(pro);
+        return;
+      }
+    }catch(e){}
+    try{
+      // Secondary: team rows (legacy)
+      const {data:teamRows} = await supabase.from("teams")
+        .select("id,subscription_status").eq("user_id",uid);
+      const statuses=[
+        ...(teamRows||[]).map(t=>t.subscription_status),
+        ...(fallbackTeams||[]).map(t=>t.subscription_status),
+      ];
+      const elite=statuses.some(s=>s==="elite");
+      const pro=elite||statuses.some(s=>s==="pro");
+      setIsElite(elite); setIsPro(pro);
+      // If found on team, migrate to subscriptions table
+      if(pro||elite){
+        const status=elite?"elite":"pro";
+        await supabase.from("subscriptions")
+          .upsert({user_id:uid,status},{ onConflict:"user_id" });
+      }
+    }catch(e){
+      // Final fallback
+      const statuses=(fallbackTeams||[]).map(t=>t.subscription_status);
+      setIsElite(statuses.some(s=>s==="elite"));
+      setIsPro(statuses.some(s=>s==="pro"||s==="elite"));
+    }
+  }
+
   // Post-checkout redirect check — must be before any returns
   useEffect(()=>{
     const params = new URLSearchParams(window.location.search);
     if(params.get("upgraded")==="true"){
-      setIsPro(true);
+      setIsPro(true); setIsElite(true);
       window.history.replaceState({},"",window.location.pathname);
+      // Write to user-level subscriptions table
+      if(userId){
+        supabase.from("subscriptions")
+          .upsert({user_id:userId,status:"elite"},{onConflict:"user_id"})
+          .then(()=>{});
+      }
     }
   },[]);
 
@@ -5682,14 +5726,7 @@ export default function CoachIQStats(){
   useEffect(()=>{
     async function checkSub(){
       if(!userId) return;
-      try{
-        const {data:subData} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
-        const statuses = (subData||[]).map(t=>t.subscription_status);
-        if(statuses.length>0){
-          setIsElite(statuses.some(s=>s==="elite"));
-          setIsPro(statuses.some(s=>s==="elite"||s==="pro"));
-        }
-      }catch(e){}
+      await checkUserSubscription(userId,[]);
     }
     function onVisible(){ if(document.visibilityState==="visible") checkSub(); }
     document.addEventListener("visibilitychange", onVisible);
@@ -5721,24 +5758,8 @@ export default function CoachIQStats(){
       setTeamsState(myTeams);
       hasLoadedOnce.current = true;
       const tid = myTeams[0]?.id;
-      // Check subscription using already-loaded team data + direct DB query
-      try{
-        // Use .eq() not {filter:} — correct supabase-js v2 syntax
-        const {data:subData} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
-        const allStatuses = [
-          ...(subData||[]).map(t=>t.subscription_status),
-          ...myTeams.map(t=>t.subscription_status),
-        ];
-        const isEliteUser = allStatuses.some(s=>s==="elite");
-        const isProUser   = isEliteUser || allStatuses.some(s=>s==="pro");
-        setIsElite(isEliteUser);
-        setIsPro(isProUser);
-      }catch(e){
-        // Fallback to myTeams data
-        const statuses = myTeams.map(t=>t.subscription_status);
-        setIsElite(statuses.some(s=>s==="elite"));
-        setIsPro(statuses.some(s=>s==="pro"||s==="elite"));
-      }
+      // Check subscription per user (not per team)
+      await checkUserSubscription(userId, myTeams);
       setActiveTeamId(tid);
 
       if(tid){
@@ -12871,16 +12892,17 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
             <div style={{marginBottom:12}}>
               <button onClick={async()=>{
                 try{
-                  const {data} = await supabase.from("teams").select("id,subscription_status").eq("user_id",userId);
-                  const statuses=(data||[]).map(t=>t.subscription_status);
-                  const elite=statuses.some(s=>s==="elite");
-                  const pro=elite||statuses.some(s=>s==="pro");
-                  if(pro||elite){
-                    setIsElite(elite); setIsPro(pro);
-                    alert("Subscription restored! "+(elite?"Elite":"Pro")+" features unlocked.");
-                  } else {
-                    alert("No active subscription found on this account.\nIf you believe this is an error, contact support.");
-                  }
+                  await checkUserSubscription(userId,[]);
+                  // Re-read state to show result
+                  setTimeout(async()=>{
+                    const {data:row} = await supabase.from("subscriptions")
+                      .select("status").eq("user_id",userId).single();
+                    if(row?.status==="elite"||row?.status==="pro"){
+                      alert("Subscription restored! "+(row.status==="elite"?"Elite":"Pro")+" features unlocked.");
+                    } else {
+                      alert("No active subscription found.\nGo to Supabase → subscriptions table and set your status to 'elite'.");
+                    }
+                  },500);
                 }catch(e){ alert("Could not check subscription: "+e.message); }
               }} style={{width:"100%",padding:"11px",background:C.surface,
                 border:`1px solid ${C.border}`,borderRadius:9,color:C.text,
