@@ -14277,16 +14277,25 @@ function PlayerPortalPage(){
         return;
       }
       var path = 'players/'+playerId+'.'+ext;
-      var {error:upErr} = await supabase.storage
-        .from('player-photos')
-        .upload(path, file, {upsert:true, contentType:file.type});
-      if(upErr) throw upErr;
-      var {data:urlData} = supabase.storage
-        .from('player-photos')
-        .getPublicUrl(path);
-      var publicUrl = urlData.publicUrl;
-      // Cache-bust so browser shows new photo immediately
-      publicUrl = publicUrl + '?t=' + Date.now();
+      var bucket = 'player-photos';
+      // Use Supabase Storage REST API directly (custom client has no .storage)
+      var uploadUrl = SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path;
+      var res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer '+SUPABASE_KEY,
+          'apikey': SUPABASE_KEY,
+          'Content-Type': file.type,
+          'x-upsert': 'true',
+        },
+        body: file,
+      });
+      if(!res.ok){
+        var errData = await res.json().catch(function(){return {};});
+        throw new Error(errData.message||('Upload failed: '+res.status));
+      }
+      // Construct public URL
+      var publicUrl = SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path+'?t='+Date.now();
       setPhotoUrl(publicUrl);
       setDraft(function(d){ return Object.assign({},d,{photoUrl:publicUrl}); });
       await saveField('photoUrl', publicUrl);
