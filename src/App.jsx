@@ -14694,7 +14694,7 @@ function PlayerPortalPage(){
             </div>
 
             {/* Name + info */}
-            <div style={{flex:1,minWidth:200,paddingBottom:8,paddingTop:4}}>
+            <div className="portal-name-block">
               <h1 className="portal-name" style={{color:"#111",fontFamily:"'Oswald',sans-serif",fontWeight:900,margin:"0 0 4px",lineHeight:1.1,textShadow:"0 1px 0 rgba(255,255,255,0.5)"}}>{player.name}</h1>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {editMode?(
