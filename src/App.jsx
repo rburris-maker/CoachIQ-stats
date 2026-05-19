@@ -8912,42 +8912,150 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             <div style={{color:C.text,fontSize:15,fontWeight:600}}>No sessions {filterTag!=="All"?`tagged "${filterTag}"`:""} yet</div>
             <div style={{color:C.muted,fontSize:13,marginTop:6}}>Log your first training session</div>
           </div>
-        : <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {filtered.map(session=>{
-              const col=FOCUS_COLORS[session.focus]||C.accent;
-              const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
-              const att=session.attendance||{};
-              const pres=Object.values(att).filter(v=>v==="present").length;
-              const total=Object.keys(att).length;
-              const blocks=session.blocks||{};
-              const drillCount=Object.values(blocks).flat().length;
-              return(
-                <div key={session.id} onClick={()=>setSel(session.id)}
-                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"all .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor=col}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-                  <div style={{width:44,height:44,borderRadius:10,background:col+"22",border:`2px solid ${col}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <Dumbbell size={20} color={col}/>
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
-                      <Tag color={col}>{session.focus}</Tag>
-                      <span style={{color:C.muted,fontSize:12}}>{session.duration} mins</span>
-                      {linked&&<span style={{color:C.muted,fontSize:12}}>· {linked.opponent}</span>}
+        : (()=>{
+            const today=new Date().toISOString().split("T")[0];
+            // Sort: upcoming first (asc), then past (desc)
+            const sorted=[...filtered].sort(function(a,b){
+              const aUp=(a.date||"")>=today, bUp=(b.date||"")>=today;
+              if(aUp&&!bUp) return -1;
+              if(!aUp&&bUp) return 1;
+              if(aUp&&bUp) return (a.date||"").localeCompare(b.date||"");
+              return (b.date||"").localeCompare(a.date||"");
+            });
+            // Group by month
+            const groups={};
+            sorted.forEach(function(s){
+              const d=s.date||"";
+              const key=d.slice(0,7); // "2026-05"
+              if(!groups[key]) groups[key]=[];
+              groups[key].push(s);
+            });
+            const monthKeys=Object.keys(groups);
+            return(
+              <div>
+                {monthKeys.map(function(mk){
+                  const [yr,mo]=mk.split("-");
+                  const monthName=new Date(parseInt(yr),parseInt(mo)-1,1)
+                    .toLocaleString("default",{month:"long",year:"numeric"});
+                  return(
+                    <div key={mk} style={{marginBottom:20}}>
+                      {/* Month header */}
+                      <div style={{display:"flex",alignItems:"center",gap:10,
+                        marginBottom:8,paddingBottom:6,
+                        borderBottom:`1px solid ${C.border}`}}>
+                        <span style={{color:C.muted,fontSize:10,fontWeight:700,
+                          letterSpacing:2,textTransform:"uppercase"}}>
+                          {monthName}
+                        </span>
+                        <span style={{color:C.muted,fontSize:10}}>
+                          {groups[mk].length} session{groups[mk].length!==1?"s":""}
+                        </span>
+                      </div>
+                      {/* Session rows */}
+                      {groups[mk].map(function(session){
+                        const col=FOCUS_COLORS[session.focus]||C.accent;
+                        const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
+                        const att=session.attendance||{};
+                        const pres=Object.values(att).filter(v=>v==="present").length;
+                        const total=Object.keys(att).length;
+                        const blocks=session.blocks||{};
+                        const drillCount=Object.values(blocks).flat().length;
+                        const isPast=(session.date||"")<=today;
+                        const hasAtt=total>0;
+                        // Status
+                        const status=!isPast?"upcoming":hasAtt?"done":"no-att";
+                        const STATUS_STYLES={
+                          upcoming:{bg:C.accent+"18",color:C.accent,label:"Upcoming"},
+                          done:{bg:"#27a56018",color:"#27a560",label:"Done"},
+                          "no-att":{bg:C.danger+"18",color:C.danger,label:"Attendance?"},
+                        };
+                        const ss=STATUS_STYLES[status];
+                        // Day of week
+                        const dow=session.date?new Date(session.date+"T12:00:00")
+                          .toLocaleString("default",{weekday:"short"}):"";
+                        const dayNum=session.date?session.date.split("-")[2]:"";
+                        return(
+                          <div key={session.id} onClick={()=>setSel(session.id)}
+                            style={{background:C.card,
+                              borderTop:`1px solid ${C.border}`,
+                              borderBottom:`1px solid ${C.border}`,
+                              borderRight:`1px solid ${C.border}`,
+                              borderLeft:`3px solid ${col}`,
+                              borderRadius:"0 10px 10px 0",
+                              padding:"11px 14px",cursor:"pointer",
+                              display:"flex",alignItems:"center",gap:12,
+                              marginBottom:6,transition:"background .1s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background=col+"0a"}
+                            onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+                            {/* Date column */}
+                            <div style={{textAlign:"center",minWidth:32,flexShrink:0}}>
+                              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",
+                                fontWeight:700,fontSize:17,lineHeight:1}}>{dayNum}</div>
+                              <div style={{color:C.muted,fontSize:9,fontWeight:600,
+                                textTransform:"uppercase",marginTop:1}}>{dow}</div>
+                            </div>
+                            {/* Divider */}
+                            <div style={{width:1,height:32,background:C.border,flexShrink:0}}/>
+                            {/* Main content */}
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:"flex",alignItems:"center",
+                                gap:7,marginBottom:3,flexWrap:"wrap"}}>
+                                <span style={{color:C.text,fontWeight:700,fontSize:13}}>
+                                  {session.title||session.focus||"Practice"}
+                                </span>
+                                <span style={{background:col+"22",color:col,
+                                  fontSize:10,fontWeight:700,padding:"1px 7px",
+                                  borderRadius:20}}>
+                                  {session.focus}
+                                </span>
+                                {linked&&<span style={{color:C.muted,fontSize:11}}>
+                                  · vs {linked.opponent}
+                                </span>}
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",
+                                gap:10,flexWrap:"wrap"}}>
+                                {session.duration>0&&(
+                                  <span style={{color:C.muted,fontSize:11}}>
+                                    {session.duration} min
+                                  </span>
+                                )}
+                                {drillCount>0&&(
+                                  <span style={{color:C.muted,fontSize:11}}>
+                                    · {drillCount} drill{drillCount!==1?"s":""}
+                                  </span>
+                                )}
+                                {hasAtt&&(
+                                  <span style={{color:pres===total?"#27a560":C.muted,
+                                    fontSize:11,fontWeight:pres===total?600:400}}>
+                                    · {pres}/{total} present
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Status badge */}
+                            <div style={{flexShrink:0,display:"flex",
+                              flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                              <span style={{background:ss.bg,color:ss.color,
+                                fontSize:10,fontWeight:700,padding:"3px 9px",
+                                borderRadius:20}}>
+                                {ss.label}
+                              </span>
+                              {(session.rating||0)>0&&(
+                                <div style={{color:C.warning,fontSize:10}}>
+                                  {"★".repeat(session.rating)}{"☆".repeat(5-session.rating)}
+                                </div>
+                              )}
+                            </div>
+                            <ChevronRight size={14} color={C.muted} style={{flexShrink:0}}/>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div style={{color:C.text,fontWeight:700,fontSize:14}}>{fmtDate(session.date)}</div>
-                    {session.objectives&&<div style={{color:C.muted,fontSize:12,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{session.objectives}</div>}
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",gap:3,alignItems:"flex-end"}}>
-                    {(session.rating||0)>0&&<div style={{color:C.warning,fontSize:11}}>{"★".repeat(session.rating)}{"☆".repeat(5-session.rating)}</div>}
-                    {total>0&&<div style={{color:C.muted,fontSize:11}}>{pres}/{total} present</div>}
-                    {drillCount>0&&<div style={{color:C.muted,fontSize:11}}>{drillCount} drill{drillCount!==1?"s":""}</div>}
-                  </div>
-                  <ChevronRight size={16} color={C.muted}/>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            );
+          })()
       }
     </div>
   );
