@@ -14338,6 +14338,19 @@ function PlayerPortalPage(){
       setLoading(true);
       try{
         var {data:rosters} = await supabase.from("rosters").select("*");
+
+        // If empty — could be expired session token. Retry with anon key only.
+        if(!rosters || rosters.length===0){
+          var retryRes = await fetch(SUPABASE_URL+"/rest/v1/rosters?select=*",{
+            headers:{
+              "Content-Type":"application/json",
+              "apikey":SUPABASE_KEY,
+              "Authorization":"Bearer "+SUPABASE_KEY,
+            }
+          });
+          if(retryRes.ok) rosters = await retryRes.json();
+        }
+
         var found=null, tid=null;
         for(var i=0;i<(rosters||[]).length;i++){
           var p=(rosters[i].players||[]).find(function(p){return p.id===playerId;});
