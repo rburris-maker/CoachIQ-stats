@@ -8484,9 +8484,22 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                   const ZCOL={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
                   return(
                     <div style={{position:"relative",width:"100%",paddingBottom:"130%",background:"#1a3a24",borderRadius:10,overflow:"visible"}}>
-                      <div style={{position:"absolute",inset:0,opacity:.12,backgroundImage:"linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",backgroundSize:"25% 12.5%"}}/>
-                      <div style={{position:"absolute",left:"10%",right:"10%",top:"45%",bottom:"2%",border:"1.5px solid rgba(255,255,255,.2)",borderRadius:2}}/>
-                      <div style={{position:"absolute",left:"37%",right:"37%",top:"85%",height:"13%",border:"1.5px solid rgba(255,255,255,.2)"}}/>
+                      {/* Field outline */}
+                      <div style={{position:"absolute",left:"4%",right:"4%",top:"2%",bottom:"2%",border:"1.5px solid rgba(255,255,255,.18)",borderRadius:2}}/>
+                      {/* Center line */}
+                      <div style={{position:"absolute",left:"4%",right:"4%",top:"50%",height:"1.5px",background:"rgba(255,255,255,.18)"}}/>
+                      {/* Center circle */}
+                      <div style={{position:"absolute",left:"50%",top:"50%",width:"18%",paddingBottom:"18%",marginLeft:"-9%",marginTop:"-9%",border:"1.5px solid rgba(255,255,255,.18)",borderRadius:"50%"}}/>
+                      {/* Center dot */}
+                      <div style={{position:"absolute",left:"50%",top:"50%",width:4,height:4,background:"rgba(255,255,255,.3)",borderRadius:"50%",marginLeft:-2,marginTop:-2}}/>
+                      {/* Top penalty box */}
+                      <div style={{position:"absolute",left:"25%",right:"25%",top:"2%",height:"16%",border:"1.5px solid rgba(255,255,255,.18)",borderTop:"none"}}/>
+                      {/* Top goal box */}
+                      <div style={{position:"absolute",left:"37%",right:"37%",top:"2%",height:"6%",border:"1.5px solid rgba(255,255,255,.18)",borderTop:"none"}}/>
+                      {/* Bottom penalty box */}
+                      <div style={{position:"absolute",left:"25%",right:"25%",bottom:"2%",height:"16%",border:"1.5px solid rgba(255,255,255,.18)",borderBottom:"none"}}/>
+                      {/* Bottom goal box */}
+                      <div style={{position:"absolute",left:"37%",right:"37%",bottom:"2%",height:"6%",border:"1.5px solid rgba(255,255,255,.18)",borderBottom:"none"}}/>
                       {fslots.map(function(slot,si){
                         const pid=(activeLineup[slot.zone]||[])[slot.idx]||null;
                         const p=pid?(roster||[]).find(pl=>pl.id===pid):null;
@@ -13210,7 +13223,7 @@ function GamePlanSharePage(){
               <div style={{color:"#888",fontSize:13,marginTop:4}}>
                 {plan.date&&<span>{plan.date}</span>}
                 {plan.location&&<span> · {plan.location}</span>}
-                {plan.formation&&<span> · {plan.formation}</span>}
+                {((plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].formation)||plan.formation)&&<span> · {(plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].formation)||plan.formation}</span>}
               </div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -13234,7 +13247,8 @@ function GamePlanSharePage(){
             <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
             <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.2)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
             {slots.map(function(slot,si){
-              var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+              var _printLineup=(plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].lineup)||plan.lineup||{};
+              var pid=(_printLineup[slot.zone]||[])[slot.idx]||null;
               var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
               var pc=p?posColor(primaryPos(p)):null;
               var col=zoneCol[slot.zone]||"#fff";
@@ -13264,7 +13278,8 @@ function GamePlanSharePage(){
             <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
               <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
               {slots.map(function(slot,si){
-                var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+                var _pl=(plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].lineup)||plan.lineup||{};
+                var pid=(_pl[slot.zone]||[])[slot.idx]||null;
                 var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
                 var col=zoneCol[slot.zone]||"#888";
                 return(
