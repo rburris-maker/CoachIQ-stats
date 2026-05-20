@@ -15043,23 +15043,6 @@ function PlayerPortalPage(){
         }
       `}</style>
 
-      {/* ── Co-Coach Banner ── */}
-      {isCoCoach&&(
-        <div style={{background:"#ff6b00",padding:"6px 16px",display:"flex",alignItems:"center",
-          justifyContent:"space-between",fontSize:12,fontWeight:700}}>
-          <span style={{color:"#000"}}>🔗 Co-Coach Mode — viewing as assistant coach</span>
-          <button onClick={function(){
-            sessionStorage.removeItem("coCoachToken");
-            sessionStorage.removeItem("coCoachTeamId");
-            sessionStorage.removeItem("coCoachOwnerId");
-            window.location.hash="";
-            window.location.reload();
-          }} style={{background:"rgba(0,0,0,0.15)",border:"none",borderRadius:5,
-            padding:"3px 10px",color:"#000",fontWeight:700,fontSize:11,cursor:"pointer"}}>
-            Exit
-          </button>
-        </div>
-      )}
 
       {/* ── HEADER ── */}
       <div style={{background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.08)"}}>
