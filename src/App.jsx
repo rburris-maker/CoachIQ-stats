@@ -6509,6 +6509,15 @@ export default function CoachIQStats(){
 
   const safeTeamId = isCoCoach ? coCoachTeamId : activeTeamId;
 
+  // Auto-load co-coach team data on startup
+  useEffect(function(){
+    if(isCoCoach&&coCoachTeamId&&!hasLoadedOnce.current){
+      hasLoadedOnce.current=true;
+      setDataLoading(true);
+      loadTeamData(coCoachTeamId).then(function(){setDataLoading(false);});
+    }
+  },[isCoCoach]);
+
   // Re-check subscription when app resumes from background
   useEffect(()=>{
     async function checkSub(){
