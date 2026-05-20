@@ -2928,7 +2928,7 @@ const PREBUILT_PROGRAMS = [
     ],
     condBenchmarks:[
       {name:"Mile run",       target:"Sub-5:30",  unit:"min:sec", lower:true},
-      {name:"Beep test",      target:"11.0+",     unit:"level",   lower:false},
+      {name:"Beep test (Level 11+)",target:"11.0+",unit:"level",  lower:false},
       {name:"40m sprint",     target:"Sub-5.4s",  unit:"sec",     lower:true},
       {name:"5-10-5 shuttle", target:"Sub-4.6s",  unit:"sec",     lower:true},
       {name:"Max push-ups",   target:"40+",       unit:"reps",    lower:false},
@@ -16430,8 +16430,18 @@ function PlayerPortalPage(){
                           }
                           return(
                             <div style={{borderTop:"1px solid #f0f0f0",padding:"14px 16px 10px"}}>
-                              <div style={{fontSize:11,color:"#888",fontWeight:700,letterSpacing:1,marginBottom:12}}>
-                                BENCHMARKS — LOG AT T1 / T2 / T3 / T4
+                              <div style={{marginBottom:12}}>
+                                <div style={{fontSize:11,color:"#111",fontWeight:700,letterSpacing:0.5,marginBottom:4}}>
+                                  FITNESS BENCHMARKS
+                                </div>
+                                <div style={{fontSize:11,color:"#666",lineHeight:1.5}}>
+                                  Test yourself at four checkpoints during the program:
+                                  <span style={{fontWeight:700,color:"#185fa5"}}> T1 </span>(start of Week 1),
+                                  <span style={{fontWeight:700,color:"#185fa5"}}> T2 </span>(Week 3),
+                                  <span style={{fontWeight:700,color:"#185fa5"}}> T3 </span>(Week 6), and
+                                  <span style={{fontWeight:700,color:"#185fa5"}}> T4 </span>(Week 8).
+                                  Log your result in the matching column. Your best score across all tests is automatically tracked as your PR.
+                                </div>
                               </div>
                               {[
                                 {list:prog2.condBenchmarks,label:"CONDITIONING",bg:"#f0f6ff",border:"#bfdbfe",prCol:"#185fa5"},
