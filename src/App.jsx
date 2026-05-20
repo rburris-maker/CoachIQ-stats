@@ -7782,6 +7782,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [creating,setCreating] = useState(false);
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
   const [gpTab,setGpTab]        = useState("gameplan");
+  const [activeSlotIdx,setActiveSlotIdx] = useState(0);
   const [shareLink,setShareLink]  = useState(null);
   const [oppSuggestions,setOppSuggestions] = useState([]);
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
@@ -8046,54 +8047,75 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       setGamePlans(prev=>prev.map(p=>p.id===sel?{...p,...updater(p)}:p));
     }
 
-    const usedIds = Object.values(plan.lineup).flat().filter(Boolean);
+    // ── Multi-lineup slot support ────────────────────────────────────────────
+    // Migration: wrap legacy lineup into lineupSlots
+    if(!plan.lineupSlots){
+      const initSlots=[{id:"slot0",name:"Starting XI",
+        formation:plan.formation,lineup:plan.lineup,
+        gpSubs:plan.gpSubs||{}}];
+      updatePlan(()=>({lineupSlots:initSlots,slotActiveIdx:0}));
+    }
+    const safeSlotIdx=Math.min(activeSlotIdx,(plan.lineupSlots||[]).length-1)||0;
+    const lineupSlots=plan.lineupSlots||[{id:"slot0",name:"Starting XI",
+      formation:plan.formation,lineup:plan.lineup,gpSubs:plan.gpSubs||{}}];
+    const activeSlot=lineupSlots[safeSlotIdx]||lineupSlots[0];
+    const activeFormation=activeSlot.formation||plan.formation||"4-3-3";
+    const activeLineup=activeSlot.lineup||plan.lineup||{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]};
+    const gpSubs=activeSlot.gpSubs||{};
+
+    const usedIds = Object.values(activeLineup).flat().filter(Boolean);
     const benchExcluded = plan.benchExcluded||[];
     const benchRoster = roster.filter(p=>!usedIds.includes(p.id)&&!benchExcluded.includes(p.id));
     const excludedRoster = roster.filter(p=>!usedIds.includes(p.id)&&benchExcluded.includes(p.id));
 
-    function assignSlot(zone,idx,pid){
+    function saveActiveSlot(updates){
       updatePlan(p=>{
-        const lineup={...p.lineup,[zone]:[...p.lineup[zone]]};
-        // If player already in another slot, clear it
-        Object.keys(lineup).forEach(z=>{ lineup[z]=lineup[z].map(id=>id===pid?null:id); });
-        lineup[zone][idx]=pid||null;
-        return {lineup};
+        const slots=[...(p.lineupSlots||[])];
+        slots[safeSlotIdx]={...slots[safeSlotIdx],...updates};
+        return {lineupSlots:slots};
       });
+    }
+
+    function assignSlot(zone,idx,pid){
+      const lineup={...activeLineup,[zone]:[...(activeLineup[zone]||[])]};
+      Object.keys(lineup).forEach(z=>{lineup[z]=lineup[z].map(id=>id===pid?null:id);});
+      lineup[zone][idx]=pid||null;
+      saveActiveSlot({lineup});
     }
 
     function assignSubSlot(zone,idx,pid){
-      updatePlan(p=>{
-        const gpSubs={...p.gpSubs||{}};
-        Object.keys(plan.lineup).forEach(z=>{
-          if(!gpSubs[z]) gpSubs[z]=Array(plan.lineup[z].length).fill(null);
-          else gpSubs[z]=[...gpSubs[z]];
-        });
-        // Clear this player from any other sub slot
-        Object.keys(gpSubs).forEach(z=>{ gpSubs[z]=gpSubs[z].map(id=>id===pid?null:id); });
-        gpSubs[zone][idx]=pid||null;
-        return {gpSubs};
+      const subs={...gpSubs};
+      Object.keys(activeLineup).forEach(z=>{
+        if(!subs[z]) subs[z]=Array((activeLineup[z]||[]).length).fill(null);
+        else subs[z]=[...subs[z]];
+        subs[z]=subs[z].map(id=>id===pid?null:id);
       });
+      if(!subs[zone]) subs[zone]=Array((activeLineup[zone]||[]).length).fill(null);
+      subs[zone][idx]=pid||null;
+      saveActiveSlot({gpSubs:subs});
     }
 
-    // Ensure gpSubs exists and has right shape
-    if(!plan.gpSubs){
-      updatePlan(p=>{
-        const gpSubs={};
-        Object.keys(p.lineup).forEach(z=>{ gpSubs[z]=Array(p.lineup[z].length).fill(null); });
-        return {gpSubs};
-      });
+    function addLineupSlot(){
+      const newSlot={id:"slot"+Date.now(),name:"Lineup "+(lineupSlots.length+1),
+        formation:activeFormation,
+        lineup:JSON.parse(JSON.stringify(activeLineup)),
+        gpSubs:{}};
+      updatePlan(p=>({lineupSlots:[...(p.lineupSlots||[]),newSlot]}));
+      setActiveSlotIdx(lineupSlots.length);
     }
-    const gpSubs = plan.gpSubs||{};
-    const usedSubIds = Object.values(gpSubs).flat().filter(Boolean);
 
-    function addSub(){
-      updatePlan(p=>({subs:[...p.subs,{id:`s${Date.now()}`,minute:"60-70",playerOn:null,playerOff:null,condition:"Regardless"}]}));
+    function deleteLineupSlot(idx){
+      if(lineupSlots.length<=1) return;
+      updatePlan(p=>({lineupSlots:(p.lineupSlots||[]).filter((_,i)=>i!==idx)}));
+      setActiveSlotIdx(Math.max(0,idx-1));
     }
-    function updateSub(id,key,val){
-      updatePlan(p=>({subs:p.subs.map(s=>s.id===id?{...s,[key]:val}:s)}));
-    }
-    function removeSub(id){
-      updatePlan(p=>({subs:p.subs.filter(s=>s.id!==id)}));
+
+    function renameLineupSlot(idx,name){
+      updatePlan(p=>{
+        const slots=[...(p.lineupSlots||[])];
+        slots[idx]={...slots[idx],name};
+        return {lineupSlots:slots};
+      });
     }
 
     const ZONES=[["GK","Goalkeeper"],["DEF","Defenders"],["MID","Midfielders"],["FWD","Forwards"]];
@@ -8149,7 +8171,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 opponent:plan.opponent,location:plan.location,
                 formation:plan.formation,date:plan.date,
                 benchExcluded:plan.benchExcluded||[],planId:plan.id,
-                lineup:plan.lineup||{},
+                lineup:(plan.lineupSlots?.[0]?.lineup)||plan.lineup||{},
               });
               setView&&setView("live");
             }}
