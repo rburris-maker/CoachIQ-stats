@@ -7843,7 +7843,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     };
     const gpSubs={GK:Array(slots.GK).fill(null),DEF:Array(slots.DEF).fill(null),MID:Array(slots.MID).fill(null),FWD:Array(slots.FWD).fill(null)};
     const plan = {
-      id:`gp${Date.now()}`, ...form,
+      id:`gp${Date.now()}${Math.random().toString(36).slice(2,5)}`, ...form,
       shareId:`s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,
       lineup, gpSubs, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
       instructions:"", benchExcluded:[], createdAt: new Date().toISOString()
@@ -8141,6 +8141,16 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       }
     }
     const scout = linkedOpp || {formation:"",keyPlayers:"",setPieceNotes:"",scoutNotes:"",oppPlayers:{},tendencies:{},setPieces:{},counterPlan:{}};
+
+    function addSub(){
+      updatePlan(p=>({subs:[...p.subs,{id:`s${Date.now()}`,minute:"60-70",playerOn:null,playerOff:null,condition:"Regardless"}]}));
+    }
+    function updateSub(id,key,val){
+      updatePlan(p=>({subs:p.subs.map(s=>s.id===id?{...s,[key]:val}:s)}));
+    }
+    function removeSub(id){
+      updatePlan(p=>({subs:p.subs.filter(s=>s.id!==id)}));
+    }
 
     return(
       <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
