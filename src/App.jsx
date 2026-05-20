@@ -7893,6 +7893,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [activeSlotIdx,setActiveSlotIdx] = useState(0);
   const [gpSearch,setGpSearch] = useState("");
   const [gpFullscreen,setGpFullscreen] = useState(false);
+  const [editingSlotName,setEditingSlotName] = useState(null);
   const [shareLink,setShareLink]  = useState(null);
   const [oppSuggestions,setOppSuggestions] = useState([]);
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
@@ -8179,7 +8180,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     const usedSubIds=Object.values(gpSubs).flat().filter(Boolean);
 
     const usedIds = Object.values(activeLineup).flat().filter(Boolean);
-    const benchExcluded = plan.benchExcluded||[];
+    const benchExcluded = activeSlot.benchExcluded||plan.benchExcluded||[];
     const benchRoster = roster.filter(p=>!usedIds.includes(p.id)&&!benchExcluded.includes(p.id));
     const excludedRoster = roster.filter(p=>!usedIds.includes(p.id)&&benchExcluded.includes(p.id));
 
@@ -8214,7 +8215,8 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       const newSlot={id:"slot"+Date.now(),name:"Lineup "+(lineupSlots.length+1),
         formation:activeFormation,
         lineup:JSON.parse(JSON.stringify(activeLineup)),
-        gpSubs:{}};
+        gpSubs:{},
+        benchExcluded:[]};
       updatePlan(p=>({lineupSlots:[...(p.lineupSlots||[]),newSlot]}));
       setActiveSlotIdx(lineupSlots.length);
     }
@@ -8498,18 +8500,42 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               {lineupSlots.map(function(slot,si){
                 const isActive=si===safeSlotIdx;
                 return(
-                  <button key={slot.id} onClick={()=>setActiveSlotIdx(si)}
-                    style={{padding:"5px 12px",background:isActive?C.accent+"22":"transparent",
-                      border:`1px solid ${isActive?C.accent:C.border}`,borderRadius:7,
-                      color:isActive?C.accent:C.muted,fontWeight:isActive?700:400,
-                      fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif",
-                      display:"flex",alignItems:"center",gap:6}}>
-                    {slot.name}
-                    {si>0&&(
-                      <span onClick={e=>{e.stopPropagation();if(window.confirm("Delete this lineup?"))deleteLineupSlot(si);}}
-                        style={{opacity:.5,fontSize:13,lineHeight:1}}>×</span>
+                  <div key={slot.id} style={{display:"flex",alignItems:"center",gap:0}}>
+                    {editingSlotName===si?(
+                      <input
+                        autoFocus
+                        defaultValue={slot.name}
+                        onBlur={function(e){
+                          var v=e.target.value.trim()||slot.name;
+                          renameLineupSlot(si,v);
+                          setEditingSlotName(null);
+                        }}
+                        onKeyDown={function(e){
+                          if(e.key==="Enter"||e.key==="Escape"){e.target.blur();}
+                        }}
+                        style={{padding:"4px 8px",border:`1px solid ${C.accent}`,borderRadius:7,
+                          fontSize:12,fontWeight:700,color:C.accent,background:C.accent+"11",
+                          outline:"none",fontFamily:"'Outfit',sans-serif",width:120}}/>
+                    ):(
+                      <button onClick={()=>setActiveSlotIdx(si)}
+                        onDoubleClick={()=>setEditingSlotName(si)}
+                        style={{padding:"5px 10px",background:isActive?C.accent+"22":"transparent",
+                          border:`1px solid ${isActive?C.accent:C.border}`,borderRadius:si>0?"7px 0 0 7px":7,
+                          color:isActive?C.accent:C.muted,fontWeight:isActive?700:400,
+                          fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        {slot.name}
+                      </button>
                     )}
-                  </button>
+                    {si>0&&editingSlotName!==si&&(
+                      <button
+                        onClick={e=>{e.stopPropagation();if(window.confirm("Delete "+slot.name+"?"))deleteLineupSlot(si);}}
+                        title="Delete lineup"
+                        style={{padding:"5px 7px",background:isActive?C.accent+"22":"transparent",
+                          border:`1px solid ${isActive?C.accent:C.border}`,borderLeft:"none",
+                          borderRadius:"0 7px 7px 0",color:C.muted,fontSize:11,cursor:"pointer",
+                          lineHeight:1}}>×</button>
+                    )}
+                  </div>
                 );
               })}
               <button onClick={addLineupSlot}
@@ -8723,7 +8749,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8,overflowY:"auto",flex:1}}>
                   {(roster||[]).sort(function(a,b){return (a.number||0)-(b.number||0);}).map(function(p){
-                    const excluded=(plan.benchExcluded||[]).includes(p.id);
+                    const excluded=benchExcluded.includes(p.id);
                     const pc=posColor(primaryPos(p));
                     return(
                       <div key={p.id}
@@ -8731,11 +8757,11 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                           borderRadius:10,cursor:"pointer",
                           background:excluded?"rgba(229,57,53,0.15)":"rgba(39,165,96,0.12)",
                           border:`1px solid ${excluded?"rgba(229,57,53,0.4)":"rgba(39,165,96,0.3)"}`}}
-                        onClick={()=>updatePlan(p2=>({
+                        onClick={()=>saveActiveSlot({
                           benchExcluded:excluded
-                            ?(p2.benchExcluded||[]).filter(id=>id!==p.id)
-                            :[...(p2.benchExcluded||[]),p.id]
-                        }))}>
+                            ?benchExcluded.filter(id=>id!==p.id)
+                            :[...benchExcluded,p.id]
+                        })}>
                         <div style={{width:28,height:28,borderRadius:6,background:pc,flexShrink:0,
                           display:"flex",alignItems:"center",justifyContent:"center",
                           fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:12}}>
@@ -8764,7 +8790,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                   </button>
                 </div>
                 {excludedRoster.length>0&&(
-                  <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
+                  <button onClick={()=>saveActiveSlot({benchExcluded:[]})} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
                     Restore all ({excludedRoster.length})
                   </button>
                 )}
@@ -8779,7 +8805,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                         <div style={{width:20,height:20,borderRadius:4,background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:9,flexShrink:0}}>{p.number}</div>
                         <span style={{color:C.text,fontSize:11,fontWeight:500}}>{p.name.split(" ").pop()}</span>
                         <span style={{color:C.muted,fontSize:9}}>{displayPos(primaryPos(p))}</span>
-                        <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,lineHeight:1,padding:"0 2px",opacity:.5}}>×</button>
+                        <button onClick={()=>saveActiveSlot({benchExcluded:[...benchExcluded,p.id]})} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,lineHeight:1,padding:"0 2px",opacity:.5}}>×</button>
                       </div>
                     );
                   })
@@ -8790,7 +8816,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                   <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {excludedRoster.map(p=>(
-                      <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
+                      <div key={p.id} onClick={()=>saveActiveSlot({benchExcluded:benchExcluded.filter(id=>id!==p.id)})}
                         style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
                         <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
                         <span style={{color:C.accent,fontSize:9}}>+</span>
