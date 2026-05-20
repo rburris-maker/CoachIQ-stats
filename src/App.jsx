@@ -8048,13 +8048,16 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     }
 
     // ── Multi-lineup slot support ────────────────────────────────────────────
-    // Migration: wrap legacy lineup into lineupSlots
-    if(!plan.lineupSlots){
-      const initSlots=[{id:"slot0",name:"Starting XI",
-        formation:plan.formation,lineup:plan.lineup,
-        gpSubs:plan.gpSubs||{}}];
-      updatePlan(()=>({lineupSlots:initSlots,slotActiveIdx:0}));
-    }
+    // Migration: wrap legacy lineup into lineupSlots (deferred to avoid setState-in-render)
+    const _needsMigration=!plan.lineupSlots;
+    React.useEffect(function(){
+      if(_needsMigration){
+        const initSlots=[{id:"slot0",name:"Starting XI",
+          formation:plan.formation,lineup:plan.lineup,
+          gpSubs:plan.gpSubs||{}}];
+        updatePlan(()=>({lineupSlots:initSlots,slotActiveIdx:0}));
+      }
+    },[_needsMigration]);
     const safeSlotIdx=Math.min(activeSlotIdx,(plan.lineupSlots||[]).length-1)||0;
     const lineupSlots=plan.lineupSlots||[{id:"slot0",name:"Starting XI",
       formation:plan.formation,lineup:plan.lineup,gpSubs:plan.gpSubs||{}}];
@@ -8062,6 +8065,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
     const activeFormation=activeSlot.formation||plan.formation||"4-3-3";
     const activeLineup=activeSlot.lineup||plan.lineup||{GK:[null],DEF:[null,null,null,null],MID:[null,null,null],FWD:[null,null,null]};
     const gpSubs=activeSlot.gpSubs||{};
+    const usedSubIds=Object.values(gpSubs).flat().filter(Boolean);
 
     const usedIds = Object.values(activeLineup).flat().filter(Boolean);
     const benchExcluded = plan.benchExcluded||[];
@@ -8440,7 +8444,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                     {roster.map(p=>{
                       const cur=picking.isSub?(gpSubs[picking.zone]||[])[picking.idx]:activeLineup[picking.zone]?.[picking.idx];
                       const inUse=picking.isSub
-                        ?(Object.values(gpSubs).flat().filter(Boolean).includes(p.id)&&cur!==p.id)
+                        ?(usedSubIds.includes(p.id)&&cur!==p.id)
                         :(usedIds.includes(p.id)&&cur!==p.id);
                       return(
                         <div key={p.id} onClick={()=>{picking.isSub?assignSubSlot(picking.zone,picking.idx,p.id):assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
