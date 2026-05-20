@@ -76,9 +76,57 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = (() => {
   const baseHeaders = {"Content-Type":"application/json","apikey":SUPABASE_KEY};
 
+  function parseJwtExp(token){
+    try{
+      const payload=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+      return payload.exp||0;
+    }catch{ return 0; }
+  }
+
+  function isTokenExpired(token){
+    if(!token) return true;
+    const exp=parseJwtExp(token);
+    // Refresh if within 5 minutes of expiry
+    return exp>0 && (exp - Date.now()/1000) < 300;
+  }
+
+  let _refreshing=null;
+  async function refreshAccessToken(){
+    if(_refreshing) return _refreshing;
+    _refreshing=(async()=>{
+      try{
+        const s=JSON.parse(localStorage.getItem("coachiq_session")||"null");
+        if(!s?.refresh_token) return null;
+        const res=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+          body:JSON.stringify({refresh_token:s.refresh_token})
+        });
+        if(!res.ok){ localStorage.removeItem("coachiq_session"); return null; }
+        const data=await res.json();
+        if(data?.access_token){
+          localStorage.setItem("coachiq_session",JSON.stringify(data));
+          return data.access_token;
+        }
+        return null;
+      }catch{ return null; }
+      finally{ _refreshing=null; }
+    })();
+    return _refreshing;
+  }
+
   function getToken(){
     try{ const s=JSON.parse(localStorage.getItem("coachiq_session")||"null"); return s?.access_token||null; }
     catch{ return null; }
+  }
+
+  async function getValidToken(){
+    const token=getToken();
+    if(isTokenExpired(token)){
+      const newToken=await refreshAccessToken();
+      return newToken||token;
+    }
+    return token;
   }
 
   function h(extra={}){
@@ -86,11 +134,36 @@ const supabase = (() => {
     return {...baseHeaders,"Authorization":`Bearer ${token||SUPABASE_KEY}`,...extra};
   }
 
+  async function hAsync(extra={}){
+    const token=await getValidToken();
+    return {...baseHeaders,"Authorization":`Bearer ${token||SUPABASE_KEY}`,...extra};
+  }
+
   async function req(url,opts){
+    // Ensure valid token before request
+    const token=await getValidToken();
+    if(opts?.headers?.Authorization){
+      opts.headers.Authorization=`Bearer ${token||SUPABASE_KEY}`;
+    }
     const res=await fetch(url,opts);
     if(res.status===204||res.status===205) return {data:null,error:null};
     let data; try{ data=await res.json(); }catch{ data=null; }
     if(!res.ok){
+      // If JWT expired mid-request, try one refresh+retry
+      if(res.status===401&&(data?.message?.includes("JWT")||data?.code==="PGRST301")){
+        const newToken=await refreshAccessToken();
+        if(newToken){
+          if(opts?.headers) opts.headers.Authorization=`Bearer ${newToken}`;
+          const retry=await fetch(url,opts);
+          if(retry.status===204||retry.status===205) return {data:null,error:null};
+          let rd; try{ rd=await retry.json(); }catch{ rd=null; }
+          if(!retry.ok){
+            const rm=rd?.message||rd?.error||`HTTP ${retry.status}`;
+            return {data:null,error:{message:rm,status:retry.status}};
+          }
+          return {data:rd,error:null};
+        }
+      }
       const msg=data?.message||data?.error||data?.details||`HTTP ${res.status}`;
       console.error(`Supabase error [${res.status}]`,url,data);
       return {data:null,error:{message:msg,status:res.status,code:data?.code}};
@@ -196,6 +269,10 @@ const supabase = (() => {
       },
       async resetPasswordForEmail(email){
         return req(`${SUPABASE_URL}/auth/v1/recover`,{method:"POST",headers:h(),body:JSON.stringify({email})});
+      },
+      async refreshSession(){
+        const newToken=await refreshAccessToken();
+        return {data:{session:newToken?supabase.auth.getSession().data.session:null}};
       },
       onAuthStateChange(cb){ return {data:{subscription:{unsubscribe:()=>{}}}}; },
     },
@@ -6441,9 +6518,22 @@ export default function CoachIQStats(){
 
   // ── Auth session check on mount ───────────────────────────────────────────
   useEffect(()=>{
-    const s = supabase.auth.getSession().data.session;
-    setSession(s);
-    setAuthLoading(false);
+    (async()=>{
+      const s = supabase.auth.getSession().data.session;
+      // Refresh if token exists but is near expiry
+      if(s?.access_token){
+        try{
+          const payload=JSON.parse(atob(s.access_token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+          const exp=payload?.exp||0;
+          if((exp - Date.now()/1000) < 600){
+            await supabase.auth.refreshSession();
+          }
+        }catch(e){}
+      }
+      const fresh = supabase.auth.getSession().data.session;
+      setSession(fresh);
+      setAuthLoading(false);
+    })();
     // Ensure proper mobile viewport
     let meta = document.querySelector('meta[name=viewport]');
     if(!meta){ meta=document.createElement('meta'); meta.name='viewport'; document.head.appendChild(meta); }
@@ -6562,7 +6652,20 @@ export default function CoachIQStats(){
       if(!userId) return;
       await checkUserSubscription(userId,[]);
     }
-    function onVisible(){ if(document.visibilityState==="visible") checkSub(); }
+    function onVisible(){
+      if(document.visibilityState==="visible"){
+        checkSub();
+        // Proactively refresh token when tab regains focus
+        const s=JSON.parse(localStorage.getItem("coachiq_session")||"null");
+        if(s?.access_token){
+          const payload=JSON.parse(atob(s.access_token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+          const exp=payload?.exp||0;
+          if((exp - Date.now()/1000) < 600){ // refresh if <10min left
+            refreshAccessToken && refreshAccessToken();
+          }
+        }
+      }
+    }
     document.addEventListener("visibilitychange", onVisible);
     return ()=>document.removeEventListener("visibilitychange", onVisible);
   },[userId]);
