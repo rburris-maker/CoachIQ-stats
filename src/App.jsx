@@ -13268,7 +13268,7 @@ function GamePlanSharePage(){
   var slots=GP_FSLOTS[_printFmt]||GP_FSLOTS["4-3-3"];
   var zoneCol={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
   var benchExcluded=plan.benchExcluded||[];
-  var usedIds=Object.values(plan.lineup||{}).flat().filter(Boolean);
+  var usedIds=Object.values(_pLu||{}).flat().filter(Boolean);
   var bench=(roster||[]).filter(function(p){return !usedIds.includes(p.id)&&!benchExcluded.includes(p.id);});
 
   return(
