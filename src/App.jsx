@@ -14193,6 +14193,55 @@ function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBr
 
       {/* ── Player Hub ── */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+        {/* Co-Coach Access */}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+            <div style={{fontSize:18}}>🔗</div>
+            <div>
+              <div style={{color:C.text,fontWeight:700,fontSize:15}}>Co-Coach Access</div>
+              <div style={{color:C.muted,fontSize:12,marginTop:2}}>Share a link with assistant coaches — full editing access, no login needed.</div>
+            </div>
+          </div>
+          {ccToken?(
+            <div style={{marginTop:14}}>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,
+                padding:"8px 12px",fontSize:11,color:C.muted,fontFamily:"monospace",
+                marginBottom:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {window.location.origin+window.location.pathname}#/coach/{ccToken}
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                <button onClick={copyCoCoachLink}
+                  style={{padding:"8px 16px",background:ccCopied?"#27a56022":C.accent+"22",
+                    border:`1px solid ${ccCopied?"#27a560":C.accent}44`,borderRadius:8,
+                    color:ccCopied?"#27a560":C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  {ccCopied?"✓ Copied!":"📋 Copy Link"}
+                </button>
+                <button onClick={generateCoCoachLink} disabled={ccLoading}
+                  style={{padding:"8px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:8,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+                  🔄 Regenerate
+                </button>
+                <button onClick={revokeCoCoachLink}
+                  style={{padding:"8px 16px",background:C.danger+"11",border:`1px solid ${C.danger}33`,
+                    borderRadius:8,color:C.danger,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+                  🚫 Revoke
+                </button>
+              </div>
+              <div style={{color:C.muted,fontSize:11}}>
+                Co-coaches can edit everything except Settings and billing. Regenerate to cut off the current link.
+              </div>
+            </div>
+          ):(
+            <div style={{marginTop:14}}>
+              <button onClick={generateCoCoachLink} disabled={ccLoading}
+                style={{padding:"9px 18px",background:C.accent,border:"none",borderRadius:8,
+                  color:"#000",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                {ccLoading?"Generating…":"Generate Co-Coach Link"}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:16}}>PLAYER HUB</div>
         <div style={{marginBottom:16}}>
           <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
