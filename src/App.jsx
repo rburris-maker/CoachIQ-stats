@@ -2772,8 +2772,10 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
       ):(
         <div>
           {[...grouped, ungrouped.length>0?{pos:"Other",players:ungrouped}:null].filter(Boolean).map(group=>(
-            <div key={group.pos} style={{marginBottom:24}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:10}}>{group.pos}</div>
+            <div key={group.pos||"all"} style={{marginBottom:24}}>
+              {group.pos&&<div style={{color:posColor(group.pos),fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:10}}>
+                {group.pos==="GK"?"GOALKEEPERS":group.pos==="DEF"?"DEFENDERS":group.pos==="MID"?"MIDFIELDERS":group.pos==="FWD"?"FORWARDS":group.pos.toUpperCase()}
+              </div>}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
                 {group.players.map(player=>{
                   const pc = posColor(primaryPos(player));
