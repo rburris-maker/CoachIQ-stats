@@ -8060,6 +8060,31 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       });
     }
 
+    function assignSubSlot(zone,idx,pid){
+      updatePlan(p=>{
+        const gpSubs={...p.gpSubs||{}};
+        Object.keys(plan.lineup).forEach(z=>{
+          if(!gpSubs[z]) gpSubs[z]=Array(plan.lineup[z].length).fill(null);
+          else gpSubs[z]=[...gpSubs[z]];
+        });
+        // Clear this player from any other sub slot
+        Object.keys(gpSubs).forEach(z=>{ gpSubs[z]=gpSubs[z].map(id=>id===pid?null:id); });
+        gpSubs[zone][idx]=pid||null;
+        return {gpSubs};
+      });
+    }
+
+    // Ensure gpSubs exists and has right shape
+    if(!plan.gpSubs){
+      updatePlan(p=>{
+        const gpSubs={};
+        Object.keys(p.lineup).forEach(z=>{ gpSubs[z]=Array(p.lineup[z].length).fill(null); });
+        return {gpSubs};
+      });
+    }
+    const gpSubs = plan.gpSubs||{};
+    const usedSubIds = Object.values(gpSubs).flat().filter(Boolean);
+
     function addSub(){
       updatePlan(p=>({subs:[...p.subs,{id:`s${Date.now()}`,minute:"60-70",playerOn:null,playerOff:null,condition:"Regardless"}]}));
     }
@@ -8275,14 +8300,25 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 <button onClick={()=>setPicking(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
               </div>
               <div style={{overflowY:"auto",flex:1}}>
-                <div onClick={()=>{assignSlot(picking.zone,picking.idx,null);setPicking(null);}}
+                {picking.isSub&&(
+                  <div style={{background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:8,
+                    padding:"7px 12px",marginBottom:10,fontSize:11,color:C.accent,fontWeight:600}}>
+                    Selecting sub for {picking.zone} #{picking.idx+1}
+                  </div>
+                )}
+                <div onClick={()=>{picking.isSub?assignSubSlot(picking.zone,picking.idx,null):assignSlot(picking.zone,picking.idx,null);setPicking(null);}}
                   style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:C.surface,border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
                   — Clear slot
                 </div>
                 {roster.map(p=>{
-                  const inUse = usedIds.includes(p.id) && plan.lineup[picking.zone]?.[picking.idx]!==p.id;
+                  const currentSlot = picking.isSub
+                    ? (gpSubs[picking.zone]||[])[picking.idx]
+                    : plan.lineup[picking.zone]?.[picking.idx];
+                  const inUse = picking.isSub
+                    ? (usedSubIds.includes(p.id) && currentSlot!==p.id)
+                    : (usedIds.includes(p.id) && currentSlot!==p.id);
                   return(
-                    <div key={p.id} onClick={()=>{assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
+                    <div key={p.id} onClick={()=>{picking.isSub?assignSubSlot(picking.zone,picking.idx,p.id):assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
                       style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
                         background:inUse?C.surface:C.bg,border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
                         opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
@@ -8398,6 +8434,32 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                         ):(
                           <div style={{color:col+"99",fontSize:8,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{slot.lbl}</div>
                         )}
+                        {(()=>{
+                          const subPid=(gpSubs[slot.zone]||[])[slot.idx]||null;
+                          const subP=subPid?(roster||[]).find(pl=>pl.id===subPid):null;
+                          const spc=subP?posColor(primaryPos(subP)):null;
+                          return(
+                            <div
+                              onClick={e=>{e.stopPropagation();setPicking({zone:slot.zone,idx:slot.idx,isSub:true});}}
+                              title={subP?"Sub: "+subP.name:"Assign sub"}
+                              style={{
+                                position:"absolute",
+                                bottom:-20,
+                                left:"50%",
+                                transform:"translateX(-50%)",
+                                width:22,height:22,
+                                borderRadius:"50%",
+                                background:subP?spc+"55":"rgba(255,255,255,0.06)",
+                                border:`1.5px dashed ${subP?spc:"rgba(255,255,255,0.25)"}`,
+                                display:"flex",alignItems:"center",justifyContent:"center",
+                                cursor:"pointer",fontSize:8,fontWeight:900,
+                                color:subP?spc:"rgba(255,255,255,0.35)",
+                                zIndex:2,
+                              }}>
+                              {subP?subP.number||"#":"+"}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -8405,6 +8467,12 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               );
             })()}
 
+          </div>
+
+          {/* Sub legend */}
+          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,paddingLeft:4}}>
+            <div style={{width:14,height:14,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,0.4)",background:"transparent",flexShrink:0}}></div>
+            <span style={{color:C.muted,fontSize:10}}>Dashed circle = designated sub for that position. Click to assign.</span>
           </div>
 
           {/* Bench — separate card below pitch */}
