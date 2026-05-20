@@ -6307,7 +6307,62 @@ function AuthView({ onAuth, defaultMode="login" }) {
 }
 
 
+function CoCoachPage(){
+  const token = window.location.hash.replace("#/coach/","");
+  const [status, setStatus] = useState("loading"); // loading | valid | invalid
+  const [teamData, setTeamData] = useState(null);
+
+  useEffect(function(){
+    if(!token){ setStatus("invalid"); return; }
+    // Validate token and get team_id
+    supabase.from("coach_tokens").select("team_id,owner_id").eq("token",token).single().then(function(res){
+      if(res.data){
+        setTeamData(res.data);
+        setStatus("valid");
+      } else {
+        setStatus("invalid");
+      }
+    });
+  },[token]);
+
+  if(status==="loading") return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
+      justifyContent:"center",color:"#ff6b00",fontFamily:"'Outfit',sans-serif",fontSize:14}}>
+      Verifying access…
+    </div>
+  );
+
+  if(status==="invalid") return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",
+      justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:44,marginBottom:12}}>🔒</div>
+        <div style={{color:"#fff",fontWeight:700,fontSize:18,marginBottom:8}}>Link Invalid or Revoked</div>
+        <div style={{color:"#888",fontSize:13,marginBottom:20}}>
+          This co-coach link is no longer active. Ask your head coach for a new one.
+        </div>
+        <a href={window.location.origin+window.location.pathname}
+          style={{padding:"10px 24px",background:"#ff6b00",border:"none",borderRadius:9,
+            color:"#000",fontWeight:700,fontSize:14,cursor:"pointer",textDecoration:"none"}}>
+          Go to CoachIQ
+        </a>
+      </div>
+    </div>
+  );
+
+  // Valid — render the full coaching app with this team pre-selected
+  // Store token in sessionStorage so the main app can use it
+  sessionStorage.setItem("coCoachToken", token);
+  sessionStorage.setItem("coCoachTeamId", teamData.team_id);
+  sessionStorage.setItem("coCoachOwnerId", teamData.owner_id);
+  // Redirect to main app
+  window.location.hash = "";
+  window.location.reload();
+  return null;
+}
+
 export default function CoachIQStats(){
+
   const [view,          setView]          = useState("home");
 
   const SIDEBAR_GROUPS = [
@@ -6447,7 +6502,12 @@ export default function CoachIQStats(){
   PLAYERS = roster;
 
   const userId = session?.user?.id;
-  const safeTeamId = activeTeamId;
+  // Co-coach session detection
+  const coCoachTeamId = sessionStorage.getItem("coCoachTeamId");
+  const coCoachOwnerId = sessionStorage.getItem("coCoachOwnerId");
+  const isCoCoach = !!coCoachTeamId;
+
+  const safeTeamId = isCoCoach ? coCoachTeamId : activeTeamId;
 
   // Re-check subscription when app resumes from background
   useEffect(()=>{
@@ -6908,6 +6968,7 @@ export default function CoachIQStats(){
   if(window.location.hash.startsWith("#/view/"))      return <PlayerPortalPage/>;
   if(window.location.hash.startsWith("#/schedule/")) return <PublicSchedulePage/>;
   if(window.location.hash.startsWith("#/plan/"))   return <GamePlanSharePage/>;
+  if(window.location.hash.startsWith("#/coach/"))  return <CoCoachPage/>;
   if(window.location.hash.startsWith("#/report/")) return <MatchReportPage/>;
 
   if(authLoading) return(
@@ -7470,7 +7531,7 @@ export default function CoachIQStats(){
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)} gamePlans={gamePlans} livePreload={livePreload} onClearPreload={()=>setLivePreload(null)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
-            {view==="settings"  &&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
+            {view==="settings"&&!isCoCoach&&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups} setLivePreload={setLivePreload} setView={setView}/>}
             {view==="workouts"   &&<WorkoutBuilderView workouts={workouts} setWorkouts={setWorkouts} roster={roster}/>}
@@ -14045,6 +14106,43 @@ function DrillCanvas({diagram, onSave, onClose}){
 
 // ─── SETTINGS VIEW ────────────────────────────────────────────────────────────
 function SettingsView({isPro, isElite, brandName, setBrandName, brandLogo, setBrandLogo, onUpgrade, onManage, userId, safeTeamId, teams, addTeam, renameTeam, deleteTeam, activeTeamName, teamHub, saveTeamHub, games}){
+  const [ccToken,    setCcToken]    = useState(null);
+  const [ccLoading,  setCcLoading]  = useState(false);
+  const [ccCopied,   setCcCopied]   = useState(false);
+
+  useEffect(function(){
+    if(!safeTeamId) return;
+    supabase.from("coach_tokens").select("token").eq("team_id",safeTeamId).then(function(res){
+      if(res.data&&res.data[0]) setCcToken(res.data[0].token);
+    });
+  },[safeTeamId]);
+
+  async function generateCoCoachLink(){
+    if(!safeTeamId||!userId) return;
+    setCcLoading(true);
+    // Delete any existing token for this team
+    await supabase.from("coach_tokens").delete().eq("team_id",safeTeamId);
+    // Generate new token
+    var newToken = "cc"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+    await supabase.from("coach_tokens").insert({token:newToken,team_id:safeTeamId,owner_id:userId});
+    setCcToken(newToken);
+    setCcLoading(false);
+  }
+
+  async function revokeCoCoachLink(){
+    if(!safeTeamId||!window.confirm("Revoke co-coach access? Anyone using the current link will lose access.")) return;
+    await supabase.from("coach_tokens").delete().eq("team_id",safeTeamId);
+    setCcToken(null);
+  }
+
+  function copyCoCoachLink(){
+    var link = window.location.origin+window.location.pathname+"#/coach/"+ccToken;
+    navigator.clipboard.writeText(link).then(function(){
+      setCcCopied(true);
+      setTimeout(function(){setCcCopied(false);},2000);
+    });
+  }
+
   const [name,    setName]    = useState(brandName||"");
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -14886,6 +14984,24 @@ function PlayerPortalPage(){
           .portal-btn{padding:8px 12px;font-size:12px}
         }
       `}</style>
+
+      {/* ── Co-Coach Banner ── */}
+      {isCoCoach&&(
+        <div style={{background:"#ff6b00",padding:"6px 16px",display:"flex",alignItems:"center",
+          justifyContent:"space-between",fontSize:12,fontWeight:700}}>
+          <span style={{color:"#000"}}>🔗 Co-Coach Mode — viewing as assistant coach</span>
+          <button onClick={function(){
+            sessionStorage.removeItem("coCoachToken");
+            sessionStorage.removeItem("coCoachTeamId");
+            sessionStorage.removeItem("coCoachOwnerId");
+            window.location.hash="";
+            window.location.reload();
+          }} style={{background:"rgba(0,0,0,0.15)",border:"none",borderRadius:5,
+            padding:"3px 10px",color:"#000",fontWeight:700,fontSize:11,cursor:"pointer"}}>
+            Exit
+          </button>
+        </div>
+      )}
 
       {/* ── HEADER ── */}
       <div style={{background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.08)"}}>
