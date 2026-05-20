@@ -14519,7 +14519,20 @@ function PlayerPortalPage(){
   if(error) return(
     <div style={{minHeight:"100vh",background:"#f5f7fa",display:"flex",alignItems:"center",
       justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
-      <div style={{color:"#c00",fontSize:14,textAlign:"center"}}>{error}</div>
+      <div style={{textAlign:"center",maxWidth:320}}>
+        <div style={{fontSize:44,marginBottom:12}}>⚠️</div>
+        <div style={{color:"#111",fontWeight:700,fontSize:16,marginBottom:8}}>{error}</div>
+        <div style={{color:"#888",fontSize:13,lineHeight:1.6,marginBottom:20}}>
+          This can happen if the page has been open a while or the link timed out.
+          Try refreshing to reload your profile.
+        </div>
+        <button onClick={function(){window.location.reload();}}
+          style={{padding:"11px 28px",background:"#ff6b00",border:"none",borderRadius:9,
+            color:"#000",fontWeight:700,fontSize:14,cursor:"pointer",
+            fontFamily:"'Outfit',sans-serif"}}>
+          🔄 Refresh Profile
+        </button>
+      </div>
     </div>
   );
 
