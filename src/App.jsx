@@ -14624,10 +14624,10 @@ function PlayerPortalPage(){
   return(
     <div style={{minHeight:"100vh",background:"#f5f7fa",fontFamily:"'Outfit',sans-serif"}}>
       <style>{`
-        .portal-banner{height:160px}
-        .portal-player-row{display:flex;align-items:flex-end;gap:20px;margin-top:-56px;padding-bottom:16px;flex-wrap:wrap}
-        .portal-photo{width:112px;height:112px;flex-shrink:0}
-        .portal-photo img,.portal-photo-circle{width:112px;height:112px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+        .portal-banner{height:130px}
+        .portal-player-row{display:flex;align-items:flex-start;gap:16px;padding:0 0 12px;flex-wrap:wrap}
+        .portal-photo{width:100px;height:100px;flex-shrink:0;margin-top:-50px}
+        .portal-photo img,.portal-photo-circle{width:100px;height:100px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.2)}
         .portal-name{font-size:28px}
         .portal-actions{display:flex;gap:8px;padding-bottom:8px;flex-shrink:0}
         .portal-tabs{display:flex;border-top:1px solid #f0f0f0;margin-top:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -14641,10 +14641,10 @@ function PlayerPortalPage(){
         .portal-btn-primary{background:#ff6b00;border:none;color:#fff;font-weight:700}
         .portal-btn-secondary{background:#f5f5f5;border:1px solid #ddd;color:#555}
         @media(max-width:640px){
-          .portal-banner{height:110px}
-          .portal-player-row{flex-direction:column;align-items:flex-start;gap:10px;margin-top:-44px;padding:0 16px 12px}
-          .portal-photo{width:80px;height:80px}
-          .portal-photo img,.portal-photo-circle{width:80px;height:80px;border-width:3px}
+          .portal-banner{height:90px}
+          .portal-player-row{flex-direction:column;align-items:flex-start;gap:8px;padding:0 16px 10px}
+          .portal-photo{width:80px;height:80px;margin-top:-40px}
+          .portal-photo img,.portal-photo-circle{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
           .portal-name{font-size:22px}
           .portal-actions{width:100%;justify-content:flex-end;padding:8px 0 4px}
           .portal-tab{padding:10px 14px;font-size:12px}
