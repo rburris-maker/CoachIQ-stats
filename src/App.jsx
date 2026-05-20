@@ -8435,32 +8435,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                         ):(
                           <div style={{color:col+"99",fontSize:8,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{slot.lbl}</div>
                         )}
-                        {(()=>{
-                          const subPid=(gpSubs[slot.zone]||[])[slot.idx]||null;
-                          const subP=subPid?(roster||[]).find(pl=>pl.id===subPid):null;
-                          const spc=subP?posColor(primaryPos(subP)):null;
-                          return(
-                            <div
-                              onClick={e=>{e.stopPropagation();setPicking({zone:slot.zone,idx:slot.idx,isSub:true});}}
-                              title={subP?"Sub: "+subP.name:"Assign sub"}
-                              style={{
-                                position:"absolute",
-                                bottom:-20,
-                                left:"50%",
-                                transform:"translateX(-50%)",
-                                width:22,height:22,
-                                borderRadius:"50%",
-                                background:subP?spc+"55":"rgba(255,255,255,0.06)",
-                                border:`1.5px dashed ${subP?spc:"rgba(255,255,255,0.25)"}`,
-                                display:"flex",alignItems:"center",justifyContent:"center",
-                                cursor:"pointer",fontSize:8,fontWeight:900,
-                                color:subP?spc:"rgba(255,255,255,0.35)",
-                                zIndex:2,
-                              }}>
-                              {subP?subP.number||"#":"+"}
-                            </div>
-                          );
-                        })()}
+
                       </div>
                     );
                   })}
@@ -8468,12 +8443,6 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               );
             })()}
 
-          </div>
-
-          {/* Sub legend */}
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,paddingLeft:4}}>
-            <div style={{width:14,height:14,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,0.4)",background:"transparent",flexShrink:0}}></div>
-            <span style={{color:C.muted,fontSize:10}}>Dashed circle = designated sub for that position. Click to assign.</span>
           </div>
 
           {/* Bench — separate card below pitch */}
@@ -8519,6 +8488,103 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 
           {/* ── Right column ──────────────────────────────────────── */}
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* ── Lineup card: starter + sub per position ── */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>
+                LINEUP — {plan.formation}
+              </div>
+              {(()=>{
+                const GP_FSLOTS2={
+                  "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
+                  "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                  "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
+                  "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                  "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                };
+                const slots2=GP_FSLOTS2[plan.formation]||GP_FSLOTS2["4-3-3"];
+                const ZONE_COLORS={"GK":"#ffb300","DEF":"#42a5f5","MID":"#ff6b00","FWD":"#e53935"};
+                return slots2.map(function(slot,si){
+                  const starterPid=(plan.lineup[slot.z]||[])[slot.i]||null;
+                  const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
+                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
+                  const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
+                  const zc=ZONE_COLORS[slot.z]||C.accent;
+                  const spc=starter?posColor(primaryPos(starter)):null;
+                  const subpc=sub?posColor(primaryPos(sub)):null;
+                  return(
+                    <div key={si} style={{display:"flex",alignItems:"stretch",gap:0,
+                      marginBottom:5,borderRadius:9,overflow:"hidden",
+                      border:`1px solid ${C.border}`}}>
+                      {/* Position label bar */}
+                      <div style={{width:36,background:zc+"22",display:"flex",alignItems:"center",
+                        justifyContent:"center",flexShrink:0,borderRight:`1px solid ${C.border}`}}>
+                        <span style={{color:zc,fontSize:9,fontWeight:700,
+                          letterSpacing:.5,textAlign:"center"}}>{slot.lbl}</span>
+                      </div>
+                      {/* Starter + Sub stack */}
+                      <div style={{flex:1,minWidth:0}}>
+                        {/* Starter row */}
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i})}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"6px 10px",
+                            cursor:"pointer",borderBottom:`1px solid ${C.border}`,
+                            background:starter?C.surface:"transparent"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"08"}
+                          onMouseLeave={e=>e.currentTarget.style.background=starter?C.surface:"transparent"}>
+                          {starter?(
+                            <>
+                              <div style={{width:22,height:22,borderRadius:5,flexShrink:0,
+                                background:spc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:10}}>
+                                {starter.number}
+                              </div>
+                              <span style={{color:C.text,fontSize:12,fontWeight:600,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {starter.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>
+                              + Assign starter
+                            </span>
+                          )}
+                        </div>
+                        {/* Sub row */}
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"5px 10px",
+                            cursor:"pointer",background:"transparent"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"08"}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <div style={{width:14,height:14,flexShrink:0,display:"flex",
+                            alignItems:"center",justifyContent:"center"}}>
+                            <span style={{color:C.muted,fontSize:9}}>↳</span>
+                          </div>
+                          {sub?(
+                            <>
+                              <div style={{width:18,height:18,borderRadius:4,flexShrink:0,
+                                background:subpc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:9}}>
+                                {sub.number}
+                              </div>
+                              <span style={{color:C.muted,fontSize:11,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {sub.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:10,fontStyle:"italic",opacity:.6}}>
+                              sub...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
 
             {/* Sub plan */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
