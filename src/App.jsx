@@ -8486,54 +8486,98 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             )}
           </div>
 
-          {/* ── Right column: SUBS sidebar ── */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column",minHeight:400}}>
-            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>SUBS</div>
-            </div>
-            <div style={{overflowY:"auto",flex:1}}>
+          {/* ── Right column ──────────────────────────────────────── */}
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* ── Lineup card: starter + sub per position ── */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>
+                LINEUP — {plan.formation}
+              </div>
               {(()=>{
-                const GP_SIDEBAR={
+                const GP_FSLOTS2={
                   "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
                   "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
                   "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
                   "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
                   "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "4-1-4-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"LM"},{z:"MID",i:2,lbl:"LCM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"}],
                 };
-                const slots=GP_SIDEBAR[plan.formation]||GP_SIDEBAR["4-3-3"];
-                const zc2={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
-                return slots.map(function(slot,si){
+                const slots2=GP_FSLOTS2[plan.formation]||GP_FSLOTS2["4-3-3"];
+                const ZONE_COLORS={"GK":"#ffb300","DEF":"#42a5f5","MID":"#ff6b00","FWD":"#e53935"};
+                return slots2.map(function(slot,si){
                   const starterPid=(plan.lineup[slot.z]||[])[slot.i]||null;
-                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
                   const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
+                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
                   const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
-                  const zcolor=zc2[slot.z]||C.accent;
+                  const zc=ZONE_COLORS[slot.z]||C.accent;
+                  const spc=starter?posColor(primaryPos(starter)):null;
+                  const subpc=sub?posColor(primaryPos(sub)):null;
                   return(
-                    <div key={si} style={{padding:"8px 12px",borderBottom:`1px solid ${C.border}`,
-                      background:si%2===0?C.bg:C.surface}}>
-                      <div style={{color:zcolor,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>
-                        {slot.lbl}
+                    <div key={si} style={{display:"flex",alignItems:"stretch",gap:0,
+                      marginBottom:5,borderRadius:9,overflow:"hidden",
+                      border:`1px solid ${C.border}`}}>
+                      {/* Position label bar */}
+                      <div style={{width:36,background:zc+"22",display:"flex",alignItems:"center",
+                        justifyContent:"center",flexShrink:0,borderRight:`1px solid ${C.border}`}}>
+                        <span style={{color:zc,fontSize:9,fontWeight:700,
+                          letterSpacing:.5,textAlign:"center"}}>{slot.lbl}</span>
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-                        <div style={{width:4,height:4,borderRadius:"50%",
-                          background:starter?zcolor:C.border,flexShrink:0}}/>
-                        <div style={{color:starter?C.text:C.muted,fontSize:11,
-                          fontWeight:starter?600:400,flex:1,overflow:"hidden",
-                          textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {starter?`#${starter.number} ${starter.name}`:"—"}
+                      {/* Starter + Sub stack */}
+                      <div style={{flex:1,minWidth:0}}>
+                        {/* Starter row */}
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i})}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"6px 10px",
+                            cursor:"pointer",borderBottom:`1px solid ${C.border}`,
+                            background:starter?C.surface:"transparent"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"08"}
+                          onMouseLeave={e=>e.currentTarget.style.background=starter?C.surface:"transparent"}>
+                          {starter?(
+                            <>
+                              <div style={{width:22,height:22,borderRadius:5,flexShrink:0,
+                                background:spc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:10}}>
+                                {starter.number}
+                              </div>
+                              <span style={{color:C.text,fontSize:12,fontWeight:600,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {starter.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>
+                              + Assign starter
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
-                        style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",
-                          padding:"2px 4px",borderRadius:4}}>
-                        <div style={{width:4,height:4,borderRadius:2,
-                          background:sub?"#26a69a":C.border,flexShrink:0}}/>
-                        <div style={{color:sub?"#26a69a":C.muted,fontSize:10,
-                          fontWeight:sub?600:400,flex:1,overflow:"hidden",
-                          textOverflow:"ellipsis",whiteSpace:"nowrap",
-                          fontStyle:sub?"normal":"italic"}}>
-                          {sub?`#${sub.number} ${sub.name}`:"+ add sub"}
+                        {/* Sub row */}
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"5px 10px",
+                            cursor:"pointer",background:"transparent"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"08"}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <div style={{width:14,height:14,flexShrink:0,display:"flex",
+                            alignItems:"center",justifyContent:"center"}}>
+                            <span style={{color:C.muted,fontSize:9}}>↳</span>
+                          </div>
+                          {sub?(
+                            <>
+                              <div style={{width:18,height:18,borderRadius:4,flexShrink:0,
+                                background:subpc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:9}}>
+                                {sub.number}
+                              </div>
+                              <span style={{color:C.muted,fontSize:11,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {sub.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:10,fontStyle:"italic",opacity:.6}}>
+                              sub...
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -8541,7 +8585,4782 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                 });
               })()}
             </div>
+
+            {/* ── Lineup card: starter + sub per position ── */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:0}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>
+                LINEUP — {plan.formation}
+              </div>
+              {(()=>{
+                const GP_FSLOTS2={
+                  "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
+                  "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                  "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
+                  "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                  "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                };
+                const slots2=GP_FSLOTS2[plan.formation]||GP_FSLOTS2["4-3-3"];
+                const ZC={"GK":"#ffb300","DEF":"#42a5f5","MID":"#ff6b00","FWD":"#e53935"};
+                return slots2.map(function(slot,si){
+                  const starterPid=(plan.lineup[slot.z]||[])[slot.i]||null;
+                  const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
+                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
+                  const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
+                  const zc=ZC[slot.z]||C.accent;
+                  const spc=starter?posColor(primaryPos(starter)):null;
+                  const subpc=sub?posColor(primaryPos(sub)):null;
+                  return(
+                    <div key={si} style={{display:"flex",alignItems:"stretch",
+                      marginBottom:4,borderRadius:8,overflow:"hidden",
+                      border:`1px solid ${C.border}`}}>
+                      <div style={{width:32,background:zc+"18",display:"flex",alignItems:"center",
+                        justifyContent:"center",flexShrink:0,borderRight:`1px solid ${C.border}`}}>
+                        <span style={{color:zc,fontSize:9,fontWeight:700}}>{slot.lbl}</span>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i})}
+                          style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",
+                            cursor:"pointer",borderBottom:`1px solid ${C.border}`,
+                            background:C.surface}}
+                          onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
+                          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                          {starter?(
+                            <>
+                              <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
+                                background:spc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:9}}>
+                                {starter.number}
+                              </div>
+                              <span style={{color:C.text,fontSize:12,fontWeight:600,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {starter.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>+ starter</span>
+                          )}
+                        </div>
+                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
+                          style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",
+                            cursor:"pointer",background:"transparent"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"0a"}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <span style={{color:C.muted,fontSize:10,minWidth:14}}>↳</span>
+                          {sub?(
+                            <>
+                              <div style={{width:16,height:16,borderRadius:3,flexShrink:0,
+                                background:subpc,display:"flex",alignItems:"center",
+                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,color:"#fff",fontSize:8}}>
+                                {sub.number}
+                              </div>
+                              <span style={{color:C.muted,fontSize:11,
+                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {sub.name.split(" ").pop()}
+                              </span>
+                            </>
+                          ):(
+                            <span style={{color:C.muted,fontSize:10,opacity:.5,fontStyle:"italic"}}>sub...</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Sub plan */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>SUBSTITUTION PLAN</div>
+                <button onClick={addSub} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  <Plus size={12}/>Add Sub
+                </button>
+              </div>
+              {plan.subs.length===0
+                ? <div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No substitutions planned yet</div>
+                : plan.subs.map(sub=>(
+                  <div key={sub.id} style={{background:C.bg,borderRadius:10,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                      {/* Minute window */}
+                      <select value={sub.minute} onChange={e=>updateSub(sub.id,"minute",e.target.value)}
+                        style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        {["45-55","55-65","60-70","65-75","70-80","75-85","80-90"].map(m=><option key={m} value={m}>{m}'</option>)}
+                      </select>
+                      {/* Condition */}
+                      <select value={sub.condition} onChange={e=>updateSub(sub.id,"condition",e.target.value)}
+                        style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        {["Regardless","If Winning","If Drawing","If Losing","If Chasing"].map(c=><option key={c}>{c}</option>)}
+                      </select>
+                      <button onClick={()=>removeSub(sub.id)} style={{marginLeft:"auto",background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{color:C.accent,fontSize:12,fontWeight:700,flexShrink:0}}>ON →</span>
+                      <select value={sub.playerOn||""} onChange={e=>updateSub(sub.id,"playerOn",e.target.value||null)}
+                        style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        <option value="">Select player</option>
+                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{color:C.danger,fontSize:12,fontWeight:700,flexShrink:0}}>OFF →</span>
+                      <select value={sub.playerOff||""} onChange={e=>updateSub(sub.id,"playerOff",e.target.value||null)}
+                        style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        <option value="">Select player</option>
+                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* Opposition notes */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>OPPOSITION NOTES</div>
+              {[["threats","Key Threats"],["setPieces","Set Pieces"],["pressing","Pressing Style"]].map(([key,label])=>(
+                <div key={key} style={{marginBottom:10}}>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
+                  <input value={plan.oppNotes[key]||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,[key]:e.target.value}}))}
+                    placeholder={`e.g. ${key==="threats"?"Fast #9, strong in the air":key==="setPieces"?"Near post corners":"Press high, trigger = GK"}`}
+                    style={{width:"100%",padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+              <div style={{marginTop:4}}>
+                <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>GENERAL NOTES</label>
+                <textarea value={plan.oppNotes.notes||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,notes:e.target.value}}))}
+                  rows={3} placeholder="Any other intelligence..."
+                  style={{width:"100%",padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+
+            {/* Match instructions */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>MATCH INSTRUCTIONS</div>
+              <textarea value={plan.instructions||""} onChange={e=>updatePlan(()=>({instructions:e.target.value}))}
+                rows={4} placeholder="Team instructions, tactical focus, set piece routines..."
+                style={{width:"100%",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+            </div>
           </div>
+        </div>}
+
+
+
+        {/* ── SCOUT REPORT TAB ────────────────────────────────── */}
+        {gpTab==="scout"&&(
+          <div>
+            {/* Link indicator */}
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,
+              padding:"10px 14px",borderRadius:9,
+              background:linkedOpp?C.accent+"11":C.surface,
+              border:`1px solid ${linkedOpp?C.accent+"44":C.border}`}}>
+              <div style={{width:8,height:8,borderRadius:"50%",
+                background:linkedOpp?C.accent:C.muted,flexShrink:0}}/>
+              <div style={{fontSize:12,color:linkedOpp?C.accent:C.muted,fontWeight:600}}>
+                {linkedOpp
+                  ? `Synced with Opponents database — changes save there too`
+                  : `No opponent record yet — adding notes will create one`}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              {/* Formation */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>THEIR FORMATION</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-5-1","3-4-3"].map(f=>(
+                    <button key={f} onClick={()=>updateScout("formation",f)}
+                      style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${scout.formation===f?C.accent:C.border}`,
+                        background:scout.formation===f?C.accent+"22":C.surface,
+                        color:scout.formation===f?C.accent:C.muted,
+                        fontWeight:700,fontSize:13,cursor:"pointer"}}>{f}</button>
+                  ))}
+                </div>
+                {scout.formation&&(
+                  <div style={{marginTop:10,fontSize:13,color:C.accent,fontWeight:700}}>
+                    Selected: {scout.formation}
+                  </div>
+                )}
+              </div>
+
+              {/* Key players */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>KEY PLAYERS TO WATCH</div>
+                <textarea
+                  value={scout.keyPlayers||""}
+                  onChange={e=>updateScout("keyPlayers",e.target.value)}
+                  rows={4}
+                  placeholder="#9 — fast, left foot. #10 — dictates play. #4 — aggressive CB..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+
+              {/* Set pieces */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>SET PIECES</div>
+                <textarea
+                  value={scout.setPieceNotes||""}
+                  onChange={e=>updateScout("setPieceNotes",e.target.value)}
+                  rows={4}
+                  placeholder="Corner routine, free kick takers, throw-in patterns..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+
+              {/* Scout notes */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>GENERAL SCOUT NOTES</div>
+                <textarea
+                  value={scout.scoutNotes||""}
+                  onChange={e=>updateScout("scoutNotes",e.target.value)}
+                  rows={3}
+                  placeholder="Press high, slow build-up, weak left side..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,
+                    border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                    fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+                    boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+
+            {/* Key threat players from squad */}
+            {(()=>{
+              const oppPlayers = scout.oppPlayers||{};
+              const threats = Object.entries(oppPlayers)
+                .flatMap(([pos,players])=>(players||[]).map(p=>({...p,pos})))
+                .filter(p=>p.threat&&p.name);
+              return threats.length>0?(
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.danger,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>THREAT PLAYERS TO WATCH</div>
+                  {threats.map((p,i)=>{
+                    const threatCol = p.threat==="key"?C.danger:p.threat==="danger"?"#ff5500":C.warning;
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
+                        border:`1px solid ${threatCol}33`}}>
+                        <div style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                          background:posColor(p.pos),border:"none",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(p.pos),fontSize:11}}>
+                          {p.pos}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontWeight:600,fontSize:13}}>
+                            {p.number&&<span style={{color:C.muted,marginRight:5}}>#{p.number}</span>}{p.name}
+                          </div>
+                          {p.notes&&<div style={{color:C.muted,fontSize:11,marginTop:2}}>{p.notes}</div>}
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4,
+                          background:threatCol+"22",color:threatCol}}>{p.threat.toUpperCase()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):null;
+            })()}
+
+            {/* Counter plan summary */}
+            {(scout.counterPlan?.howWeAttack||scout.counterPlan?.howWeDefend)&&(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,gridColumn:"1/-1"}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>OUR GAME PLAN RESPONSE</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  {scout.counterPlan.howWeAttack&&(
+                    <div>
+                      <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>HOW WE ATTACK</div>
+                      <div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{scout.counterPlan.howWeAttack}</div>
+                    </div>
+                  )}
+                  {scout.counterPlan.howWeDefend&&(
+                    <div>
+                      <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}}>HOW WE DEFEND</div>
+                      <div style={{color:C.muted,fontSize:13,lineHeight:1.6}}>{scout.counterPlan.howWeDefend}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>PREPARATION</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Game Plans</h1>
+        </div>
+        <button onClick={()=>setCreating(true)}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+          <Plus size={15}/>New Plan
+        </button>
+      </div>
+
+      {gamePlans.length===0
+        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <BookOpen size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No game plans yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create a plan before your next match</div>
+          </div>
+        : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {gamePlans.map(plan=>{
+              const assigned = Object.values(plan.lineup).flat().filter(Boolean).length;
+              const total    = Object.values(plan.lineup).flat().length;
+              return(
+                <div key={plan.id} onClick={()=>setSel(plan.id)}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  <div style={{width:44,height:44,borderRadius:10,background:C.accent+"22",border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <BookOpen size={20} color={C.accent}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15}}>vs {plan.opponent}</div>
+                    <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{plan.date}</span>
+                      <span>{plan.location}</span>
+                      <span>{plan.formation}</span>
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{color:assigned===total?C.accent:C.warning,fontWeight:700,fontSize:13}}>{assigned}/{total} set</div>
+                    <div style={{color:C.muted,fontSize:11}}>{plan.subs.length} subs planned</div>
+                  </div>
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
+function PracticeView({practices, setPractices, gamePlans, roster, drills, setDrills, templates, setTemplates}){
+  const [sel,setSel]               = useState(null);
+  const [creating,setCreating]     = useState(false);
+  const [filterTag,setFilterTag]   = useState("All");
+  const [selPlayer,setSelPlayer]   = useState("");
+  const [noteText,setNoteText]     = useState("");
+  const [drillName,setDrillName]   = useState("");
+  const [printMode,setPrintMode]   = useState(false);
+  const [showTemplates,setShowTemplates] = useState(false);
+  const [savingTpl,setSavingTpl]   = useState(false);
+  const [tplName,setTplName]       = useState("");
+  const [fullAttSel,setFullAttSel]  = useState(null);
+  const [teamDropOpen,setTeamDropOpen]= useState(false);
+  const [diagramCard, setDiagramCard] = useState(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft,   setTitleDraft]   = useState("");
+
+  const FOCUS_TAGS   = ["Mixed","Attacking","Defending","Transition","Set Pieces","Fitness","Technical"];
+  const FOCUS_COLORS = {Mixed:C.accent,Attacking:"#ff6b00",Defending:"#42a5f5",Transition:"#7c6af5",
+    "Set Pieces":"#ffb300",Fitness:"#ef5350",Technical:"#66bb6a"};
+  const INTENSITY    = [{k:"low",label:"Low",color:"#66bb6a"},{k:"medium",label:"Med",color:"#ffb300"},{k:"high",label:"High",color:"#ef5350"}];
+
+  const EMPTY_BLOCKS = () => ({
+    warmup:  [],
+    main:    [],
+    cooldown:[],
+  });
+
+  const [form,setForm] = useState({
+    title:"",
+    date:new Date().toISOString().split("T")[0],
+    duration:"60", focus:"Mixed",
+    objectives:"", linkedGame:"",
+    blocks: EMPTY_BLOCKS(),
+  });
+
+  const iS = (extra={}) => ({width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",...extra});
+
+  // ── Drill card helpers ────────────────────────────────────────────────────
+  function makeCard(name,extra={}){ return {id:`dc${Date.now()}_${Math.random().toString(36).slice(2)}`,name,duration:"",notes:"",intensity:"medium",diagram:null,...extra}; }
+
+  function addCardToBlock(session_or_form, setter, block, name){
+    setter(prev=>{
+      if(Array.isArray(prev)){ // setPractices
+        return prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:[...(p.blocks?.[block]||[]),makeCard(name)]}}:p);
+      } else { // setForm
+        return {...prev, blocks:{...prev.blocks,[block]:[...(prev.blocks?.[block]||[]),makeCard(name)]}};
+      }
+    });
+  }
+
+  function removeCard(block, cardId){
+    setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[block]:(p.blocks[block]||[]).filter(c=>c.id!==cardId)}}:p));
+  }
+
+  function updateCard(block, cardId, key, val){
+    setPractices(prev=>prev.map(p=>p.id===sel?{
+      ...p, blocks:{...p.blocks,[block]:(p.blocks[block]||[]).map(c=>c.id===cardId?{...c,[key]:val}:c)}
+    }:p));
+  }
+
+  function moveCard(block, cardId, dir){
+    setPractices(prev=>prev.map(p=>{
+      if(p.id!==sel) return p;
+      const arr=[...(p.blocks[block]||[])];
+      const i=arr.findIndex(c=>c.id===cardId);
+      if(dir===-1&&i===0) return p;
+      if(dir===1&&i===arr.length-1) return p;
+      [arr[i],arr[i+dir]]=[arr[i+dir],arr[i]];
+      return {...p,blocks:{...p.blocks,[block]:arr}};
+    }));
+  }
+
+  function createSession(sourceBlocks){
+    const initAtt={};
+    roster.forEach(p=>{ initAtt[p.id]="present"; });
+    const session={
+      id:`pr${Date.now()}`, ...form,
+      blocks: sourceBlocks || form.blocks || EMPTY_BLOCKS(),
+      rating:0, attendance:initAtt, playerNotes:[], createdAt:new Date().toISOString()
+    };
+    setPractices(prev=>[session,...prev]);
+    setSel(session.id); setCreating(false);
+  }
+
+  // ─── CREATE FORM ───────────────────────────────────────────────────────────
+  if(creating) return(
+    <div style={{padding:24,maxWidth:560,margin:"0 auto"}}>
+      <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>PRACTICE</div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Session</h2>
+
+      {/* Templates picker */}
+      {(templates||[]).length>0&&(
+        <div style={{marginBottom:18}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>START FROM TEMPLATE</div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+            {(templates||[]).map(t=>(
+              <button key={t.id} onClick={()=>{setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(t.blocks))})); }}
+                style={{padding:"7px 14px",background:C.surface,border:`1px solid ${C.accent}44`,borderRadius:8,
+                  color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>{t.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION NAME</label>
+        <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
+          placeholder="e.g. Pre-season fitness, Set piece work, Defensive shape..."
+          autoFocus style={{...iS(),background:C.card}}/>
+      </div>
+
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        <div>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+          <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{...iS(),background:C.card}}/>
+        </div>
+        <div>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DURATION</label>
+          <div style={{display:"flex",gap:4}}>
+            {["45","60","75","90"].map(d=>(
+              <button key={d} onClick={()=>setForm(f=>({...f,duration:d}))}
+                style={{flex:1,padding:"9px 4px",background:form.duration===d?C.accent+"22":C.card,
+                  border:`1px solid ${form.duration===d?C.accent:C.border}`,borderRadius:8,
+                  color:form.duration===d?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{d}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FOCUS</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+          {FOCUS_TAGS.map(t=>{const col=FOCUS_COLORS[t];return(
+            <button key={t} onClick={()=>setForm(f=>({...f,focus:t}))}
+              style={{padding:"7px 13px",background:form.focus===t?col+"22":C.card,border:`1px solid ${form.focus===t?col:C.border}`,borderRadius:8,color:form.focus===t?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{t}</button>
+          );})}
+        </div>
+      </div>
+
+      <div style={{marginBottom:14}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION OBJECTIVES</label>
+        <input value={form.objectives} onChange={e=>setForm(f=>({...f,objectives:e.target.value}))}
+          placeholder="e.g. Improve defensive shape in transition" style={{...iS(),background:C.card}}/>
+      </div>
+
+      <div style={{marginBottom:24}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LINKED GAME (OPTIONAL)</label>
+        <select value={form.linkedGame} onChange={e=>setForm(f=>({...f,linkedGame:e.target.value}))} style={{...iS(),background:C.card}}>
+          <option value="">None</option>
+          {gamePlans.map(gp=><option key={gp.id} value={gp.id}>vs {gp.opponent} ({gp.date})</option>)}
+        </select>
+      </div>
+
+      <button onClick={()=>createSession(null)}
+        style={{width:"100%",padding:"14px",background:C.accent,border:"none",borderRadius:10,
+          color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        CREATE SESSION →
+      </button>
+    </div>
+  );
+
+  // ─── SESSION DETAIL ────────────────────────────────────────────────────────
+  if(sel){
+    const _raw=practices.find(p=>p.id===sel); if(!_raw) return null;
+    const session={playerNotes:[],attendance:{},..._raw,blocks:{
+      warmup:  (_raw.blocks?.warmup   ||[]),
+      main:    (_raw.blocks?.main     ||[]),
+      cooldown:(_raw.blocks?.cooldown ||[]),
+    }};
+    const focusCol=FOCUS_COLORS[session.focus]||C.accent;
+    const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
+    // editingTitle and titleDraft declared at top of component
+    const att=session.attendance||{};
+    const pres=Object.values(att).filter(v=>v==="present").length;
+    const abs=Object.values(att).filter(v=>v==="absent").length;
+    const inj=Object.values(att).filter(v=>v==="injured").length;
+    const blocks=session.blocks||EMPTY_BLOCKS();
+
+    function upd(fn){ setPractices(prev=>prev.map(p=>p.id===sel?{...p,...fn(p)}:p)); }
+    function setAtt(pid,status){ upd(s=>({attendance:{...s.attendance,[pid]:status}})); }
+    function addNote(){
+      if(!selPlayer||!noteText.trim()) return;
+      const p=roster.find(r=>r.id===selPlayer);
+      upd(s=>({playerNotes:[...s.playerNotes,{id:`n${Date.now()}`,pid:selPlayer,name:p?.name||"",note:noteText.trim()}]}));
+      setNoteText(""); setSelPlayer("");
+    }
+    function saveDrill(){
+      if(!drillName.trim()) return;
+      if(!(drills||[]).find(d=>d.name.toLowerCase()===drillName.trim().toLowerCase()))
+        setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim()}]);
+      setDrillName("");
+    }
+    function saveTemplate(){
+      if(!tplName.trim()) return;
+      const tpl={id:`t${Date.now()}`,name:tplName.trim(),
+        focus:session.focus, objectives:session.objectives||"",
+        blocks:JSON.parse(JSON.stringify(blocks))};
+      setTemplates(prev=>[tpl,...prev]);
+      setTplName(""); setSavingTpl(false);
+    }
+
+    const SECTIONS=[
+      {key:"warmup",   label:"Warmup",   color:"#66bb6a", icon:"🟢", desc:"Activation, mobility, rondos"},
+      {key:"main",     label:"Main Work", color:"#ff6b00", icon:"🟠", desc:"Core drills and tactical work"},
+      {key:"cooldown", label:"Cooldown",  color:"#42a5f5", icon:"🔵", desc:"Possession, stretching, debrief"},
+    ];
+
+    const totalMins = SECTIONS.flatMap(s=>(blocks[s.key]||[]).map(c=>parseInt(c.duration)||0)).reduce((a,b)=>a+b,0);
+
+    const ATT=[{k:"present",label:"✓",color:C.accent},{k:"absent",label:"✗",color:C.danger},{k:"injured",label:"⚕",color:C.warning}];
+
+    function saveTitle(){
+      const t=titleDraft.trim();
+      upd(()=>({title:t}));
+      setEditingTitle(false);
+    }
+
+    // ── Title editing JSX helper ──────────────────────────────────────────────
+    const TitleBlock = (
+      <div style={{marginBottom:4}}>
+        {editingTitle?(
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input value={titleDraft}
+              onChange={e=>setTitleDraft(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")saveTitle();if(e.key==="Escape")setEditingTitle(false);}}
+              autoFocus
+              style={{flex:1,padding:"6px 12px",background:C.surface,
+                border:`1px solid ${C.accent}`,borderRadius:8,
+                color:C.text,fontSize:20,fontWeight:700,outline:"none",
+                fontFamily:"'Oswald',sans-serif"}}/>
+            <button onClick={saveTitle}
+              style={{padding:"6px 14px",background:C.accent,border:"none",
+                borderRadius:8,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              Save
+            </button>
+            <button onClick={()=>setEditingTitle(false)}
+              style={{padding:"6px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:8,color:C.muted,fontSize:12,cursor:"pointer"}}>
+              ✕
+            </button>
+          </div>
+        ):(
+          <div onClick={()=>{setTitleDraft(session.title||"");setEditingTitle(true);}}
+            style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",
+              color:session.title?C.text:C.muted,
+              fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,
+              padding:"4px 0"}}>
+            {session.title||"Untitled Session"}
+            <span style={{fontSize:11,color:C.muted,fontWeight:400,
+              fontFamily:"'Outfit',sans-serif",marginTop:2}}>✏ edit</span>
+          </div>
+        )}
+      </div>
+    );
+
+    // ── PRINT MODE ─────────────────────────────────────────────────────────
+    if(printMode){
+      function exportPDF(){
+        // Inject a temporary print stylesheet targeting only #practice-print-area
+        const styleEl = document.createElement("style");
+        styleEl.id = "coachiq-print-style";
+        styleEl.innerHTML = `
+          @media print {
+            body > * { display: none !important; }
+            #coachiq-print-portal { display: block !important; position: static !important; }
+            #coachiq-print-portal * { visibility: visible; }
+            @page { margin: 18mm 14mm; size: A4 portrait; }
+          }
+        `;
+        document.head.appendChild(styleEl);
+
+        // Build a detached print portal with the session content
+        let existing = document.getElementById("coachiq-print-portal");
+        if(existing) existing.remove();
+        const portal = document.createElement("div");
+        portal.id = "coachiq-print-portal";
+        portal.style.cssText = "display:none;position:absolute;top:0;left:0;width:100%;background:#fff;font-family:'Helvetica Neue',Arial,sans-serif;padding:32px;box-sizing:border-box;";
+
+        // Header
+        const headerDiv = document.createElement("div");
+        headerDiv.style.cssText = "margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #ff6b00;";
+        headerDiv.innerHTML = `
+          <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#cc4400;text-transform:uppercase;margin-bottom:6px;">
+            Training Session &nbsp;·&nbsp; ${fmtDate(session.date)} &nbsp;·&nbsp; ${session.duration} mins
+          </div>
+          <div style="font-size:28px;font-weight:900;color:#1a0d00;font-family:'Arial Black',Arial,sans-serif;margin-bottom:${session.objectives?"6px":"0"};">
+            ${session.focus} Session
+          </div>
+          ${session.objectives ? `<div style="font-size:14px;color:#6b3d1e;">🎯 ${session.objectives}</div>` : ""}
+        `;
+        portal.appendChild(headerDiv);
+
+
+        function buildDiagramSVG(diagramData, size=200){
+          if(!diagramData) return "";
+          let parsed = {};
+          try { parsed = JSON.parse(diagramData); } catch(e){ return ""; }
+          const elements = Array.isArray(parsed) ? parsed : (parsed.elements||[]);
+          const ft = parsed.fieldType || "full";
+          const W=520, H=360;
+          const scale = size/W;
+          const sh = Math.round(H*scale);
+
+          function arrowSVG(el){
+            const angle=Math.atan2(el.y2-el.y1,el.x2-el.x1);
+            const ax1=el.x2-14*Math.cos(angle-0.4), ay1=el.y2-14*Math.sin(angle-0.4);
+            const ax2=el.x2-14*Math.cos(angle+0.4), ay2=el.y2-14*Math.sin(angle+0.4);
+            const dash=el.dashed?'stroke-dasharray="6,4"':"";
+            return `<line x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}" stroke="${el.color}" stroke-width="2.5" ${dash}/>
+                    <polygon points="${el.x2},${el.y2} ${ax1},${ay1} ${ax2},${ay2}" fill="${el.color}"/>`;
+          }
+
+          const pitchLines = ft==="half"
+            ? `<rect x="20" y="20" width="${W-40}" height="${H-40}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+               <rect x="${W/2-90}" y="${H-80}" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-45}" y="${H-48}" width="90" height="28" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>`
+            : `<rect x="20" y="20" width="${W-40}" height="${H-40}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+               <line x1="20" y1="${H/2}" x2="${W-20}" y2="${H/2}" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <circle cx="${W/2}" cy="${H/2}" r="50" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-90}" y="20" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+               <rect x="${W/2-90}" y="${H-80}" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>`;
+
+          const elSVG = elements.map(el=>{
+            if(el.type==="dot") return `<circle cx="${el.x}" cy="${el.y}" r="10" fill="${el.color}" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>`;
+            if(el.type==="cone") return `<polygon points="${el.x},${el.y-10} ${el.x+8},${el.y+6} ${el.x-8},${el.y+6}" fill="#ff8800"/>`;
+            if(el.type==="line") return arrowSVG(el);
+            return "";
+          }).join("\n");
+
+          return '<svg viewBox="0 0 '+W+' '+H+'" width="'+size+'" height="'+sh+'" style="display:block;border-radius:6px;border:1px solid #444;margin-bottom:6px;">'
+            +'<rect width="'+W+'" height="'+H+'" fill="#2d5a1b"/>'
+            +pitchLines
+            +elSVG
+            +'</svg>';
+        }
+
+        // Sections
+        const SECTION_PRINT = [
+          {key:"warmup",   label:"Warmup",    color:"#2d7a3a"},
+          {key:"main",     label:"Main Work", color:"#cc4400"},
+          {key:"cooldown", label:"Cooldown",  color:"#1a5fa8"},
+        ];
+        let hasContent = false;
+        SECTION_PRINT.forEach(sec => {
+          const cards = (blocks[sec.key]||[]);
+          if(!cards.length) return;
+          hasContent = true;
+          const secMins = cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+
+          const secDiv = document.createElement("div");
+          secDiv.style.cssText = "margin-bottom:22px;";
+
+          // Section header
+          const secHeader = document.createElement("div");
+          secHeader.style.cssText = `display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ${sec.color}33;`;
+          secHeader.innerHTML = `
+            <div style="font-size:15px;font-weight:900;color:${sec.color};letter-spacing:1px;text-transform:uppercase;flex:1;">${sec.label}</div>
+            ${secMins>0?`<div style="font-size:12px;color:#8a6040;font-weight:600;">${secMins} mins</div>`:""}
+          `;
+          secDiv.appendChild(secHeader);
+
+          // Drill cards
+          cards.forEach((card, idx) => {
+            const INTENSITY_COLORS = {low:"#2d7a3a",medium:"#cc8800",high:"#cc2200"};
+            const intColor = INTENSITY_COLORS[card.intensity]||"#cc8800";
+            const cardDiv = document.createElement("div");
+            cardDiv.style.cssText = "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;";
+            const diagSVG = card.diagram ? buildDiagramSVG(card.diagram, 180) : "";
+            cardDiv.style.cssText = card.diagram
+              ? "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;align-items:flex-start;"
+              : "display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;";
+            cardDiv.innerHTML = `
+              <div style="min-width:24px;font-size:16px;font-weight:900;color:#cc8800;font-family:'Arial Black',Arial,sans-serif;">${idx+1}</div>
+              ${diagSVG ? `<div style="flex-shrink:0;">${diagSVG}</div>` : ""}
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:#1a0d00;margin-bottom:${card.notes?"3px":"0"};">${card.name||"Unnamed drill"}</div>
+                ${card.notes?`<div style="font-size:12px;color:#6b3d1e;line-height:1.6;white-space:pre-wrap;">${card.notes}</div>`:""}
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+                ${card.duration?`<div style="font-size:13px;font-weight:700;color:#1a0d00;">${card.duration} min</div>`:""}
+                ${card.intensity?`<div style="font-size:10px;font-weight:700;color:${intColor};letter-spacing:1px;text-transform:uppercase;">${card.intensity}</div>`:""}
+              </div>
+            `;
+            secDiv.appendChild(cardDiv);
+          });
+          portal.appendChild(secDiv);
+        });
+
+        if(!hasContent){
+          const empty = document.createElement("div");
+          empty.style.cssText = "color:#8a6040;font-style:italic;font-size:13px;";
+          empty.textContent = "No drills added to this session yet.";
+          portal.appendChild(empty);
+        }
+
+        // Footer total
+        if(totalMins>0){
+          const footer = document.createElement("div");
+          footer.style.cssText = "margin-top:20px;padding-top:12px;border-top:1px solid #e8d5c0;text-align:right;font-size:12px;color:#8a6040;";
+          footer.innerHTML = `Total drill time: <strong style="color:#1a0d00;">${totalMins} mins</strong> / ${session.duration} min session`;
+          portal.appendChild(footer);
+        }
+
+        document.body.appendChild(portal);
+
+        // Trigger print
+        setTimeout(()=>{
+          window.print();
+          // Cleanup after print dialog closes
+          setTimeout(()=>{
+            portal.remove();
+            styleEl.remove();
+          }, 1000);
+        }, 100);
+      }
+
+      return(
+        <div style={{padding:32,maxWidth:720,margin:"0 auto",background:C.bg}}>
+          {/* Toolbar — hidden when printing */}
+          <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+            <div>
+              <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{fmtDate(session.date)} · {session.duration} MINS</div>
+              <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>
+                {session.focus} Session
+              </h1>
+              {session.objectives&&<div style={{color:C.muted,fontSize:14,marginTop:4}}>🎯 {session.objectives}</div>}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={exportPDF}
+                style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                  background:C.accent,border:"none",borderRadius:9,
+                  color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                ⬇ Export PDF
+              </button>
+              <button onClick={()=>setPrintMode(false)}
+                style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>
+                ← Back
+              </button>
+            </div>
+          </div>
+
+          {/* Plan content */}
+          {SECTIONS.map(sec=>{
+            const cards=blocks[sec.key]||[];
+            if(!cards.length) return null;
+            const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+            return(
+              <div key={sec.key} style={{marginBottom:24}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
+                  borderBottom:`2px solid ${sec.color}44`,paddingBottom:8}}>
+                  <span style={{fontSize:18}}>{sec.icon}</span>
+                  <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:18,letterSpacing:1}}>{sec.label.toUpperCase()}</div>
+                  {secMins>0&&<div style={{color:C.muted,fontSize:13,marginLeft:"auto"}}>{secMins} mins</div>}
+                </div>
+                {cards.map((card,idx)=>(
+                  <div key={card.id} style={{display:"flex",gap:14,marginBottom:12,padding:"12px 16px",
+                    background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <div style={{minWidth:28,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:18}}>{idx+1}</div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{card.name}</div>
+                      {card.diagram&&(
+                        <div style={{marginBottom:6}}>
+                          <DiagramPreview data={card.diagram}/>
+                        </div>
+                      )}
+                      {card.notes&&<div style={{color:C.muted,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{card.notes}</div>}
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                      {card.duration&&<div style={{color:C.text,fontWeight:700,fontSize:13}}>{card.duration} min</div>}
+                      {card.intensity&&(()=>{const int=INTENSITY.find(x=>x.k===card.intensity);return int?<span style={{color:int.color,fontSize:11,fontWeight:700,letterSpacing:1}}>{int.label.toUpperCase()}</span>:null;})()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+
+          {totalMins>0&&(
+            <div style={{textAlign:"right",color:C.muted,fontSize:13,borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+              Total drill time: <strong style={{color:C.text}}>{totalMins} mins</strong> / {session.duration} min session
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return(
+      <div className="mobile-page-pad" style={{padding:20,maxWidth:980,margin:"0 auto"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+              <Tag color={focusCol}>{session.focus}</Tag>
+              <span style={{color:C.muted,fontSize:12}}>{fmtDate(session.date)} · {session.duration} mins</span>
+              {linked&&<span style={{color:C.muted,fontSize:12}}>· Prep for vs {linked.opponent}</span>}
+              {Object.keys(att).length>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{pres} present{abs>0?` · ${abs} absent`:""}  {inj>0?` · ${inj} injured`:""}</span>}
+            </div>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>Training Session</h2>
+          </div>
+          <div style={{display:"flex",gap:7}}>
+            <button onClick={()=>setPrintMode(true)}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>
+              ⛶ View Plan
+            </button>
+            <button onClick={()=>setSavingTpl(v=>!v)}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",background:savingTpl?C.accent+"22":C.surface,
+                border:`1px solid ${savingTpl?C.accent:C.border}`,borderRadius:8,color:savingTpl?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>
+              ☆ Save as Template
+            </button>
+            <button onClick={()=>{if(window.confirm("Delete this session?"))setPractices(prev=>prev.filter(p=>p.id!==sel));setSel(null);}}
+              style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12}}>
+              <Trash2 size={13}/>
+            </button>
+          </div>
+        </div>
+
+        {/* Save as template input */}
+        {savingTpl&&(
+          <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",gap:10,alignItems:"center"}}>
+            <input value={tplName} onChange={e=>setTplName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveTemplate()}
+              placeholder="Template name (e.g. Match Prep, Fitness Day)..."
+              style={{...iS(),flex:1}}/>
+            <button onClick={saveTemplate} disabled={!tplName.trim()}
+              style={{padding:"9px 16px",background:tplName.trim()?C.accent:"transparent",border:`1px solid ${tplName.trim()?C.accent:C.border}`,
+                borderRadius:8,color:tplName.trim()?"#000":C.muted,fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>
+              Save
+            </button>
+          </div>
+        )}
+
+        {/* Row 1: Objectives + Rating */}
+        <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:14,marginBottom:14}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>SESSION OBJECTIVES</div>
+            <input value={session.objectives||""} onChange={e=>upd(()=>({objectives:e.target.value}))}
+              placeholder="What are you aiming to improve today?" style={iS()}/>
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>SESSION RATING</div>
+            <div style={{display:"flex",gap:5,justifyContent:"center"}}>
+              {[1,2,3,4,5].map(n=>(
+                <button key={n} onClick={()=>upd(()=>({rating:n===(session.rating||0)?0:n}))}
+                  style={{width:34,height:34,borderRadius:8,fontSize:18,cursor:"pointer",fontWeight:900,transition:"all .12s",
+                    border:`2px solid ${(session.rating||0)>=n?C.warning:C.border}`,
+                    background:(session.rating||0)>=n?C.warning+"22":"transparent",
+                    color:(session.rating||0)>=n?C.warning:C.muted}}>★</button>
+              ))}
+            </div>
+            <div style={{color:C.muted,fontSize:11,textAlign:"center",marginTop:8}}>
+              {(session.rating||0)>0?["","Poor","Below Avg","Average","Good","Excellent"][session.rating]:"Not rated"}
+            </div>
+          </div>
+        </div>
+
+        {/* Drill Canvas Modal */}
+        {diagramCard&&(()=>{
+          const card=(blocks[diagramCard.sec]||[]).find(c=>c.id===diagramCard.cardId);
+          if(!card) return null;
+          return(
+            <DrillCanvas
+              diagram={card.diagram||null}
+              onSave={data=>{updateCard(diagramCard.sec,diagramCard.cardId,"diagram",data);setDiagramCard(null);}}
+              onClose={()=>setDiagramCard(null)}
+            />
+          );
+        })()}
+
+        {/* Row 2: Session blocks + Drill library */}
+        <div className="resp-grid-sidebar practice-grid" style={{display:"grid",gridTemplateColumns:"1fr 240px",gap:14,marginBottom:14}}>
+
+          {/* Session plan blocks */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {SECTIONS.map(sec=>{
+              const cards=blocks[sec.key]||[];
+              const secMins=cards.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
+              return(
+                <div key={sec.key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  {/* Section header */}
+                  <div className="practice-section-header" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <span style={{fontSize:16}}>{sec.icon}</span>
+                    <div style={{color:sec.color,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:15,letterSpacing:.5}}>{sec.label.toUpperCase()}</div>
+                    {secMins>0&&<div style={{color:C.muted,fontSize:11,marginLeft:4}}>{secMins} min</div>}
+                    <div style={{flex:1}}/>
+                    {/* Add from library quick-pick */}
+                    <select defaultValue=""
+                      style={{padding:"4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontSize:11,cursor:"pointer",maxWidth:140}}
+                      onChange={e=>{
+                        if(!e.target.value) return;
+                        const d=(drills||[]).find(x=>x.id===e.target.value);
+                        if(!d) return;
+                        setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard(d.name,{notes:d.notes||"",intensity:d.intensity||"medium",diagram:d.diagram||null})]}}:p));
+                        e.target.value="";
+                      }}>
+                      <option value="">+ From library</option>
+                      {(drills||[]).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    {/* Add blank card */}
+                    <button onClick={()=>setPractices(prev=>prev.map(p=>p.id===sel?{...p,blocks:{...p.blocks,[sec.key]:[...(p.blocks?.[sec.key]||[]),makeCard("")]}}:p))}
+                      style={{padding:"4px 9px",background:sec.color+"22",border:`1px solid ${sec.color}44`,borderRadius:7,color:sec.color,cursor:"pointer",fontWeight:700,fontSize:12}}>+ Add</button>
+                  </div>
+
+                  {/* Drill cards */}
+                  {cards.length===0
+                    ? <div style={{color:C.muted,fontSize:12,fontStyle:"italic",textAlign:"center",padding:"12px 0"}}>{sec.desc}</div>
+                    : cards.map((card,idx)=>(
+                        <div key={card.id} style={{background:C.surface,borderRadius:10,padding:"10px 12px",marginBottom:8,
+                          border:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
+                          {/* Card top row */}
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            {/* Reorder */}
+                            <div style={{display:"flex",flexDirection:"column",gap:1,flexShrink:0}}>
+                              <button onClick={()=>moveCard(sec.key,card.id,-1)} disabled={idx===0}
+                                style={{background:"none",border:"none",color:idx===0?C.border:C.muted,cursor:idx===0?"default":"pointer",fontSize:10,padding:0,lineHeight:1}}>▲</button>
+                              <button onClick={()=>moveCard(sec.key,card.id,1)} disabled={idx===cards.length-1}
+                                style={{background:"none",border:"none",color:idx===cards.length-1?C.border:C.muted,cursor:idx===cards.length-1?"default":"pointer",fontSize:10,padding:0,lineHeight:1}}>▼</button>
+                            </div>
+                            {/* Name */}
+                            <input value={card.name} onChange={e=>updateCard(sec.key,card.id,"name",e.target.value)}
+                              placeholder="Drill name..."
+                              style={{flex:1,padding:"6px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.text,fontSize:13,fontWeight:600,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                            {/* Duration */}
+                            <input type="number" min="1" max="60" value={card.duration}
+                              onChange={e=>updateCard(sec.key,card.id,"duration",e.target.value)}
+                              placeholder="min"
+                              style={{width:52,padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",textAlign:"center"}}/>
+                            <span style={{color:C.muted,fontSize:11,flexShrink:0}}>min</span>
+                            {/* Diagram */}
+                            <button
+                              onClick={()=>setDiagramCard({sec:sec.key,cardId:card.id})}
+                              title="Draw drill diagram"
+                              style={{background:card.diagram?C.accent+"22":"none",
+                                border:`1px solid ${card.diagram?C.accent:C.border}`,
+                                borderRadius:6,color:card.diagram?C.accent:C.muted,
+                                cursor:"pointer",padding:"2px 6px",flexShrink:0,fontSize:10,fontWeight:700}}>
+                              ⬡
+                            </button>
+                            {/* Save to Library */}
+                            <button
+                              onClick={()=>{
+                                if(!card.name.trim()) return;
+                                const exists=(drills||[]).find(d=>d.name.toLowerCase()===card.name.trim().toLowerCase());
+                                if(exists){
+                                  if(!window.confirm(`"${card.name}" is already in your library. Update it?`)) return;
+                                  setDrills(prev=>prev.map(d=>d.name.toLowerCase()===card.name.trim().toLowerCase()
+                                    ?{...d,notes:card.notes||"",intensity:card.intensity||"medium",diagram:card.diagram||null}
+                                    :d));
+                                } else {
+                                  setDrills(prev=>[...prev,{
+                                    id:`d${Date.now()}`,
+                                    name:card.name.trim(),
+                                    notes:card.notes||"",
+                                    intensity:card.intensity||"medium",
+                                    diagram:card.diagram||null,
+                                  }]);
+                                }
+                                alert(`"${card.name}" saved to library!`);
+                              }}
+                              title="Save to drill library"
+                              style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,
+                                color:C.muted,cursor:"pointer",padding:"2px 6px",flexShrink:0,fontSize:10,fontWeight:700}}>
+                              ★
+                            </button>
+                            {/* Delete */}
+                            <button onClick={()=>removeCard(sec.key,card.id)}
+                              style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,flexShrink:0}}><X size={13}/></button>
+                          </div>
+                          {/* Notes + intensity */}
+                          <div className="drill-card-row" style={{display:"flex",gap:8,alignItems:"center"}}>
+                            <textarea value={card.notes||""} onChange={e=>updateCard(sec.key,card.id,"notes",e.target.value)}
+                              placeholder="Notes, coaching points, setup..."
+                              rows={2}
+                              style={{flex:1,padding:"5px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,
+                                color:C.muted,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",
+                                resize:"vertical",lineHeight:1.5}}/>
+                            {/* Intensity */}
+                            <div style={{display:"flex",gap:4,flexShrink:0}}>
+                              {INTENSITY.map(int=>(
+                                <button key={int.k} onClick={()=>updateCard(sec.key,card.id,"intensity",int.k)}
+                                  title={int.label}
+                                  style={{padding:"3px 7px",borderRadius:5,fontSize:10,fontWeight:700,cursor:"pointer",transition:"all .1s",
+                                    border:`1.5px solid ${card.intensity===int.k?int.color:C.border}`,
+                                    background:card.intensity===int.k?int.color+"22":"transparent",
+                                    color:card.intensity===int.k?int.color:C.muted}}>
+                                  {int.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                  }
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right sidebar: Drill library + Attendance */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Drill Library */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>DRILL LIBRARY</div>
+              <div style={{display:"flex",gap:5,marginBottom:8}}>
+                <input value={drillName} onChange={e=>setDrillName(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&saveDrill()}
+                  placeholder="Save a drill..." style={iS({fontSize:11,padding:"6px 9px"})}/>
+                <button onClick={saveDrill} disabled={!drillName.trim()}
+                  style={{padding:"6px 9px",background:drillName.trim()?C.accent+"22":C.surface,
+                    border:`1px solid ${drillName.trim()?C.accent:C.border}`,borderRadius:7,
+                    color:drillName.trim()?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>+</button>
+              </div>
+              <div style={{maxHeight:180,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
+                {(drills||[]).length===0
+                  ? <div style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>No drills saved yet</div>
+                  : (drills||[]).map(d=>(
+                    <div key={d.id} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 8px",
+                      background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}>
+                      <span style={{flex:1,color:C.text,fontSize:11,fontWeight:600}}>{d.name}</span>
+                      <button onClick={()=>setDrills(prev=>prev.filter(x=>x.id!==d.id))}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:1}}><X size={10}/></button>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+            {/* Attendance */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,flex:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>
+                  ATTENDANCE <span style={{color:C.accent,fontWeight:700}}>{pres}</span>/{Object.keys(att).length}
+                  {abs>0&&<span style={{color:C.danger,marginLeft:8}}>{abs} absent</span>}
+                  {inj>0&&<span style={{color:C.warning,marginLeft:8}}>{inj} inj</span>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {pres>0&&(
+                    <button
+                      onClick={()=>{
+                        if(!window.confirm("Reset all attendance for this session? This cannot be undone.")) return;
+                        upd(()=>({attendance:{}}));
+                      }}
+                      style={{padding:"4px 10px",background:"transparent",
+                        border:`1px solid ${C.border}`,borderRadius:6,
+                        color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                      ↺ Reset
+                    </button>
+                  )}
+                  <button onClick={()=>setFullAttSel(session.id)}
+                    style={{padding:"4px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:6,color:C.text,cursor:"pointer",fontSize:11,fontWeight:700,
+                      display:"flex",alignItems:"center",gap:4}}>
+                    ⛶ Full Screen
+                  </button>
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:360,overflowY:"auto"}}>
+                {roster.map(p=>{
+                  const status=att[p.id]||"present";
+                  const pc=posColor(primaryPos(p));
+                  return(
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:C.surface,borderRadius:7,
+                      border:`1px solid ${status==="present"?C.accent+"22":status==="injured"?C.warning+"22":C.danger+"22"}`}}>
+                      <div style={{width:24,height:24,borderRadius:5,flexShrink:0,background:pc,border:"none",
+                        display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>
+                        {p.number}
+                      </div>
+                      <span style={{flex:1,color:C.text,fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {p.name.split(" ")[1]||p.name}
+                      </span>
+                      <div style={{display:"flex",gap:2}}>
+                        {ATT.map(opt=>(
+                          <button key={opt.k} onClick={()=>setAtt(p.id,opt.k)}
+                            style={{width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .1s",
+                              border:`1.5px solid ${status===opt.k?opt.color:C.border}`,
+                              background:status===opt.k?opt.color+"22":"transparent",
+                              color:status===opt.k?opt.color:C.muted}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Player notes */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>PLAYER NOTES</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)} style={iS({padding:"7px 10px",fontSize:12})}>
+                  <option value="">Select player...</option>
+                  {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                </select>
+                <textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2}
+                  placeholder="Coaching note..." style={iS({resize:"vertical",fontSize:12})}/>
+                <button onClick={addNote} disabled={!selPlayer||!noteText.trim()}
+                  style={{padding:"7px",background:selPlayer&&noteText.trim()?C.accent:"transparent",
+                    border:`1px solid ${selPlayer&&noteText.trim()?C.accent:C.border}`,borderRadius:7,
+                    color:selPlayer&&noteText.trim()?"#000":C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  Add Note
+                </button>
+                {session.playerNotes.map(note=>{
+                  const p=roster.find(r=>r.id===note.pid);
+                  return(
+                    <div key={note.id} style={{background:C.surface,borderRadius:8,padding:"8px 10px",display:"flex",gap:7}}>
+                      <div style={{width:22,height:22,borderRadius:5,flexShrink:0,background:posColor(primaryPos(p))+"22",
+                        border:`1.5px solid ${posColor(primaryPos(p))}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>
+                        {p?.number||"?"}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:C.text,fontWeight:700,fontSize:11,marginBottom:1}}>{note.name}</div>
+                        <div style={{color:C.muted,fontSize:11,lineHeight:1.5}}>{note.note}</div>
+                      </div>
+                      <button onClick={()=>upd(s=>({playerNotes:s.playerNotes.filter(n=>n.id!==note.id)}))}
+                        style={{background:"none",border:"none",color:C.muted,cursor:"pointer",flexShrink:0}}><X size={10}/></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      {/* ── Fullscreen Attendance Overlay ── */}
+      {fullAttSel&&(()=>{
+        const fSess=practices.find(p=>p.id===fullAttSel);
+        if(!fSess) return null;
+        const fAtt=fSess.attendance||{};
+        const fPres=Object.values(fAtt).filter(v=>v==="present").length;
+        const fAbs=Object.values(fAtt).filter(v=>v==="absent").length;
+        const fInj=Object.values(fAtt).filter(v=>v==="injured").length;
+        function fSetAtt(pid,status){
+          setPractices(prev=>prev.map(p=>p.id===fullAttSel
+            ?{...p,attendance:{...p.attendance,[pid]:status}}:p));
+        }
+        const ATT_FS=[
+          {k:"present",label:"✓ Present",color:"#27a560"},
+          {k:"absent", label:"✗ Absent", color:"#e53935"},
+          {k:"injured",label:"⚕ Injured",color:"#f59e0b"},
+        ];
+        return(
+          <div style={{position:"fixed",inset:0,background:C.bg,zIndex:1200,
+            display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"14px 20px",background:C.card,borderBottom:`1px solid ${C.border}`,
+              flexShrink:0}}>
+              <div>
+                <div style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:2}}>
+                  ATTENDANCE
+                </div>
+                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800}}>
+                  {fSess.title||fSess.focus||"Practice"}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:16}}>
+                {/* Summary chips */}
+                <div style={{display:"flex",gap:8}}>
+                  <div style={{padding:"4px 12px",borderRadius:20,background:"#27a56022",
+                    border:"1px solid #27a56044",color:"#27a560",fontWeight:700,fontSize:13}}>
+                    ✓ {fPres}
+                  </div>
+                  <div style={{padding:"4px 12px",borderRadius:20,background:C.danger+"22",
+                    border:`1px solid ${C.danger}44`,color:C.danger,fontWeight:700,fontSize:13}}>
+                    ✗ {fAbs}
+                  </div>
+                  {fInj>0&&<div style={{padding:"4px 12px",borderRadius:20,background:C.warning+"22",
+                    border:`1px solid ${C.warning}44`,color:C.warning,fontWeight:700,fontSize:13}}>
+                    ⚕ {fInj}
+                  </div>}
+                </div>
+                <button onClick={()=>setFullAttSel(null)}
+                  style={{padding:"8px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:8,color:C.text,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                  ✕ Done
+                </button>
+              </div>
+            </div>
+            {/* Player grid */}
+            <div style={{flex:1,overflowY:"auto",padding:16}}>
+              <div style={{display:"grid",
+                gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+                {(roster||[]).map(p=>{
+                  const status=fAtt[p.id]||"present";
+                  const pc=posColor(primaryPos(p));
+                  const statusCol=status==="present"?"#27a560":status==="absent"?C.danger:C.warning;
+                  return(
+                    <div key={p.id} style={{background:C.card,borderRadius:12,
+                      border:`2px solid ${statusCol}44`,overflow:"hidden",
+                      transition:"border-color .1s"}}>
+                      {/* Player info */}
+                      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,
+                        borderBottom:`1px solid ${C.border}`}}>
+                        <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                          background:pc,border:"none",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:16}}>
+                          {p.number}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:14,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                            {p.name}
+                          </div>
+                          <div style={{color:C.muted,fontSize:11}}>
+                            {[...new Set(allPos(p).map(displayPos))].join(" · ")}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Status buttons */}
+                      <div style={{display:"flex"}}>
+                        {ATT_FS.map(opt=>(
+                          <button key={opt.k} onClick={()=>fSetAtt(p.id,opt.k)}
+                            style={{flex:1,padding:"12px 4px",border:"none",
+                              borderRight:`1px solid ${C.border}`,
+                              background:status===opt.k?opt.color+"33":"transparent",
+                              color:status===opt.k?opt.color:C.muted,
+                              fontWeight:status===opt.k?800:500,
+                              fontSize:12,cursor:"pointer",transition:"all .1s",
+                              fontFamily:"'Outfit',sans-serif"}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      </div>
+    );
+  }
+
+  // ─── SESSION LIST ──────────────────────────────────────────────────────────
+  const filtered=filterTag==="All"?practices:practices.filter(p=>p.focus===filterTag);
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice Log</h1>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {(templates||[]).length>0&&(
+            <span style={{color:C.muted,fontSize:12}}>{templates.length} template{templates.length!==1?"s":""}</span>
+          )}
+          <button onClick={()=>setCreating(true)}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+            <Plus size={15}/>New Session
+          </button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
+        {["All",...FOCUS_TAGS].map(t=>{
+          const col=t==="All"?C.accent:(FOCUS_COLORS[t]||C.accent);
+          return(<button key={t} onClick={()=>setFilterTag(t)}
+            style={{padding:"6px 12px",background:filterTag===t?col+"22":C.card,border:`1px solid ${filterTag===t?col:C.border}`,borderRadius:7,color:filterTag===t?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{t}</button>);
+        })}
+      </div>
+
+      {filtered.length===0
+        ? <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <Dumbbell size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No sessions {filterTag!=="All"?`tagged "${filterTag}"`:""} yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Log your first training session</div>
+          </div>
+        : (()=>{
+            const today=new Date().toISOString().split("T")[0];
+            // Sort: upcoming first (asc), then past (desc)
+            const sorted=[...filtered].sort(function(a,b){
+              const aUp=(a.date||"")>=today, bUp=(b.date||"")>=today;
+              if(aUp&&!bUp) return -1;
+              if(!aUp&&bUp) return 1;
+              if(aUp&&bUp) return (a.date||"").localeCompare(b.date||"");
+              return (b.date||"").localeCompare(a.date||"");
+            });
+            // Group by month
+            const groups={};
+            sorted.forEach(function(s){
+              const d=s.date||"";
+              const key=d.slice(0,7); // "2026-05"
+              if(!groups[key]) groups[key]=[];
+              groups[key].push(s);
+            });
+            const monthKeys=Object.keys(groups);
+            return(
+              <div>
+                {monthKeys.map(function(mk){
+                  const [yr,mo]=mk.split("-");
+                  const monthName=new Date(parseInt(yr),parseInt(mo)-1,1)
+                    .toLocaleString("default",{month:"long",year:"numeric"});
+                  return(
+                    <div key={mk} style={{marginBottom:20}}>
+                      {/* Month header */}
+                      <div style={{display:"flex",alignItems:"center",gap:10,
+                        marginBottom:8,paddingBottom:6,
+                        borderBottom:`1px solid ${C.border}`}}>
+                        <span style={{color:C.muted,fontSize:10,fontWeight:700,
+                          letterSpacing:2,textTransform:"uppercase"}}>
+                          {monthName}
+                        </span>
+                        <span style={{color:C.muted,fontSize:10}}>
+                          {groups[mk].length} session{groups[mk].length!==1?"s":""}
+                        </span>
+                      </div>
+                      {/* Session rows */}
+                      {groups[mk].map(function(session){
+                        const col=FOCUS_COLORS[session.focus]||C.accent;
+                        const linked=gamePlans.find(gp=>gp.id===session.linkedGame);
+                        const att=session.attendance||{};
+                        const pres=Object.values(att).filter(v=>v==="present").length;
+                        const total=Object.keys(att).length;
+                        const blocks=session.blocks||{};
+                        const drillCount=Object.values(blocks).flat().length;
+                        const isPast=(session.date||"")<=today;
+                        const hasAtt=total>0;
+                        // Status
+                        const status=!isPast?"upcoming":hasAtt?"done":"no-att";
+                        const STATUS_STYLES={
+                          upcoming:{bg:C.accent+"18",color:C.accent,label:"Upcoming"},
+                          done:{bg:"#27a56018",color:"#27a560",label:"Done"},
+                          "no-att":{bg:C.danger+"18",color:C.danger,label:"Attendance?"},
+                        };
+                        const ss=STATUS_STYLES[status];
+                        // Day of week
+                        const dow=session.date?new Date(session.date+"T12:00:00")
+                          .toLocaleString("default",{weekday:"short"}):"";
+                        const dayNum=session.date?session.date.split("-")[2]:"";
+                        return(
+                          <div key={session.id} onClick={()=>setSel(session.id)}
+                            style={{background:C.card,
+                              borderTop:`1px solid ${C.border}`,
+                              borderBottom:`1px solid ${C.border}`,
+                              borderRight:`1px solid ${C.border}`,
+                              borderLeft:`3px solid ${col}`,
+                              borderRadius:"0 10px 10px 0",
+                              padding:"11px 14px",cursor:"pointer",
+                              display:"flex",alignItems:"center",gap:12,
+                              marginBottom:6,transition:"background .1s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background=col+"0a"}
+                            onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+                            {/* Date column */}
+                            <div style={{textAlign:"center",minWidth:32,flexShrink:0}}>
+                              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",
+                                fontWeight:700,fontSize:17,lineHeight:1}}>{dayNum}</div>
+                              <div style={{color:C.muted,fontSize:9,fontWeight:600,
+                                textTransform:"uppercase",marginTop:1}}>{dow}</div>
+                            </div>
+                            {/* Divider */}
+                            <div style={{width:1,height:32,background:C.border,flexShrink:0}}/>
+                            {/* Main content */}
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:"flex",alignItems:"center",
+                                gap:7,marginBottom:3,flexWrap:"wrap"}}>
+                                <span style={{color:C.text,fontWeight:700,fontSize:13}}>
+                                  {session.title||session.focus||"Practice"}
+                                </span>
+                                <span style={{background:col+"22",color:col,
+                                  fontSize:10,fontWeight:700,padding:"1px 7px",
+                                  borderRadius:20}}>
+                                  {session.focus}
+                                </span>
+                                {linked&&<span style={{color:C.muted,fontSize:11}}>
+                                  · vs {linked.opponent}
+                                </span>}
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",
+                                gap:10,flexWrap:"wrap"}}>
+                                {session.duration>0&&(
+                                  <span style={{color:C.muted,fontSize:11}}>
+                                    {session.duration} min
+                                  </span>
+                                )}
+                                {drillCount>0&&(
+                                  <span style={{color:C.muted,fontSize:11}}>
+                                    · {drillCount} drill{drillCount!==1?"s":""}
+                                  </span>
+                                )}
+                                {hasAtt&&(
+                                  <span style={{color:pres===total?"#27a560":C.muted,
+                                    fontSize:11,fontWeight:pres===total?600:400}}>
+                                    · {pres}/{total} present
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Status badge */}
+                            <div style={{flexShrink:0,display:"flex",
+                              flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                              <span style={{background:ss.bg,color:ss.color,
+                                fontSize:10,fontWeight:700,padding:"3px 9px",
+                                borderRadius:20}}>
+                                {ss.label}
+                              </span>
+                              {(session.rating||0)>0&&(
+                                <div style={{color:C.warning,fontSize:10}}>
+                                  {"★".repeat(session.rating)}{"☆".repeat(5-session.rating)}
+                                </div>
+                              )}
+                            </div>
+                            <ChevronRight size={14} color={C.muted} style={{flexShrink:0}}/>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
+      }
+    </div>
+  );
+}
+
+
+// ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
+// ─── CALENDAR HELPERS ────────────────────────────────────────────────────────
+function makeGoogleCalUrl(evt, teamName){
+  // Format: YYYYMMDDTHHMMSS
+  var d = evt.date.replace(/-/g,"");
+  var t = evt.time ? evt.time.replace(":","")+"00" : "090000";
+  var start = d+"T"+t;
+  // Default 2hr duration
+  var endH = evt.time ? String(parseInt(evt.time.split(":")[0])+2).padStart(2,"0")+evt.time.split(":")[1]+"00" : "110000";
+  var end = d+"T"+endH;
+  var title = encodeURIComponent((evt.type==="game"?"vs "+evt.opponent:evt.title)||evt.title||"Event");
+  var loc   = encodeURIComponent(evt.location||"");
+  var details = encodeURIComponent((teamName||"CoachIQ")+(evt.notes?" — "+evt.notes:""));
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+title+"&dates="+start+"/"+end+"&location="+loc+"&details="+details;
+}
+
+function makeICSContent(events, teamName){
+  var lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CoachIQ//Season Schedule//EN",
+    "X-WR-CALNAME:"+(teamName||"CoachIQ")+" Season",
+    "X-WR-TIMEZONE:America/New_York",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+  ];
+  events.forEach(function(evt){
+    var d = (evt.date||"").replace(/-/g,"");
+    if(!d) return;
+    var t = evt.time ? evt.time.replace(":","")+"00" : "090000";
+    var endH = evt.time ? String(parseInt((evt.time||"09:00").split(":")[0])+2).padStart(2,"0")+((evt.time||"09:00").split(":")[1])+"00" : "110000";
+    var title = (evt.type==="game"?"vs "+(evt.opponent||""):evt.title||"Event");
+    lines.push("BEGIN:VEVENT");
+    lines.push("DTSTART:"+d+"T"+t);
+    lines.push("DTEND:"+d+"T"+endH);
+    lines.push("SUMMARY:"+title);
+    if(evt.location) lines.push("LOCATION:"+evt.location);
+    if(evt.notes)    lines.push("DESCRIPTION:"+evt.notes);
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+function downloadICS(events, teamName){
+  var content = makeICSContent(events, teamName);
+  var blob = new Blob([content], {type:"text/calendar;charset=utf-8"});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href = url;
+  a.download = (teamName||"CoachIQ").replace(/\s+/g,"_")+"_Season.ics";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function CalendarView({schedule, setSchedule, games, setGames, practices, setPractices, setView, teamName, activeTeamId, setLivePreload}){
+  const today   = new Date();
+  const [curMonth, setCurMonth] = useState(today.getMonth());
+  const [curYear,  setCurYear]  = useState(today.getFullYear());
+  const [selDay,   setSelDay]   = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editEvt,  setEditEvt]  = useState(null);
+  const [form, setForm] = useState({
+    type:"game", title:"", date:"", time:"", location:"", opponent:"", notes:""
+  });
+  const [showBulk,  setShowBulk]  = useState(false);
+  const [bulkRows,  setBulkRows]  = useState([]);
+  const [schedImporting, setSchedImporting] = useState(false);
+  const [schedMsg,       setSchedMsg]       = useState(null);
+  const schedFileRef = useRef(null);
+  const [quickFill, setQuickFill] = useState({dow:1,type:"practice",time:"15:00",location:"Home",startDate:"",weeks:8});
+
+  const EVENT_TYPES = [
+    {k:"game",       label:"Game",       color:"#ff6b00"},
+    {k:"practice",   label:"Practice",   color:"#66bb6a"},
+    {k:"tournament", label:"Tournament", color:"#7c6af5"},
+    {k:"other",      label:"Other",      color:"#42a5f5"},
+  ];
+  const typeColor = k => EVENT_TYPES.find(t=>t.k===k)?.color || C.accent;
+  // Local fmt helpers (safe even if global not in scope)
+  const _fmtTime = typeof fmtTime==="function" ? fmtTime : t=>{
+    if(!t) return "";
+    try{ const [h,m]=String(t).split(":"); const hr=parseInt(h);
+      return (hr%12||12)+":"+m+" "+(hr>=12?"PM":"CAM"); }catch(e){return t;}
+  };
+  const _fmtDate = typeof fmtDate==="function" ? fmtDate : d=>{
+    if(!d) return "";
+    try{ const dt=new Date(d+"T12:00:00");
+      return (dt.getMonth()+1)+"/"+(dt.getDate())+"/"+dt.getFullYear(); }catch(e){return d;}
+  };
+
+  const allEvents = useMemo(()=>{
+    const evts = [...schedule];
+    // All games → calendar (completed + upcoming, dedup by opponent+date or linkedGameId)
+    (games||[]).forEach(g=>{
+      const inSched = schedule.some(e=>
+        e.linkedGameId===g.id ||
+        (e.type==="game" && e.opponent===g.opponent && e.date===g.date)
+      );
+      if(!inSched){
+        evts.push({
+          id:`auto_g_${g.id}`, type:"game",
+          title:`vs ${g.opponent}`,
+          date:g.date, time:g.time||"", location:g.location||"",
+          opponent:g.opponent, linkedGameId:g.id, auto:true,
+          result:g.status==="completed"?{our:g.ourScore,their:g.theirScore}:null
+        });
+      }
+    });
+    // All practices → calendar (dedup by date or linkedPracticeId)
+    (practices||[]).forEach(p=>{
+      const inSched = schedule.some(e=>
+        e.linkedPracticeId===p.id ||
+        (e.type==="practice" && e.date===p.date)
+      );
+      if(!inSched){
+        evts.push({
+          id:`auto_p_${p.id}`, type:"practice",
+          title:p.title||"Practice",
+          date:p.date, time:p.time||"", location:p.location||"",
+          linkedPracticeId:p.id, auto:true
+        });
+      }
+    });
+    return evts;
+  },[schedule, games, practices]);
+
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const firstDay    = new Date(curYear, curMonth, 1).getDay();
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  function eventsOnDay(d){
+    const dateStr = `${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    return allEvents.filter(e=>e.date===dateStr).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  }
+
+  function prevMonth(){ if(curMonth===0){setCurMonth(11);setCurYear(y=>y-1);}else setCurMonth(m=>m-1); }
+  function nextMonth(){ if(curMonth===11){setCurMonth(0);setCurYear(y=>y+1);}else setCurMonth(m=>m+1); }
+
+  function saveEvent(){
+    if(!form.date) return;
+    const evtId = editEvt||`ev${Date.now()}`;
+    if(editEvt){
+      setSchedule(prev=>prev.map(e=>e.id===editEvt?{...e,...form}:e));
+      setEditEvt(null);
+    } else {
+      // Add to schedule
+      setSchedule(prev=>[...prev,{id:evtId,...form,createdAt:new Date().toISOString()}]);
+
+      // Sync game → Games tab (avoid duplicate by opponent+date)
+      if(form.type==="game"&&form.opponent){
+        const exists=(games||[]).some(g=>
+          g.opponent===form.opponent && g.date===form.date
+        );
+        if(!exists){
+          setGames(prev=>[...prev,{
+            id:`g${Date.now()}`,
+            opponent:form.opponent,
+            date:form.date,
+            time:form.time||"",
+            location:form.location||"Home",
+            formation:"4-3-3",
+            ourScore:"", theirScore:"",
+            status:"completed", // always completed so it shows in GamesView
+            stats:[], coachNotes:"",
+            linkedCalEventId:evtId
+          }]);
+        }
+      }
+
+      // Sync practice → Practice tab (avoid duplicate by date)
+      if(form.type==="practice"&&typeof setPractices==="function"){
+        const exists=(practices||[]).some(p=>p.date===form.date);
+        if(!exists){
+          setPractices(prev=>[...(prev||[]),{
+            id:`pr${Date.now()}`,
+            title:form.title||"Practice",
+            date:form.date,
+            time:form.time||"",
+            location:form.location||"",
+            notes:form.notes||"",
+            blocks:{warmup:[],main:[],cooldown:[]}, playerNotes:[],
+            rating:0, attendance:{},
+            createdAt:new Date().toISOString(),
+            linkedCalEventId:evtId
+          }]);
+        }
+      }
+    }
+    setShowForm(false);
+    setForm({type:"game",title:"",date:selDay||"",time:"",location:"",opponent:"",notes:""});
+  }
+
+  function deleteEvent(id){ setSchedule(prev=>prev.filter(e=>e.id!==id)); }
+
+  function openAdd(dateStr){
+    setSelDay(dateStr);
+    setForm({type:"game",title:"",date:dateStr,time:"",location:"",opponent:"",notes:""});
+    setEditEvt(null);
+    setShowForm(true);
+  }
+
+  function openEdit(evt){
+    if(evt.auto) return;
+    setForm({type:evt.type,title:evt.title,date:evt.date,time:evt.time||"",
+      location:evt.location||"",opponent:evt.opponent||"",notes:evt.notes||""});
+    setEditEvt(evt.id);
+    setShowForm(true);
+  }
+
+  // ── Bulk add helpers ──────────────────────────────────────────────────────
+  const BULK_TYPES = [
+    {k:"game",       label:"Game",       color:"#ff6b00"},
+    {k:"practice",   label:"Practice",   color:"#66bb6a"},
+    {k:"scrimmage",  label:"Scrimmage",  color:"#f59e0b"},
+    {k:"tournament", label:"Tournament", color:"#7c6af5"},
+    {k:"other",      label:"Other",      color:"#42a5f5"},
+  ];
+
+  function addBlankRow(type){
+    setBulkRows(prev=>[...prev,{id:"br"+Date.now(),type:type||"game",date:"",time:"",location:"Home",opponent:"",title:""}]);
+  }
+
+  function generateQuickFill(){
+    if(!quickFill.startDate) return;
+    const start = new Date(quickFill.startDate+"T12:00:00");
+    const rows = [];
+    for(let w=0; w<Number(quickFill.weeks); w++){
+      const d = new Date(start);
+      d.setDate(d.getDate() + w*7);
+      rows.push({
+        id:"br"+Date.now()+w,
+        type:quickFill.type,
+        date:d.toISOString().split("T")[0],
+        time:quickFill.time,
+        location:quickFill.location,
+        opponent:"",
+        title:quickFill.type==="practice"?"Practice":quickFill.type==="scrimmage"?"Scrimmage":""
+      });
+    }
+    setBulkRows(prev=>[...prev,...rows]);
+  }
+
+  function saveBulkEvents(){
+    const valid = bulkRows.filter(r=>r.date);
+    if(!valid.length) return;
+    const now = Date.now();
+    const newEvts=[], newGames=[], newPracts=[];
+    valid.forEach((row,idx)=>{
+      const evtId = "ev"+(now+idx);
+      const isGame = row.type==="game"||row.type==="scrimmage";
+      const label  = isGame ? ("vs "+(row.opponent||"TBD")) : (row.title||row.type.charAt(0).toUpperCase()+row.type.slice(1));
+      newEvts.push({
+        id:evtId, type:isGame?"game":row.type==="tournament"?"tournament":row.type==="practice"?"practice":"other",
+        title:label, date:row.date, time:row.time||"",
+        location:row.location||"", opponent:row.opponent||"",
+        scrimmage:row.type==="scrimmage",
+        createdAt:new Date().toISOString()
+      });
+      if(isGame && row.opponent){
+        const dup=(games||[]).some(g=>g.opponent===row.opponent&&g.date===row.date);
+        if(!dup) newGames.push({
+          id:"g"+(now+idx), opponent:row.opponent, date:row.date,
+          time:row.time||"", location:row.location||"Home",
+          formation:"4-3-3", ourScore:0, theirScore:0,
+          status:"completed", stats:[], coachNotes:"",
+          scrimmage:row.type==="scrimmage", fromCalendar:true
+        });
+      }
+      if(row.type==="practice"){
+        const dup=(practices||[]).some(p=>p.date===row.date);
+        if(!dup) newPracts.push({
+          id:"pr"+(now+idx), title:row.title||"Practice",
+          date:row.date, time:row.time||"", location:row.location||"",
+          blocks:{warmup:[],technical:[],tactical:[],scrimmage:[],conditioning:[],cooldown:[]},
+          rating:0, attendance:{}, createdAt:new Date().toISOString(), linkedCalEventId:evtId
+        });
+      }
+    });
+    setSchedule(prev=>[...prev,...newEvts]);
+    if(newGames.length)  setGames(prev=>[...prev,...newGames]);
+    if(newPracts.length && typeof setPractices==="function") setPractices(prev=>[...(prev||[]),...newPracts]);
+    setShowBulk(false); setBulkRows([]);
+  }
+
+    async function handleScheduleUpload(e){
+    const file=e.target.files?.[0]; if(!file) return;
+    setSchedImporting(true); setSchedMsg(null);
+    try{
+      const rows=await parseScheduleSpreadsheet(file);
+      setBulkRows(prev=>[...prev,...rows]);
+      setSchedMsg({type:"ok",text:"✓ Imported "+rows.length+" event"+(rows.length!==1?"s":"")+" — review below and click Save"});
+    }catch(err){
+      setSchedMsg({type:"err",text:err.message||"Import failed"});
+    }
+    setSchedImporting(false);
+    e.target.value="";
+  }
+
+  const iStyle = (extra={}) => ({padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",width:"100%",...extra});
+
+  // Sidebar: show all events in the currently viewed month, sorted by date
+  const monthEvents = useMemo(()=>{
+    const prefix = `${curYear}-${String(curMonth+1).padStart(2,"0")}`;
+    return allEvents
+      .filter(e=>e.date && e.date.startsWith(prefix))
+      .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||"").localeCompare(b.time||""));
+  },[allEvents, curMonth, curYear]);
+
+  // Stats for current month
+  const monthGames    = monthEvents.filter(e=>e.type==="game");
+  const monthPractice = monthEvents.filter(e=>e.type==="practice");
+
+  const todayStr = today.toISOString().split("T")[0];
+
+
+
+  return(
+    <div style={{padding:20,maxWidth:1160,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SEASON</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Calendar</h1>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button onClick={()=>{
+              if(!window.confirm("Clear all calendar events? This cannot be undone.")) return;
+              setSchedule([]);
+              // Hide all auto-imports so nothing re-appears from games/practices tabs
+              setGames(prev=>prev.map(g=>({...g,calendarHidden:true,linkedCalEventId:undefined,fromCalendar:undefined})));
+              if(typeof setPractices==="function") setPractices(prev=>(prev||[]).map(p=>({...p,calendarHidden:true,linkedCalEventId:undefined})));
+            }}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.danger,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            🗑 Clear Calendar
+          </button>
+          <button onClick={()=>{setBulkRows([]);setShowBulk(true);}}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            📅 Bulk Add
+          </button>
+          <button onClick={()=>downloadICS(allEvents,teamName)}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⬇ Export .ics
+          </button>
+          <button onClick={()=>{
+              const link=window.location.origin+window.location.pathname+"#/schedule/"+activeTeamId;
+              navigator.clipboard?.writeText(link).then(()=>alert("Schedule link copied!")).catch(()=>alert(link));
+            }}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",
+              background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+              color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            ⎘ Share Schedule
+          </button>
+          <button onClick={()=>openAdd(todayStr)}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",
+              background:C.accent,border:"none",borderRadius:10,color:"#000",
+              fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+            <Plus size={15}/>Add Event
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk Add Modal */}
+      {showBulk&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+            width:"100%",maxWidth:820,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
+
+            {/* Hidden file input */}
+            <input ref={schedFileRef} type="file" accept=".xlsx,.xls"
+              style={{display:"none"}} onChange={handleScheduleUpload}/>
+
+            {/* Header */}
+            <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                <div>
+                  <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,margin:0}}>
+                    📅 Schedule Builder
+                  </h3>
+                  <div style={{color:C.muted,fontSize:12,marginTop:3}}>
+                    Upload a spreadsheet or build manually below
+                  </div>
+                </div>
+                <button onClick={()=>{setShowBulk(false);setSchedMsg(null);}}
+                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:22}}>×</button>
+              </div>
+
+              {/* Upload strip */}
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                <button onClick={downloadScheduleTemplate}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                    background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
+                    color:C.text,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                  ⬇ Download Template
+                </button>
+                <button onClick={()=>schedFileRef.current?.click()}
+                  disabled={schedImporting}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
+                    background:C.accent,border:"none",borderRadius:9,
+                    color:"#000",cursor:"pointer",fontWeight:800,fontSize:12,
+                    fontFamily:"'Oswald',sans-serif",opacity:schedImporting?.6:1}}>
+                  {schedImporting?"Importing…":"⬆ Upload Spreadsheet"}
+                </button>
+                <div style={{color:C.muted,fontSize:11}}>
+                  or build manually using Quick Fill / Add Row below
+                </div>
+              </div>
+
+              {/* Import message */}
+              {schedMsg&&(
+                <div style={{marginTop:10,padding:"8px 14px",borderRadius:8,
+                  background:schedMsg.type==="ok"?C.accent+"18":C.danger+"18",
+                  border:`1px solid ${schedMsg.type==="ok"?C.accent+"44":C.danger+"44"}`,
+                  color:schedMsg.type==="ok"?C.accent:C.danger,
+                  fontSize:12,fontWeight:600,
+                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>{schedMsg.text}</span>
+                  <button onClick={()=>setSchedMsg(null)}
+                    style={{background:"none",border:"none",color:"inherit",cursor:"pointer",fontSize:16}}>×</button>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Fill */}
+            <div style={{padding:"16px 24px",borderBottom:`1px solid ${C.border}`,
+              flexShrink:0,background:C.surface}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+                QUICK FILL — REPEATING EVENTS
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+                {[
+                  {label:"Type", node:(
+                    <select value={quickFill.type} onChange={e=>setQuickFill(q=>({...q,type:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}>
+                      {BULK_TYPES.map(t=><option key={t.k} value={t.k}>{t.label}</option>)}
+                    </select>
+                  )},
+                  {label:"Day of Week", node:(
+                    <select value={quickFill.dow} onChange={e=>setQuickFill(q=>({...q,dow:parseInt(e.target.value)}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}>
+                      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=>(
+                        <option key={i} value={i}>{d}</option>
+                      ))}
+                    </select>
+                  )},
+                  {label:"Start Date", node:(
+                    <input type="date" value={quickFill.startDate}
+                      onChange={e=>setQuickFill(q=>({...q,startDate:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                  )},
+                  {label:"Weeks", node:(
+                    <input type="number" min={1} max={52} value={quickFill.weeks}
+                      onChange={e=>setQuickFill(q=>({...q,weeks:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none",width:60}}/>
+                  )},
+                  {label:"Time", node:(
+                    <input type="time" value={quickFill.time}
+                      onChange={e=>setQuickFill(q=>({...q,time:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                  )},
+                  {label:"Location", node:(
+                    <input value={quickFill.location} placeholder="Home"
+                      onChange={e=>setQuickFill(q=>({...q,location:e.target.value}))}
+                      style={{padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none",width:90}}/>
+                  )},
+                ].map(({label,node})=>(
+                  <div key={label}>
+                    <div style={{color:C.muted,fontSize:10,fontWeight:600,marginBottom:4}}>{label.toUpperCase()}</div>
+                    {node}
+                  </div>
+                ))}
+                <button onClick={generateQuickFill} disabled={!quickFill.startDate}
+                  style={{padding:"8px 16px",background:quickFill.startDate?C.accent:"#333",
+                    border:"none",borderRadius:8,color:"#000",fontWeight:800,
+                    fontSize:12,cursor:quickFill.startDate?"pointer":"not-allowed",
+                    fontFamily:"'Oswald',sans-serif",alignSelf:"flex-end",marginBottom:1}}>
+                  Generate {quickFill.weeks} Rows ↓
+                </button>
+              </div>
+            </div>
+
+            {/* Row table */}
+            <div style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
+              {bulkRows.length===0?(
+                <div style={{textAlign:"center",padding:"32px 0",color:C.muted}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📋</div>
+                  <div style={{fontWeight:700,marginBottom:4}}>No events yet</div>
+                  <div style={{fontSize:12}}>Use Quick Fill above or add rows manually below</div>
+                </div>
+              ):(
+                <div>
+                  {/* Column headers */}
+                  <div style={{display:"grid",gridTemplateColumns:"100px 110px 80px 1fr 100px 28px",
+                    gap:6,marginBottom:6,padding:"0 4px"}}>
+                    {["Type","Date","Time","Opponent / Title","Location",""].map(h=>(
+                      <div key={h} style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:.5}}>{h}</div>
+                    ))}
+                  </div>
+                  {bulkRows.map((row,idx)=>{
+                    const bt = BULK_TYPES.find(t=>t.k===row.type)||BULK_TYPES[0];
+                    const isGame = row.type==="game"||row.type==="scrimmage";
+                    return(
+                      <div key={row.id} style={{display:"grid",
+                        gridTemplateColumns:"100px 110px 80px 1fr 100px 28px",
+                        gap:6,marginBottom:6,alignItems:"center"}}>
+                        {/* Type */}
+                        <select value={row.type}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,type:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:bt.color+"18",
+                            border:`1.5px solid ${bt.color}44`,borderRadius:7,
+                            color:bt.color,fontSize:11,fontWeight:700,outline:"none",cursor:"pointer"}}>
+                          {BULK_TYPES.map(t=><option key={t.k} value={t.k}>{t.label}</option>)}
+                        </select>
+                        {/* Date */}
+                        <input type="date" value={row.date}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,date:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Time */}
+                        <input type="time" value={row.time}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,time:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Opponent / Title */}
+                        <input value={isGame?row.opponent:row.title}
+                          placeholder={isGame?"Opponent name":"Practice / Event title"}
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>
+                            i===idx?isGame?{...r,opponent:e.target.value}:{...r,title:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Location */}
+                        <input value={row.location} placeholder="Location"
+                          onChange={e=>setBulkRows(prev=>prev.map((r,i)=>i===idx?{...r,location:e.target.value}:r))}
+                          style={{padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,
+                            borderRadius:7,color:C.text,fontSize:12,outline:"none"}}/>
+                        {/* Remove */}
+                        <button onClick={()=>setBulkRows(prev=>prev.filter((_,i)=>i!==idx))}
+                          style={{background:"none",border:"none",color:C.muted,cursor:"pointer",
+                            fontSize:16,lineHeight:1,padding:0}}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add row buttons */}
+              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                {BULK_TYPES.map(t=>(
+                  <button key={t.k} onClick={()=>addBlankRow(t.k)}
+                    style={{padding:"6px 14px",background:t.color+"15",
+                      border:`1px solid ${t.color}33`,borderRadius:8,
+                      color:t.color,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                    + {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,
+              flexShrink:0,display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{flex:1,color:C.muted,fontSize:12}}>
+                {bulkRows.filter(r=>r.date).length} of {bulkRows.length} events ready
+                {bulkRows.filter(r=>!r.date).length>0&&(
+                  <span style={{color:C.danger,marginLeft:6}}>
+                    ({bulkRows.filter(r=>!r.date).length} missing date)
+                  </span>
+                )}
+              </div>
+              <button onClick={()=>setShowBulk(false)}
+                style={{padding:"10px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>
+                Cancel
+              </button>
+              <button onClick={saveBulkEvents}
+                disabled={bulkRows.filter(r=>r.date).length===0}
+                style={{padding:"10px 24px",
+                  background:bulkRows.filter(r=>r.date).length>0?C.accent:"#333",
+                  border:"none",borderRadius:9,color:"#000",fontWeight:900,fontSize:14,
+                  cursor:bulkRows.filter(r=>r.date).length>0?"pointer":"not-allowed",
+                  fontFamily:"'Oswald',sans-serif"}}>
+                ✓ Save {bulkRows.filter(r=>r.date).length} Events
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit form modal */}
+      {showForm&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
+            padding:28,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800}}>
+                {editEvt?"Edit Event":"Add Event"}
+              </h3>
+              <button onClick={()=>setShowForm(false)}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+            </div>
+
+            {/* Type selector */}
+            <div style={{marginBottom:16}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>TYPE</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {EVENT_TYPES.map(t=>(
+                  <button key={t.k} onClick={()=>setForm(f=>({...f,type:t.k}))}
+                    style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,
+                      background:form.type===t.k?t.color+"22":"transparent",
+                      border:`1px solid ${form.type===t.k?t.color:C.border}`,
+                      color:form.type===t.k?t.color:C.muted}}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {form.type==="game"?(
+              <div style={{marginBottom:14}}>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>OPPONENT</label>
+                <input value={form.opponent} onChange={e=>setForm(f=>({...f,opponent:e.target.value,title:`vs ${e.target.value}`}))}
+                  placeholder="vs Team Name" autoFocus style={iStyle()}/>
+              </div>
+            ):(
+              <div style={{marginBottom:14}}>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>TITLE</label>
+                <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
+                  placeholder="Event name" autoFocus style={iStyle()}/>
+              </div>
+            )}
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>DATE</label>
+                <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={iStyle()}/>
+              </div>
+              <div>
+                <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>TIME</label>
+                <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={iStyle()}/>
+              </div>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>LOCATION</label>
+              <input value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))}
+                placeholder="Home / Away / Address" style={iStyle()}/>
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:5}}>NOTES</label>
+              <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}
+                placeholder="Optional notes..." rows={2}
+                style={{...iStyle(),resize:"vertical"}}/>
+            </div>
+
+            <div style={{display:"flex",gap:10}}>
+              {editEvt&&(
+                <button onClick={()=>{deleteEvent(editEvt);setShowForm(false);setEditEvt(null);}}
+                  style={{padding:"10px 14px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:9,color:C.danger,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  Delete
+                </button>
+              )}
+              <button onClick={()=>setShowForm(false)}
+                style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.muted,cursor:"pointer",fontSize:14}}>Cancel</button>
+              <button onClick={saveEvent}
+                style={{flex:2,padding:"11px",background:C.accent,border:"none",borderRadius:9,
+                  color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                {editEvt?"Save Changes":"Add Event"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main grid + sidebar */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:16,alignItems:"start"}}>
+
+        {/* ── CALENDAR GRID ── */}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
+
+          {/* Month navigation */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+            padding:"16px 20px",borderBottom:`1px solid ${C.border}`}}>
+            <button onClick={prevMonth}
+              style={{width:34,height:34,borderRadius:9,background:C.surface,
+                border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",
+                fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+            <div style={{textAlign:"center"}}>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:22,lineHeight:1}}>
+                {MONTHS[curMonth]}
+              </div>
+              <div style={{color:C.muted,fontSize:12,marginTop:2}}>{curYear}</div>
+            </div>
+            <button onClick={nextMonth}
+              style={{width:34,height:34,borderRadius:9,background:C.surface,
+                border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",
+                fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+          </div>
+
+          {/* Day headers */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",
+            borderBottom:`1px solid ${C.border}`}}>
+            {DAYS.map((d,i)=>(
+              <div key={d} style={{padding:"10px 0",textAlign:"center",
+                fontSize:11,fontWeight:700,letterSpacing:.5,
+                color:i===0||i===6?C.accent+"99":C.muted}}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar cells */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {Array(firstDay).fill(null).map((_,i)=>(
+              <div key={`empty-${i}`}
+                style={{minHeight:100,borderRight:`1px solid ${C.border}`,
+                  borderBottom:`1px solid ${C.border}`,
+                  background:C.surface+"44"}}/>
+            ))}
+            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+              const dateStr=`${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+              const dayEvts=eventsOnDay(d);
+              const isToday=d===today.getDate()&&curMonth===today.getMonth()&&curYear===today.getFullYear();
+              const col=(firstDay+d-1)%7;
+              const isWeekend=col===0||col===6;
+              const isLastCol=col===6;
+              const isPast=dateStr<todayStr;
+              return(
+                <div key={d}
+                  onClick={()=>openAdd(dateStr)}
+                  style={{minHeight:100,padding:"8px 6px 6px",overflow:"hidden",
+                    borderRight:isLastCol?"none":`1px solid ${C.border}`,
+                    borderBottom:`1px solid ${C.border}`,
+                    cursor:"pointer",transition:"background .1s",
+                    background:isWeekend?C.surface+"66":"transparent",
+                    opacity:isPast?.75:1}}
+                  onMouseEnter={e=>e.currentTarget.style.background=C.accent+"0d"}
+                  onMouseLeave={e=>e.currentTarget.style.background=isWeekend?C.surface+"66":"transparent"}>
+
+                  {/* Day number */}
+                  <div style={{
+                    width:28,height:28,borderRadius:8,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    marginBottom:5,fontSize:12,fontWeight:isToday?900:500,
+                    background:isToday?C.accent:"transparent",
+                    color:isToday?"#000":isWeekend?C.accent+"bb":C.text}}>
+                    {d}
+                  </div>
+
+                  {/* Event chips */}
+                  {dayEvts.slice(0,2).map(evt=>{
+                    const col=typeColor(evt.type);
+                    const label=evt.opponent||(evt.title&&evt.title.replace(/^vs /i,""))||evt.title;
+                    return(
+                      <div key={evt.id}
+                        onClick={e=>{e.stopPropagation();openEdit(evt);}}
+                        style={{display:"flex",alignItems:"center",gap:3,
+                          fontSize:10,fontWeight:700,padding:"3px 6px",
+                          borderRadius:5,marginBottom:3,
+                          background:col+"1a",
+                          borderLeft:`2.5px solid ${col}`,
+                          overflow:"hidden",cursor:evt.auto?"default":"pointer"}}>
+                        {evt.time&&(
+                          <span style={{color:col+"bb",fontSize:9,flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
+                            {_fmtTime(evt.time)}
+                          </span>
+                        )}
+                        <span style={{color:col,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {dayEvts.length>2&&(
+                    <div style={{fontSize:9,color:C.muted,fontWeight:700,paddingLeft:6}}>
+                      +{dayEvts.length-2} more
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Fill remaining cells to complete the last row */}
+            {(()=>{
+              const totalCells = firstDay + daysInMonth;
+              const remainder = totalCells % 7;
+              if(remainder===0) return null;
+              return Array(7-remainder).fill(null).map((_,i)=>(
+                <div key={`trail-${i}`}
+                  style={{minHeight:100,borderBottom:`1px solid ${C.border}`,
+                    background:C.surface+"44"}}/>
+              ));
+            })()}
+          </div>
+        </div>
+
+        {/* ── SIDEBAR ── */}
+        <div style={{display:"flex",flexDirection:"column",gap:12,position:"sticky",top:20}}>
+
+          {/* Month summary stats */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:12}}>
+              {MONTHS[curMonth].toUpperCase()} {curYear}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[
+                {label:"Games",    val:monthGames.length,    color:"#ff6b00"},
+                {label:"Practices",val:monthPractice.length, color:"#66bb6a"},
+                {label:"Events",   val:monthEvents.length,   color:"#42a5f5"},
+                {label:"This week",val:(()=>{
+                  const ws=new Date(today);ws.setDate(today.getDate()-today.getDay());
+                  const we=new Date(ws);we.setDate(ws.getDate()+6);
+                  return allEvents.filter(e=>e.date>=ws.toISOString().split("T")[0]&&e.date<=we.toISOString().split("T")[0]).length;
+                })(), color:"#7c6af5"},
+              ].map(s=>(
+                <div key={s.label} style={{background:C.surface,borderRadius:9,
+                  padding:"10px 12px",textAlign:"center"}}>
+                  <div style={{color:s.color,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22,lineHeight:1}}>
+                    {s.val}
+                  </div>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:600,marginTop:3}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Event type legend — compact inline */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+            padding:"12px 16px",display:"flex",gap:12,flexWrap:"wrap"}}>
+            {EVENT_TYPES.map(t=>(
+              <div key={t.k} style={{display:"flex",alignItems:"center",gap:5}}>
+                <div style={{width:8,height:8,borderRadius:2,background:t.color,flexShrink:0}}/>
+                <span style={{color:C.muted,fontSize:11,fontWeight:600}}>{t.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* This month's events list */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:12}}>
+              {monthEvents.length===0?"NO EVENTS THIS MONTH":"THIS MONTH"}
+            </div>
+            {monthEvents.length===0?(
+              <div style={{color:C.muted,fontSize:13,fontStyle:"italic",textAlign:"center",padding:"16px 0"}}>
+                Click any day to add an event
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>
+{(()=>{
+                  const isCompact = monthEvents.length > 5;
+
+                  if(isCompact) return(
+                    <div style={{display:"flex",flexDirection:"column"}}>
+                      {monthEvents.map(evt=>{
+                        const col=typeColor(evt.type);
+                        const d=new Date(evt.date+"T12:00:00");
+                        const dayLabel=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+                        const isPast=evt.date<todayStr;
+                        const r=evt.result;
+                        const inGames=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
+                        return(
+                          <div key={evt.id} style={{display:"flex",alignItems:"center",gap:8,
+                            padding:"7px 10px",borderBottom:`1px solid ${C.border}`,
+                            opacity:isPast?.65:1}}>
+                            <div style={{width:7,height:7,borderRadius:"50%",background:col,flexShrink:0}}/>
+                            <div style={{flex:1,minWidth:0,cursor:evt.auto?"default":"pointer",overflow:"hidden"}}
+                              onClick={()=>!evt.auto&&openEdit(evt)}>
+                              <div style={{color:C.text,fontWeight:600,fontSize:12,
+                                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {evt.title||evt.opponent||"Event"}
+                              </div>
+                              <div style={{color:C.muted,fontSize:10}}>
+                                {dayLabel}{evt.time&&` · ${_fmtTime(evt.time)}`}
+                              </div>
+                            </div>
+                            {r&&<span style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",
+                              fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:12,flexShrink:0}}>
+                              {r.our}–{r.their}
+                            </span>}
+                            {evt.date===todayStr&&(evt.type==="game"||evt.opponent)&&!r&&(
+                              <button onClick={e=>{
+                                e.stopPropagation();
+                                setLivePreload&&setLivePreload({
+                                  opponent:evt.opponent||evt.title||"",
+                                  location:evt.location||"Home",
+                                  formation:"4-3-3",
+                                  date:evt.date,
+                                });
+                                setView("live");
+                              }} style={{flexShrink:0,padding:"2px 7px",background:"#27a560",
+                                border:"none",borderRadius:5,color:"#fff",
+                                fontSize:10,fontWeight:800,cursor:"pointer",
+                                fontFamily:"'Oswald',sans-serif"}}>
+                                ▶ Live
+                              </button>
+                            )}
+                            {evt.type==="game"&&evt.opponent&&!inGames&&(
+                              <button onClick={e=>{
+                                e.stopPropagation();
+                                const ex=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");
+                                if(ex){setGames(prev=>prev.map(g=>g.id===ex.id?{...g,status:"completed",calendarHidden:false}:g));}
+                                else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}
+                                setView("games");
+                              }} style={{flexShrink:0,padding:"2px 7px",background:C.accent+"18",
+                                border:`1px solid ${C.accent}33`,borderRadius:5,
+                                color:C.accent,fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                                +Games
+                              </button>
+                            )}
+                            {inGames&&<span style={{color:"#27a560",fontSize:10,fontWeight:700,flexShrink:0}}>✓</span>}
+                            <button onClick={e=>{
+                              e.stopPropagation();
+                              if(evt.auto){
+                                if(evt.linkedGameId)setGames(prev=>prev.map(g=>g.id===evt.linkedGameId?{...g,calendarHidden:true}:g));
+                                if(evt.linkedPracticeId&&typeof setPractices==="function")setPractices(prev=>(prev||[]).map(p=>p.id===evt.linkedPracticeId?{...p,calendarHidden:true}:p));
+                              }else{deleteEvent(evt.id);}
+                            }} style={{flexShrink:0,width:16,height:16,borderRadius:"50%",
+                              background:C.border,border:"none",color:C.muted,cursor:"pointer",
+                              fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+
+                  return(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {monthEvents.map(evt=>{
+                        const col=typeColor(evt.type);
+                        const d=new Date(evt.date+"T12:00:00");
+                        const dayLabel=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+                        const isPast=evt.date<todayStr;
+                        const r=evt.result;
+                        return(
+                          <div key={evt.id} style={{borderRadius:10,overflow:"hidden",border:`1px solid ${C.border}`,opacity:isPast?.7:1,transition:"border-color .12s",position:"relative"}}
+                            onMouseEnter={e=>e.currentTarget.style.borderColor=col}
+                            onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                            <div style={{height:3,background:col}}/>
+                            <div style={{padding:"8px 10px",background:C.surface,position:"relative"}}>
+                              <button onClick={e=>{e.stopPropagation();if(evt.auto){if(evt.linkedGameId)setGames(prev=>prev.map(g=>g.id===evt.linkedGameId?{...g,calendarHidden:true}:g));if(evt.linkedPracticeId&&typeof setPractices==="function")setPractices(prev=>(prev||[]).map(p=>p.id===evt.linkedPracticeId?{...p,calendarHidden:true}:p));}else{deleteEvent(evt.id);}}} style={{position:"absolute",top:7,right:7,width:16,height:16,borderRadius:"50%",background:C.border,border:"none",color:C.muted,cursor:"pointer",fontSize:11,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>×</button>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,paddingRight:20}}>
+                                <div style={{flex:1,minWidth:0,cursor:evt.auto?"default":"pointer"}} onClick={()=>!evt.auto&&openEdit(evt)}>
+                                  <div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{evt.title||evt.opponent||"Event"}</div>
+                                  <div style={{color:C.muted,fontSize:11,marginTop:2}}>{dayLabel}{evt.time&&` · ${_fmtTime(evt.time)}`}</div>
+                                  {evt.location&&<div style={{color:C.muted,fontSize:10,marginTop:1}}>📍 {evt.location}</div>}
+                                </div>
+                                <div style={{flexShrink:0,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                                  {r&&<div style={{color:r.our>r.their?C.accent:r.our<r.their?C.danger:"#f57c00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{r.our}–{r.their}</div>}
+                                  <div style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,background:col+"22",color:col}}>{evt.type.toUpperCase()}</div>
+                                </div>
+                              </div>
+                              {evt.type==="game"&&evt.opponent&&(()=>{
+                                const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
+                                if(already) return null;
+                                return(<button onClick={e=>{e.stopPropagation();const ex=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");if(ex){setGames(prev=>prev.map(g=>g.id===ex.id?{...g,status:"completed",calendarHidden:false}:g));}else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}setView("games");}} style={{marginTop:7,padding:"5px 10px",width:"100%",background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>+ Add to Games</button>);
+                              })()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Smart MM:SS entry.  Type "523" → "5:23"  "1023" → "10:23"  "45" → "0:45"
+// Stores result as a string e.g. "5:23".  Returns "" if cleared.
+function TimeInput({value, onChange, placeholder, style}){
+  const [disp, setDisp] = useState(value||"");
+  useEffect(()=>{ setDisp(value||""); },[value]);
+
+  function fmt(raw){
+    const d = raw.replace(/\D/g,"");
+    if(!d) return "";
+    if(d.length<=2){ const s=Math.min(parseInt(d,10),59); return "0:"+String(s).padStart(2,"0"); }
+    const secs=d.slice(-2), mins=d.slice(0,-2);
+    return parseInt(mins,10)+":"+String(Math.min(parseInt(secs,10),59)).padStart(2,"0");
+  }
+
+  function commit(){ const f=fmt(disp); setDisp(f); onChange(f); }
+
+  return(
+    <input
+      value={disp}
+      onChange={e=>setDisp(e.target.value.replace(/[^0-9:]/g,""))}
+      onBlur={commit}
+      onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Tab"){ e.preventDefault(); commit(); } }}
+      placeholder={placeholder||"0:00"}
+      style={{textAlign:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,
+        letterSpacing:1,...(style||{})}}
+    />
+  );
+}
+
+// ─── TRYOUTS VIEW ─────────────────────────────────────────────────────────────
+function TryoutsView({tryouts,setTryouts,roster,setRoster,teams,activeTeamId,onSwitchTeam,addPlayerToTeam}){
+  const [selTryout,  setSelTryout]  = useState(null);
+  const [selCand,    setSelCand]    = useState(null);
+  const [activeTab,  setActiveTab]  = useState("candidates");
+  const [lineupTeam, setLineupTeam] = useState("varsity");
+  const [selLineupId,setSelLineupId]= useState("default");
+  const [creatingLU, setCreatingLU] = useState(false);
+  const [newLUName,  setNewLUName]  = useState("");
+  const [creating,   setCreating]   = useState(false);
+  const [addingCand, setAddingCand] = useState(false);
+  const [pickingSlot,setPickingSlot]= useState(null);
+  const [importMsg,  setImportMsg]  = useState(null);
+  const [closeWizard,setCloseWizard]= useState(false);
+  const [posFilter,  setPosFilter]  = useState("All");
+  const [showBulk,   setShowBulk]   = useState(false);
+  const [openStatNotes,setOpenStatNotes]=useState({});
+  const [newEntryVals, setNewEntryVals] =useState({});
+  // Drag and drop
+  const [dragging,   setDragging]   = useState(null); // {candId,fromZone,fromIdx,isBackup}
+  const [dragOver,   setDragOver]   = useState(null); // {zone,idx,isBackup}
+  const fileRef = useRef(null);
+
+  const [tForm,setTForm]=useState({name:"",year:new Date().getFullYear().toString(),teamType:"highschool"});
+  const [cForm,setCForm]=useState({name:"",primaryPos:"CM",secondaryPos:"",grade:"9",club:"",notes:""});
+  const [newStatLabel,     setNewStatLabel]     =useState("");
+  const [newStatUnit,      setNewStatUnit]      =useState("");
+  const [newStatTimeFormat,setNewStatTimeFormat]=useState("none");
+
+  const POSITIONS=["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
+  const SCORE_CATS=[
+    {k:"technical", label:"Technical",  desc:"Ball control, passing, first touch",color:"#ff6b00"},
+    {k:"athletic",  label:"Athletic",   desc:"Speed, stamina, physicality",       color:"#ef5350"},
+    {k:"tactical",  label:"Tactical",   desc:"Positioning, decision making",      color:"#42a5f5"},
+    {k:"attitude",  label:"Attitude",   desc:"Effort, coachability, communication",color:"#66bb6a"},
+    {k:"positional",label:"Positional", desc:"Quality in their specific role",    color:"#7c6af5"},
+  ];
+  const HS_STATUS=[
+    {k:"prospect",label:"Prospect",color:C.muted},
+    {k:"varsity", label:"Varsity", color:C.accent},
+    {k:"jv",      label:"JV",      color:"#ffb300"},
+    {k:"jvb",     label:"JVB",     color:"#42a5f5"},
+    {k:"cut",     label:"Cut",     color:C.danger},
+  ];
+  const LINEUP_TEAMS=[
+    {k:"varsity",label:"Varsity",color:C.accent},
+    {k:"jv",     label:"JV",     color:"#ffb300"},
+    {k:"jvb",    label:"JVB",    color:"#42a5f5"},
+  ];
+  const FORMATIONS=["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2"];
+  const SLOTS_FOR=f=>{
+    const m={"4-3-3":{GK:1,DEF:4,MID:3,FWD:3},"4-4-2":{GK:1,DEF:4,MID:4,FWD:2},
+              "4-2-3-1":{GK:1,DEF:4,MID:5,FWD:1},"3-5-2":{GK:1,DEF:3,MID:5,FWD:2},
+              "5-3-2":{GK:1,DEF:5,MID:3,FWD:2}};
+    return m[f]||m["4-3-3"];
+  };
+  // For each zone, return array of row-groups (each row = array of slot indices)
+  function getZoneRows(zoneKey, formation, slotCount){
+    if(formation==="4-2-3-1"&&zoneKey==="MID"){
+      // 5 mids: slots 0,1 = DMs (deep); slots 2,3,4 = LW,AM,RW (higher)
+      // Render top-to-bottom on pitch = attack first: [2,3,4] then [0,1]
+      return [[2,3,4],[0,1]];
+    }
+    if(formation==="3-5-2"&&zoneKey==="MID"){
+      // 5 mids in 3-5-2: 1 DM deep, 2 CM mid, 2 WM wide
+      return [[1,2],[0],[3,4]]; // CM pair, DM, WM pair — top to bottom on pitch
+    }
+    return [Array.from({length:slotCount},(_,i)=>i)];
+  }
+
+  const ZONES=[{key:"FWD",label:"Forwards",color:"#ff6b00"},{key:"MID",label:"Midfielders",color:"#66bb6a"},
+               {key:"DEF",label:"Defenders",color:"#42a5f5"},{key:"GK",label:"Goalkeeper",color:"#ffb300"}];
+  const POS_GROUP={GK:"GK",CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD"};
+  const POS_FILTERS=["All","GK","DEF","MID","FWD"];
+  const POS_FILTER_COL={All:C.accent,GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
+
+  function avgScore(scores){const vals=Object.values(scores||{}).filter(v=>v>0);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;}
+  function isTimeStat(stat){
+    if(stat.timeFormat==="mmss") return true;
+    if(stat.isTime&&stat.timeFormat!=="seconds") return true;
+    if(!stat.timeFormat&&!stat.isTime){const lc=(stat.label+"|"+stat.unit).toLowerCase();return /mile|run|time|sprint|speed|min/.test(lc);}
+    return false;
+  }
+  function isSecondsStat(stat){
+    if(stat.timeFormat==="seconds") return true;
+    if(!stat.timeFormat){const lc=(stat.label+"|"+stat.unit).toLowerCase();return /\b40\b|40m|40y|40yd/.test(lc);}
+    return false;
+  }
+  function timeToSecs(str){if(!str)return 9999;const p=String(str).split(":");return p.length===2?parseInt(p[0],10)*60+parseInt(p[1],10):parseFloat(str)||9999;}
+  function getBestVal(entries,stat){
+    const vals=entries.map(e=>e.value).filter(Boolean);
+    if(!vals.length)return "";
+    if(isTimeStat(stat))return vals.reduce((b,v)=>timeToSecs(v)<timeToSecs(b)?v:b);
+    if(isSecondsStat(stat))return vals.reduce((b,v)=>parseFloat(v)<parseFloat(b)?v:b);
+    return vals.reduce((b,v)=>parseFloat(v)>parseFloat(b)?v:b);
+  }
+  function getImprovement(entries,stat){
+    if(!entries||entries.length<2)return null;
+    const first=entries[0].value,latest=entries[entries.length-1].value;
+    if(isTimeStat(stat)){
+      const diff=timeToSecs(first)-timeToSecs(latest);if(!diff)return null;
+      const abs=Math.abs(diff),m=Math.floor(abs/60),s=abs%60;
+      return{improved:diff>0,label:`${diff>0?"↑":"↓"} ${m>0?m+":"+String(s).padStart(2,"0"):s+"s"}`};
+    }else{
+      const fv=parseFloat(first),lv=parseFloat(latest);
+      if(isNaN(fv)||isNaN(lv)||fv===lv)return null;
+      const diff=isSecondsStat(stat)?fv-lv:lv-fv;
+      return{improved:diff>0,label:`${diff>0?"↑":"↓"} ${Math.abs(lv-fv).toFixed(2)}`};
+    }
+  }
+
+  function upd(fn){setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,...fn(t)}:t));}
+
+  function addStatEntry(candId,statId,value){
+    if(!value?.toString().trim())return;
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    const stat=(tryout?.customStats||[]).find(s=>s.id===statId);
+    const entry={id:`e${Date.now()}`,date:new Date().toISOString().split("T")[0],value:value.toString().trim()};
+    upd(t=>({candidates:t.candidates.map(c=>{
+      if(c.id!==candId)return c;
+      const history=c.customStatHistory||{};
+      const existing=history[statId]||[];
+      const allEntries=[...existing,entry];
+      const bestVal=stat?getBestVal(allEntries,stat):value.toString();
+      return{...c,customStatHistory:{...history,[statId]:allEntries},customStats:{...c.customStats,[statId]:bestVal}};
+    })}));
+    setNewEntryVals(p=>({...p,[statId]:""}));
+  }
+  function removeStatEntry(candId,statId,entryId){
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    const stat=(tryout?.customStats||[]).find(s=>s.id===statId);
+    upd(t=>({candidates:t.candidates.map(c=>{
+      if(c.id!==candId)return c;
+      const history=c.customStatHistory||{};
+      const remaining=(history[statId]||[]).filter(e=>e.id!==entryId);
+      const bestVal=remaining.length&&stat?getBestVal(remaining,stat):"";
+      return{...c,customStatHistory:{...history,[statId]:remaining},customStats:{...c.customStats,[statId]:bestVal}};
+    })}));
+  }
+  function updateStatNote(candId,statId,note){upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,customStatNotes:{...(c.customStatNotes||{}),[statId]:note}})}));}
+  function updateScore(candId,cat,val){upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,scores:{...c.scores,[cat]:val}})}));}
+  function updateCandField(candId,key,val){upd(t=>({candidates:t.candidates.map(c=>c.id!==candId?c:{...c,[key]:val})}));}
+  function deleteCandidate(candId){upd(t=>({candidates:t.candidates.filter(c=>c.id!==candId)}));setSelCand(null);}
+  function addCustomStat(){
+    if(!newStatLabel.trim())return;
+    const stat={id:`st${Date.now()}`,label:newStatLabel.trim(),unit:newStatUnit.trim(),isTime:newStatTimeFormat==="mmss",timeFormat:newStatTimeFormat};
+    upd(t=>({customStats:[...(t.customStats||[]),stat],candidates:t.candidates.map(c=>({...c,customStats:{...c.customStats,[stat.id]:""}}))  }));
+    setNewStatLabel("");setNewStatUnit("");setNewStatTimeFormat("none");
+  }
+  function removeCustomStat(statId){upd(t=>({customStats:(t.customStats||[]).filter(s=>s.id!==statId),candidates:t.candidates.map(c=>{const cs={...c.customStats};delete cs[statId];return{...c,customStats:cs};})}));}
+
+  // ── LINEUP HELPERS ────────────────────────────────────────────────────────
+  function emptyLineupSlots(formation){
+    const counts=SLOTS_FOR(formation);
+    const slots={},backups={};
+    Object.entries(counts).forEach(([z,n])=>{slots[z]=Array(n).fill(null);backups[z]=Array(n).fill(null);});
+    return{slots,backups};
+  }
+  function getLineupSaves(team){
+    const tlu=tryout?.lineups?.[team];
+    if(!tlu)return[{id:"default",name:"Default",formation:"4-3-3",...emptyLineupSlots("4-3-3"),note:""}];
+    if(Array.isArray(tlu.saves))return tlu.saves;
+    const{slots,backups}=emptyLineupSlots(tlu.formation||"4-3-3");
+    return[{id:"default",name:"Default",formation:tlu.formation||"4-3-3",slots:tlu.slots||slots,backups:tlu.backups||backups,note:""}];
+  }
+  function getActiveLineup(team,lineupId){
+    const saves=getLineupSaves(team);
+    return saves.find(s=>s.id===lineupId)||saves[0]||null;
+  }
+  function updLineupSave(fn){
+    upd(t=>{
+      const saves=getLineupSaves(lineupTeam);
+      const newSaves=saves.map(s=>s.id===activeID?{...s,...fn(s)}:s);
+      return{lineups:{...t.lineups,[lineupTeam]:{saves:newSaves,active:activeID}}};
+    });
+  }
+  function createNewLineup(name){
+    const id=`l${Date.now()}`;
+    const newSave={id,name:name||"New Lineup",formation:"4-3-3",...emptyLineupSlots("4-3-3"),note:""};
+    upd(t=>{const saves=getLineupSaves(lineupTeam);return{lineups:{...t.lineups,[lineupTeam]:{saves:[...saves,newSave],active:id}}};});
+    setSelLineupId(id);
+  }
+  function deleteLineup(id){
+    upd(t=>{const saves=getLineupSaves(lineupTeam).filter(s=>s.id!==id);return{lineups:{...t.lineups,[lineupTeam]:{saves,active:saves[0]?.id||"default"}}};});
+    setSelLineupId("default");
+  }
+  function setLineupFormation(formation){
+    const{slots,backups}=emptyLineupSlots(formation);
+    updLineupSave(()=>({formation,slots,backups}));
+  }
+  function assignSlot(zone,idx,isBackup,candId){
+    updLineupSave(lu=>{
+      if(isBackup){
+        const bk={...(lu.backups||{}),[zone]:[...(lu.backups?.[zone]||Array(lu.slots[zone].length).fill(null))]};
+        bk[zone][idx]=candId||null;return{backups:bk};
+      }else{
+        const sl={...lu.slots,[zone]:[...lu.slots[zone]]};sl[zone][idx]=candId||null;return{slots:sl};
+      }
+    });
+    setPickingSlot(null);
+  }
+  function posFit(cand,zone){
+    if(!cand)return"none";
+    const positions=cand.positions||[cand.primaryPos||"CM"];
+    if(POS_GROUP[positions[0]]===zone)return"primary";
+    if(positions.slice(1).some(p=>POS_GROUP[p]===zone))return"secondary";
+    return"none";
+  }
+  const FIT_COLOR={primary:"#66bb6a",secondary:"#ffb300",none:"#ef5350"};
+
+  // ── DRAG AND DROP HANDLERS ────────────────────────────────────────────────
+  function onDragStart(e,candId,fromZone,fromIdx,isBackup){
+    setDragging({candId,fromZone,fromIdx,isBackup:!!isBackup});
+    e.dataTransfer.effectAllowed="move";
+    e.dataTransfer.setData("text/plain",candId);
+  }
+  function onDragEnd(){setDragging(null);setDragOver(null);}
+  function onDragOverSlot(e,zone,idx,isBackup){
+    e.preventDefault();e.stopPropagation();
+    e.dataTransfer.dropEffect="move";
+    const key=`${zone}-${idx}-${isBackup}`;
+    const curKey=dragOver?`${dragOver.zone}-${dragOver.idx}-${dragOver.isBackup}`:"";
+    if(key!==curKey)setDragOver({zone,idx,isBackup:!!isBackup});
+  }
+  function onDragLeaveSlot(){setDragOver(null);}
+  function onDropSlot(e,toZone,toIdx,isBackup){
+    e.preventDefault();e.stopPropagation();
+    if(!dragging){setDragOver(null);return;}
+    const{candId,fromZone,fromIdx,isBackup:fromBackup}=dragging;
+    updLineupSave(lu=>{
+      const newSlots={};
+      Object.keys(lu.slots).forEach(z=>{newSlots[z]=[...lu.slots[z]];});
+      const newBackups={};
+      ZONES.forEach(zone=>{newBackups[zone.key]=[...((lu.backups||{})[zone.key]||Array(newSlots[zone.key].length).fill(null))];});
+      // What's currently in the target slot
+      const targetCandId=isBackup?(newBackups[toZone]?.[toIdx]??null):(newSlots[toZone]?.[toIdx]??null);
+      // Clear / swap source
+      if(fromZone!==null&&fromIdx!==null){
+        if(fromBackup){newBackups[fromZone][fromIdx]=targetCandId;}
+        else{newSlots[fromZone][fromIdx]=targetCandId;}
+      }
+      // Place in target
+      if(isBackup){newBackups[toZone][toIdx]=candId;}
+      else{newSlots[toZone][toIdx]=candId;}
+      return{slots:newSlots,backups:newBackups};
+    });
+    setDragging(null);setDragOver(null);
+  }
+  function onDragOverPool(e){e.preventDefault();e.dataTransfer.dropEffect="move";}
+  function onDropPool(e){
+    e.preventDefault();
+    if(!dragging||dragging.fromZone===null){setDragging(null);return;}
+    updLineupSave(lu=>{
+      const newSlots={};Object.keys(lu.slots).forEach(z=>{newSlots[z]=[...lu.slots[z]];});
+      const newBackups={};ZONES.forEach(zone=>{newBackups[zone.key]=[...((lu.backups||{})[zone.key]||Array(newSlots[zone.key].length).fill(null))];});
+      if(dragging.isBackup){newBackups[dragging.fromZone][dragging.fromIdx]=null;}
+      else{newSlots[dragging.fromZone][dragging.fromIdx]=null;}
+      return{slots:newSlots,backups:newBackups};
+    });
+    setDragging(null);setDragOver(null);
+  }
+
+  function createTryout(){
+    if(!tForm.name.trim())return;
+    const mkLU=()=>({saves:[{id:"default",name:"Default",formation:"4-3-3",...emptyLineupSlots("4-3-3"),note:""}],active:"default"});
+    const t={id:`try${Date.now()}`,name:tForm.name.trim(),year:tForm.year,
+      teamType:tForm.teamType||"highschool",status:"open",candidates:[],customStats:[],
+      lineups:{varsity:mkLU(),jv:mkLU(),jvb:mkLU()},createdAt:new Date().toISOString()};
+    setTryouts(prev=>[t,...prev]);setSelTryout(t.id);setCreating(false);
+  }
+  function addCandidate(){
+    if(!cForm.name.trim())return;
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    const initCS={};(tryout?.customStats||[]).forEach(s=>{initCS[s.id]="";});
+    const positions=[cForm.primaryPos,...(cForm.secondaryPos&&cForm.secondaryPos!==cForm.primaryPos?[cForm.secondaryPos]:[])];
+    const c={id:`c${Date.now()}`,name:cForm.name.trim(),positions,primaryPos:cForm.primaryPos,
+      grade:tryout?.teamType==="highschool"?cForm.grade:"",club:tryout?.teamType==="club"?cForm.club:"",
+      scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
+      customStats:initCS,customStatNotes:{},customStatHistory:{},status:"prospect",notes:cForm.notes,coachNote:""};
+    upd(t=>({candidates:[...t.candidates,c]}));
+    setCForm({name:"",primaryPos:"CM",secondaryPos:"",grade:"9",club:"",notes:""});
+    setAddingCand(false);setSelCand(c.id);
+  }
+  function downloadTemplate(){
+    const tryout=tryouts.find(t=>t.id===selTryout);const isHS=tryout?.teamType==="highschool";
+    const wb=XLSX.utils.book_new();
+    const headers=["Name","Primary Position","Secondary Position",isHS?"Grade":"Club/Team","Notes"];
+    const ws=XLSX.utils.aoa_to_sheet([headers,["Alex Johnson","CM","W",isHS?"10":"FC United","Strong in transition"]]);
+    ws["!cols"]=[{wch:22},{wch:18},{wch:18},{wch:14},{wch:28}];
+    XLSX.utils.book_append_sheet(wb,ws,"Candidates");
+    const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+    const url=URL.createObjectURL(new Blob([buf],{type:"application/octet-stream"}));
+    const a=document.createElement("a");a.href=url;a.download="TryoutCandidates_Template.xlsx";a.click();
+  }
+  async function handleImport(e){
+    const file=e.target.files?.[0];if(!file)return;
+    const tryout=tryouts.find(t=>t.id===selTryout);const isHS=tryout?.teamType==="highschool";
+    try{
+      const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      const initCS={};(tryout?.customStats||[]).forEach(s=>{initCS[s.id]="";});
+      const newCands=rows.slice(1).filter(r=>r[0]?.toString().trim()).map(r=>{
+        const primary=(r[1]?.toString().trim().toUpperCase())||"CM";
+        const secondary=(r[2]?.toString().trim().toUpperCase())||"";
+        const positions=[primary,...(secondary&&secondary!==primary?[secondary]:[])];
+        return{id:`c${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          name:r[0].toString().trim(),positions,primaryPos:primary,
+          grade:isHS?(r[3]?.toString().trim()||""):"",club:!isHS?(r[3]?.toString().trim()||""):"",
+          notes:r[4]?.toString().trim()||"",
+          scores:{technical:0,athletic:0,tactical:0,attitude:0,positional:0},
+          customStats:{...initCS},customStatNotes:{},customStatHistory:{},status:"prospect",coachNote:""};
+      });
+      upd(t=>({candidates:[...t.candidates,...newCands]}));
+      setImportMsg({type:"ok",text:`✓ Imported ${newCands.length} candidates`});
+    }catch(err){setImportMsg({type:"err",text:`✗ ${err.message}`});}
+    e.target.value="";setTimeout(()=>setImportMsg(null),4000);
+  }
+
+  const iS=(extra={})=>({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",width:"100%",...extra});
+
+  // ── TRYOUT LIST ──────────────────────────────────────────────────────────
+  if(!selTryout)return(
+    <div style={{padding:20,maxWidth:800,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div><div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>SQUAD</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Tryouts</h1></div>
+        <button onClick={()=>setCreating(true)} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}><Plus size={15}/>New Tryout</button>
+      </div>
+      {creating&&(
+        <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW TRYOUT SESSION</div>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[{k:"highschool",label:"High School"},{k:"club",label:"Club"}].map(opt=>(
+              <button key={opt.k} onClick={()=>setTForm(f=>({...f,teamType:opt.k}))} style={{flex:1,padding:"9px",background:tForm.teamType===opt.k?C.accent+"22":C.surface,border:`1px solid ${tForm.teamType===opt.k?C.accent:C.border}`,borderRadius:9,color:tForm.teamType===opt.k?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>{opt.label}</button>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10,marginBottom:12}}>
+            <input value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))} placeholder={tForm.teamType==="highschool"?"e.g. Varsity 2025-26":"e.g. U16 Spring Tryouts"} style={iS()}/>
+            <input value={tForm.year} onChange={e=>setTForm(f=>({...f,year:e.target.value}))} placeholder="Year" style={iS()}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={createTryout} disabled={!tForm.name.trim()} style={{padding:"9px 20px",background:tForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,color:tForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>Create</button>
+            <button onClick={()=>setCreating(false)} style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {tryouts.length===0&&!creating
+        ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}><ClipboardCheck size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/><div style={{color:C.text,fontSize:15,fontWeight:600}}>No tryout sessions yet</div><div style={{color:C.muted,fontSize:13,marginTop:6}}>Create your first tryout to start evaluating candidates</div></div>
+        :tryouts.map(t=>{
+          const signed=t.candidates.filter(c=>c.status==="varsity").length,jv=t.candidates.filter(c=>c.status==="jv").length,cut=t.candidates.filter(c=>c.status==="cut").length;
+          return(
+            <div key={t.id} onClick={()=>{setSelTryout(t.id);setActiveTab("candidates");setSelCand(null);setPosFilter("All");}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px 20px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+              <div style={{width:46,height:46,borderRadius:11,background:C.accent+"22",border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><ClipboardCheck size={22} color={C.accent}/></div>
+              <div style={{flex:1}}><div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{t.name}</div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><span style={{color:C.muted,fontSize:12}}>{t.year}</span><span style={{color:C.muted,fontSize:12,background:C.surface,padding:"1px 7px",borderRadius:5,border:`1px solid ${C.border}`}}>{t.teamType==="club"?"Club":"High School"}</span><span style={{color:C.muted,fontSize:12}}>{t.candidates.length} candidates</span>{signed>0&&<span style={{color:C.accent,fontSize:12,fontWeight:700}}>{signed} varsity</span>}{jv>0&&<span style={{color:"#ffb300",fontSize:12,fontWeight:700}}>{jv} JV</span>}{cut>0&&<span style={{color:C.danger,fontSize:12,fontWeight:700}}>{cut} cut</span>}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{padding:"3px 10px",background:t.status==="open"?C.accent+"22":"#2a1000",border:`1px solid ${t.status==="open"?C.accent:C.border}`,borderRadius:6,color:t.status==="open"?C.accent:C.muted,fontSize:11,fontWeight:700}}>{t.status==="open"?"OPEN":"CLOSED"}</span><ChevronRight size={16} color={C.muted}/></div>
+            </div>
+          );
+        })
+      }
+    </div>
+  );
+
+  if(closeWizard&&selTryout){
+    const tryout=tryouts.find(t=>t.id===selTryout);
+    if(tryout)return(<TryoutCloseWizard tryout={tryout} teams={teams||[]} addPlayerToTeam={addPlayerToTeam} onClose={()=>setCloseWizard(false)} onDone={()=>{setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:"closed"}:t));setCloseWizard(false);}}/>);
+  }
+
+  const tryout=tryouts.find(t=>t.id===selTryout);if(!tryout)return null;
+  const customStats=tryout.customStats||[];
+  const allSorted=[...tryout.candidates].sort((a,b)=>avgScore(b.scores)-avgScore(a.scores));
+  const sorted=posFilter==="All"?allSorted:allSorted.filter(c=>POS_GROUP[c.primaryPos||c.positions?.[0]]===posFilter);
+  const selCandObj=selCand?tryout.candidates.find(c=>c.id===selCand):null;
+  const lineupSaves=getLineupSaves(lineupTeam);
+  const activeID=lineupSaves.find(s=>s.id===selLineupId)?selLineupId:lineupSaves[0]?.id||"default";
+  const curLU=getActiveLineup(lineupTeam,activeID)||{formation:"4-3-3",...emptyLineupSlots("4-3-3"),note:""};
+
+  // ── BULK ENTRY MODAL ─────────────────────────────────────────────────────
+  function BulkEntryModal(){
+    if(!customStats.length)return(
+      <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:28,maxWidth:400,width:"100%"}}>
+          <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,marginBottom:10}}>No Measurables Yet</h3>
+          <p style={{color:C.muted,fontSize:14,lineHeight:1.6,marginBottom:20}}>Add stats in the Custom Stats tab first.</p>
+          <button onClick={()=>setShowBulk(false)} style={{width:"100%",padding:"11px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:14}}>Close</button>
+        </div>
+      </div>
+    );
+    const today=new Date().toISOString().split("T")[0];
+    const[local,setLocal]=useState(()=>{const init={};allSorted.forEach(c=>{init[c.id]={};customStats.forEach(s=>{init[c.id][s.id]="";});});return init;});
+    function updateLocal(cid,sid,val){setLocal(p=>({...p,[cid]:{...p[cid],[sid]:val}}));}
+    function flushAndClose(){
+      allSorted.forEach(c=>{customStats.forEach(stat=>{const val=(local[c.id]||{})[stat.id];if(val&&val.toString().trim()){
+        const entry={id:`e${Date.now()}_${Math.random().toString(36).slice(2)}`,date:today,value:val.toString().trim()};
+        upd(t=>({candidates:t.candidates.map(cc=>{if(cc.id!==c.id)return cc;const history=cc.customStatHistory||{};const existing=history[stat.id]||[];const allEntries=[...existing,entry];const bestVal=getBestVal(allEntries,stat);return{...cc,customStatHistory:{...history,[stat.id]:allEntries},customStats:{...cc.customStats,[stat.id]:bestVal}};})  }));
+      }});});setShowBulk(false);
+    }
+    const inputRefs=useRef({});
+    function moveFocus(cid,sid,dir){const ci=allSorted.findIndex(c=>c.id===cid),si=customStats.findIndex(s=>s.id===sid);let nc=cid,ns=sid;if(dir==="right"){if(si<customStats.length-1)ns=customStats[si+1].id;else if(ci<allSorted.length-1){nc=allSorted[ci+1].id;ns=customStats[0].id;}}else if(dir==="left"){if(si>0)ns=customStats[si-1].id;else if(ci>0){nc=allSorted[ci-1].id;ns=customStats[customStats.length-1].id;}}else if(dir==="down"&&ci<allSorted.length-1)nc=allSorted[ci+1].id;else if(dir==="up"&&ci>0)nc=allSorted[ci-1].id;inputRefs.current[nc+"_"+ns]?.focus();}
+    function handleKeyNav(e,cid,sid){if(e.key==="Tab"&&!e.shiftKey){e.preventDefault();moveFocus(cid,sid,"right");}else if(e.key==="Tab"&&e.shiftKey){e.preventDefault();moveFocus(cid,sid,"left");}else if(e.key==="Enter"){e.preventDefault();moveFocus(cid,sid,"down");}else if(e.key==="ArrowDown"){e.preventDefault();moveFocus(cid,sid,"down");}else if(e.key==="ArrowUp"){e.preventDefault();moveFocus(cid,sid,"up");}}
+    const cell={width:"100%",padding:"6px 8px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:13,fontWeight:700,outline:"none",fontFamily:"'Oswald',sans-serif",textAlign:"center",boxSizing:"border-box"};
+    return(
+      <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,width:"100%",maxWidth:Math.min(220+customStats.length*140,920),maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:2}}>BULK ENTRY · {today}</div><h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800}}>Enter Measurables</h3><div style={{color:C.muted,fontSize:12,marginTop:2}}>Each filled cell adds a dated entry</div></div>
+            <div style={{color:C.muted,fontSize:11,textAlign:"right",lineHeight:1.8}}><div>Tab→next</div><div>Enter↓row</div></div>
+          </div>
+          <div style={{flex:1,overflowY:"auto",overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{borderBottom:`2px solid ${C.border}`}}><th style={{padding:"10px 16px",textAlign:"left",color:C.muted,fontWeight:600,fontSize:11,letterSpacing:1,position:"sticky",left:0,background:C.card,minWidth:160,zIndex:2}}>CANDIDATE</th>{customStats.map(stat=>(<th key={stat.id} style={{padding:"10px 14px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:10,letterSpacing:.5,minWidth:120,whiteSpace:"nowrap"}}><div>{stat.label.toUpperCase()}</div>{stat.unit&&<div style={{color:C.border,fontWeight:400,fontSize:9}}>{stat.unit}</div>}{isTimeStat(stat)&&<div style={{color:C.accent,fontSize:9,fontWeight:700,marginTop:1}}>⏱ MM:SS</div>}{isSecondsStat(stat)&&<div style={{color:"#42a5f5",fontSize:9,fontWeight:700,marginTop:1}}>⏱ Sec</div>}</th>))}</tr></thead>
+              <tbody>{allSorted.map((c,ri)=>{const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");return(<tr key={c.id} style={{borderBottom:`1px solid ${C.border}`,background:ri%2===0?C.card:C.surface}}><td style={{padding:"8px 16px",position:"sticky",left:0,background:ri%2===0?C.card:C.surface,zIndex:1}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>{(c.positions||[c.primaryPos||"CM"])[0]}</div><div><div style={{color:C.text,fontWeight:700,fontSize:13}}>{c.name}</div>{c.grade&&<div style={{color:C.muted,fontSize:10}}>Gr.{c.grade}</div>}</div></div></td>{customStats.map(stat=>{const key=c.id+"_"+stat.id;const val=(local[c.id]||{})[stat.id]||"";const best=(c.customStats||{})[stat.id];if(isTimeStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<div onKeyDown={e=>handleKeyNav(e,c.id,stat.id)}><TimeInput value={val} onChange={v=>updateLocal(c.id,stat.id,v)} placeholder="0:00" style={{...cell,ref:el=>{inputRefs.current[key]=el;}}}/></div></td>);if(isSecondsStat(stat))return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="0.01" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="4.97" style={cell}/></td>);return(<td key={stat.id} style={{padding:"5px 8px",textAlign:"center"}}>{best&&<div style={{color:C.muted,fontSize:9,marginBottom:2}}>best:{best}</div>}<input ref={el=>{inputRefs.current[key]=el;}} type="number" step="any" value={val} onChange={e=>updateLocal(c.id,stat.id,e.target.value)} onKeyDown={e=>handleKeyNav(e,c.id,stat.id)} placeholder="—" style={cell}/></td>);})}</tr>);})}</tbody>
+            </table>
+          </div>
+          <div style={{padding:"14px 22px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end",flexShrink:0}}>
+            <button onClick={()=>setShowBulk(false)} style={{padding:"10px 20px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+            <button onClick={flushAndClose} style={{padding:"10px 28px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>Save All →</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{padding:20,maxWidth:1200,margin:"0 auto"}}>
+      {showBulk&&<BulkEntryModal/>}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+        <button onClick={()=>{setSelTryout(null);setSelCand(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+        <div style={{flex:1}}><div style={{color:C.muted,fontSize:12}}>{tryout.year} · {tryout.teamType==="club"?"Club":"High School"}</div><h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800}}>{tryout.name}</h2></div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {customStats.length>0&&<button onClick={()=>setShowBulk(true)} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>⚡ Bulk Entry</button>}
+          <button onClick={()=>tryout.status==="open"?setCloseWizard(true):setTryouts(prev=>prev.map(t=>t.id===selTryout?{...t,status:"open"}:t))} style={{padding:"8px 14px",background:tryout.status==="open"?C.accent+"22":"#2a1000",border:`1px solid ${tryout.status==="open"?C.accent:C.border}`,borderRadius:8,color:tryout.status==="open"?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>{tryout.status==="open"?"Close & Submit":"Reopen"}</button>
+          <button onClick={()=>{if(window.confirm("Delete this tryout?"))setTryouts(prev=>prev.filter(t=>t.id!==selTryout));setSelTryout(null);}} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.muted,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12}}><Trash2 size={13}/></button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:18,borderBottom:`1px solid ${C.border}`}}>
+        {[{k:"candidates",label:"Candidates"},{k:"lineups",label:"Lineup Builder"},{k:"stats",label:"Custom Stats"}].map(tab=>(
+          <button key={tab.k} onClick={()=>setActiveTab(tab.k)} style={{padding:"9px 18px",background:"transparent",border:"none",cursor:"pointer",color:activeTab===tab.k?C.accent:C.muted,fontWeight:700,fontSize:13,borderBottom:activeTab===tab.k?`2px solid ${C.accent}`:"2px solid transparent",marginBottom:-1,transition:"all .12s"}}>{tab.label}</button>
+        ))}
+      </div>
+
+      {/* ── CANDIDATES TAB ─────────────────────────────────────────────── */}
+      {activeTab==="candidates"&&(
+        <div>
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>setAddingCand(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.accent,border:"none",borderRadius:8,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}><Plus size={14}/>Add Candidate</button>
+            <input ref={fileRef} type="file" accept=".xlsx,.csv" style={{display:"none"}} onChange={handleImport}/>
+            <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}><Upload size={14}/>Import</button>
+            <button onClick={downloadTemplate} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}><Download size={14}/>Template</button>
+            {importMsg&&<span style={{color:importMsg.type==="ok"?C.accent:C.danger,fontSize:13,fontWeight:600}}>{importMsg.text}</span>}
+          </div>
+          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+            {POS_FILTERS.map(pf=>{const col=POS_FILTER_COL[pf];const cnt=pf==="All"?tryout.candidates.length:tryout.candidates.filter(c=>POS_GROUP[c.primaryPos||c.positions?.[0]]===pf).length;return(<button key={pf} onClick={()=>{setPosFilter(pf);setSelCand(null);}} style={{padding:"5px 12px",background:posFilter===pf?col+"22":C.surface,border:`1.5px solid ${posFilter===pf?col:C.border}`,borderRadius:8,color:posFilter===pf?col:C.muted,cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>{pf}<span style={{background:posFilter===pf?col+"33":C.border+"66",color:posFilter===pf?col:C.muted,borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>{cnt}</span></button>);  })}
+            {posFilter!=="All"&&<div style={{color:C.muted,fontSize:12}}>Showing {posFilter} · {sorted.length} candidate{sorted.length!==1?"s":""}</div>}
+          </div>
+          {addingCand&&(
+            <div style={{background:C.card,border:`1px solid ${C.accent}44`,borderRadius:14,padding:20,marginBottom:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>NEW CANDIDATE</div>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))} placeholder="Full Name *" style={iS()}/>
+                <div><label style={{color:C.muted,fontSize:10,fontWeight:600,display:"block",marginBottom:4}}>PRIMARY POS</label><select value={cForm.primaryPos} onChange={e=>setCForm(f=>({...f,primaryPos:e.target.value}))} style={iS()}>{POSITIONS.map(p=><option key={p}>{p}</option>)}</select></div>
+                <div><label style={{color:C.muted,fontSize:10,fontWeight:600,display:"block",marginBottom:4}}>SECONDARY POS</label><select value={cForm.secondaryPos} onChange={e=>setCForm(f=>({...f,secondaryPos:e.target.value}))} style={iS()}><option value="">None</option>{POSITIONS.filter(p=>p!==cForm.primaryPos).map(p=><option key={p}>{p}</option>)}</select></div>
+                {tryout.teamType==="highschool"?(<div><label style={{color:C.muted,fontSize:10,fontWeight:600,display:"block",marginBottom:4}}>GRADE</label><select value={cForm.grade} onChange={e=>setCForm(f=>({...f,grade:e.target.value}))} style={iS()}><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></div>):(<div><label style={{color:C.muted,fontSize:10,fontWeight:600,display:"block",marginBottom:4}}>CLUB</label><input value={cForm.club} onChange={e=>setCForm(f=>({...f,club:e.target.value}))} placeholder="e.g. FC United" style={iS()}/></div>)}
+              </div>
+              <input value={cForm.notes} onChange={e=>setCForm(f=>({...f,notes:e.target.value}))} placeholder="Initial notes (optional)" style={{...iS(),marginBottom:12}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={addCandidate} disabled={!cForm.name.trim()} style={{padding:"9px 20px",background:cForm.name.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,color:cForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer"}}>Add</button>
+                <button onClick={()=>setAddingCand(false)} style={{padding:"9px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+              </div>
+            </div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,maxHeight:"calc(100vh - 340px)",overflowY:"auto"}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>{posFilter==="All"?"ALL":"POS: "+posFilter} ({sorted.length})</div>
+              {sorted.length===0?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No candidates{posFilter!=="All"?" in this position":""}</div>
+                :sorted.map((c,rank)=>{const avg=avgScore(c.scores),sc=HS_STATUS.find(s=>s.k===c.status),isSel=selCand===c.id,pc=posColor(c.primaryPos||c.positions?.[0]||"CM"),positions=c.positions||[c.primaryPos||"CM"];const bestTS=customStats.filter(s=>isTimeStat(s)||isSecondsStat(s)).find(s=>c.customStats?.[s.id]);const bth=bestTS?(c.customStatHistory||{})[bestTS.id]:null;const imp=bestTS&&bth?getImprovement(bth,bestTS):null;return(
+                  <div key={c.id} onClick={()=>setSelCand(isSel?null:c.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,marginBottom:5,cursor:"pointer",transition:"all .12s",background:isSel?C.accent+"18":C.surface,border:`1px solid ${isSel?C.accent:C.border}`}}>
+                    <div style={{width:20,color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:13,textAlign:"center",flexShrink:0}}>{rank+1}</div>
+                    <div style={{width:26,height:26,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:11}}>{positions[0]}</div>
+                    <div style={{flex:1,minWidth:0}}><div style={{color:C.text,fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{display:"flex",gap:5,alignItems:"center"}}><div style={{color:C.muted,fontSize:10}}>{tryout.teamType==="highschool"?(c.grade?`Gr.${c.grade}`:""):(c.club||"")}</div>{bestTS&&c.customStats?.[bestTS.id]&&<div style={{color:C.accent,fontSize:10,fontWeight:700,fontFamily:"'Oswald',sans-serif"}}>{c.customStats[bestTS.id]}</div>}{imp&&<div style={{color:imp.improved?"#66bb6a":C.danger,fontSize:9,fontWeight:700}}>{imp.label}</div>}</div></div>
+                    <div style={{textAlign:"right",flexShrink:0}}>{avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</div>}<div style={{color:sc?.color||C.muted,fontSize:9,fontWeight:700,letterSpacing:.5}}>{sc?.label}</div></div>
+                  </div>
+                );})}
+            </div>
+            {selCandObj?(
+              <div style={{display:"flex",flexDirection:"column",gap:12,maxHeight:"calc(100vh - 340px)",overflowY:"auto"}}>
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>{(selCandObj.positions||[selCandObj.primaryPos||"CM"]).map((pos,i)=>(<div key={pos} style={{width:i===0?52:36,height:i===0?52:36,borderRadius:i===0?12:8,background:posColor(pos),border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:i===0?18:13,opacity:i===0?1:.7}}>{pos}</div>))}</div>
+                  <div style={{flex:1}}><div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:20}}>{selCandObj.name}</div><div style={{color:C.muted,fontSize:13,marginTop:2}}>{tryout.teamType==="highschool"?(selCandObj.grade?`Grade ${selCandObj.grade}`:""):(selCandObj.club||"")}</div></div>
+                  {avgScore(selCandObj.scores)>0&&<div style={{textAlign:"center",flexShrink:0}}><div style={{color:rColor(avgScore(selCandObj.scores)),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:40,lineHeight:1}}>{avgScore(selCandObj.scores).toFixed(1)}</div><div style={{color:C.muted,fontSize:10,fontWeight:600}}>OVERALL</div></div>}
+                  <button onClick={()=>deleteCandidate(selCandObj.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4}}><Trash2 size={15}/></button>
+                </div>
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>STATUS</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{HS_STATUS.map(opt=>(<button key={opt.k} onClick={()=>updateCandField(selCandObj.id,"status",opt.k)} style={{padding:"7px 16px",background:selCandObj.status===opt.k?opt.color+"22":C.surface,border:`1.5px solid ${selCandObj.status===opt.k?opt.color:C.border}`,borderRadius:8,color:selCandObj.status===opt.k?opt.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:13,transition:"all .12s"}}>{opt.label}</button>))}</div>
+                </div>
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>EVALUATION (1–10)</div>
+                  {SCORE_CATS.map(cat=>{const val=selCandObj.scores[cat.k]||0;return(<div key={cat.k} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><div><span style={{color:cat.color,fontWeight:700,fontSize:13}}>{cat.label}</span><span style={{color:C.muted,fontSize:11,marginLeft:8}}>{cat.desc}</span></div><span style={{color:val>0?cat.color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>{val>0?val:"-"}</span></div><div style={{display:"flex",gap:3}}>{[1,2,3,4,5,6,7,8,9,10].map(n=>(<button key={n} onClick={()=>updateScore(selCandObj.id,cat.k,n===val?0:n)} style={{flex:1,height:26,borderRadius:5,border:`1.5px solid ${n<=val?cat.color:C.border}`,background:n<=val?cat.color+"22":"transparent",color:n<=val?cat.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:11,transition:"all .08s"}}>{n}</button>))}</div></div>);})}
+                </div>
+                {customStats.length>0&&(
+                  <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>MEASURABLES</div><button onClick={()=>setShowBulk(true)} style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:6,cursor:"pointer",background:C.accent+"22",border:`1px solid ${C.accent}44`,color:C.accent}}>⚡ Bulk Entry</button></div>
+                    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                      {customStats.map(stat=>{const history=(selCandObj.customStatHistory||{})[stat.id]||[];const bestVal=(selCandObj.customStats||{})[stat.id]||"";const imp=getImprovement(history,stat);const nKey=selCandObj.id+"_"+stat.id;const noteOpen=openStatNotes[nKey]||false;const noteVal=(selCandObj.customStatNotes||{})[stat.id]||"";const entryVal=newEntryVals[stat.id]||"";return(
+                        <div key={stat.id} style={{background:C.surface,borderRadius:10,padding:"12px 14px",border:`1px solid ${C.border}`}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:history.length?10:8}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:C.text,fontWeight:700,fontSize:13}}>{stat.label}</span>{stat.unit&&<span style={{color:C.muted,fontSize:11}}>({stat.unit})</span>}{isTimeStat(stat)&&<span style={{color:C.accent,fontSize:9,fontWeight:700,background:C.accent+"22",padding:"1px 5px",borderRadius:3}}>⏱ MM:SS</span>}{isSecondsStat(stat)&&<span style={{color:"#42a5f5",fontSize:9,fontWeight:700,background:"#42a5f522",padding:"1px 5px",borderRadius:3}}>⏱ Sec</span>}</div>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>{imp&&<span style={{color:imp.improved?"#66bb6a":C.danger,fontSize:12,fontWeight:700}}>{imp.label}</span>}{bestVal&&<span style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{bestVal}</span>}{bestVal&&history.length>1&&<span style={{color:C.muted,fontSize:9,fontWeight:700}}>★ best</span>}<button onClick={()=>setOpenStatNotes(p=>({...p,[nKey]:!noteOpen}))} style={{padding:"4px 7px",borderRadius:5,cursor:"pointer",fontSize:11,background:noteOpen||noteVal?C.accent+"22":"transparent",border:`1px solid ${noteOpen||noteVal?C.accent:C.border}`,color:noteOpen||noteVal?C.accent:C.muted}}>📝</button></div>
+                          </div>
+                          {history.length>0&&(<div style={{marginBottom:8,display:"flex",flexDirection:"column",gap:3}}>{history.map((entry,i)=>{const isBest=entry.value===bestVal,isLatest=i===history.length-1;return(<div key={entry.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 8px",borderRadius:6,background:isBest?C.accent+"11":C.bg,border:`1px solid ${isBest?C.accent+"33":C.border}`}}><span style={{color:C.muted,fontSize:10,minWidth:70}}>{entry.date}</span><span style={{color:isBest?C.accent:C.text,fontWeight:isBest?700:400,fontFamily:"'Oswald',sans-serif",fontSize:14,flex:1}}>{entry.value}</span>{isBest&&<span style={{color:C.accent,fontSize:9,fontWeight:700}}>★ best</span>}{isLatest&&!isBest&&<span style={{color:C.muted,fontSize:9}}>latest</span>}<button onClick={()=>removeStatEntry(selCandObj.id,stat.id,entry.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:"0 2px",fontSize:12,lineHeight:1}}>×</button></div>);})}</div>)}
+                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                            {isTimeStat(stat)?<TimeInput value={entryVal} onChange={v=>setNewEntryVals(p=>({...p,[stat.id]:v}))} placeholder="0:00" style={iS({flex:1,padding:"6px 10px",fontSize:14})}/>:isSecondsStat(stat)?<input type="number" step="0.01" value={entryVal} onChange={e=>setNewEntryVals(p=>({...p,[stat.id]:e.target.value}))} placeholder="4.97" style={iS({flex:1,textAlign:"center",fontWeight:700,fontSize:14,padding:"6px 10px"})}/>:<input type="number" step="any" value={entryVal} onChange={e=>setNewEntryVals(p=>({...p,[stat.id]:e.target.value}))} placeholder="—" style={iS({flex:1,textAlign:"center",fontWeight:700,fontSize:14,padding:"6px 10px"})}/>}
+                            <button onClick={()=>addStatEntry(selCandObj.id,stat.id,entryVal)} disabled={!entryVal?.toString().trim()} style={{padding:"6px 14px",background:entryVal?.toString().trim()?C.accent:"#2a1000",border:"none",borderRadius:7,color:entryVal?.toString().trim()?"#000":C.muted,fontWeight:700,fontSize:12,cursor:entryVal?.toString().trim()?"pointer":"default",flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>+ Add</button>
+                          </div>
+                          {noteOpen&&<div style={{marginTop:8}}><input value={noteVal} onChange={e=>updateStatNote(selCandObj.id,stat.id,e.target.value)} placeholder={`Note for ${stat.label}...`} autoFocus style={iS({fontSize:12,padding:"6px 10px"})}/></div>}
+                          {!noteOpen&&noteVal&&<div onClick={()=>setOpenStatNotes(p=>({...p,[nKey]:true}))} style={{marginTop:5,color:C.accent,fontSize:11,fontStyle:"italic",cursor:"pointer"}}>📝 {noteVal}</div>}
+                        </div>
+                      );})}
+                    </div>
+                  </div>
+                )}
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}><div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>COACH NOTES</div><textarea value={selCandObj.coachNote||""} rows={3} onChange={e=>updateCandField(selCandObj.id,"coachNote",e.target.value)} placeholder="Observations, strengths, areas of concern..." style={iS({resize:"vertical"})}/></div>
+              </div>
+            ):(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:48,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
+                <ClipboardCheck size={40} style={{color:C.muted,opacity:.3}}/><div style={{color:C.muted,fontSize:14}}>Select a candidate to evaluate</div>
+                {customStats.length>0&&<button onClick={()=>setShowBulk(true)} style={{marginTop:4,padding:"9px 20px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:9,color:C.accent,fontWeight:700,fontSize:13,cursor:"pointer"}}>⚡ Bulk Enter</button>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── LINEUP BUILDER TAB ─────────────────────────────────────────────── */}
+      {activeTab==="lineups"&&(
+        <div>
+          {/* Player picker modal */}
+          {pickingSlot&&(
+            <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:22,width:"100%",maxWidth:400,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <div><h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700}}>{pickingSlot.isBackup?"Select Sub":"Select Starter"} — {pickingSlot.zone}</h3><div style={{color:C.muted,fontSize:11,marginTop:2}}>{pickingSlot.isBackup?"Backup / sub for this slot":"Starting player"}</div></div>
+                  <button onClick={()=>setPickingSlot(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={16}/></button>
+                </div>
+                <div style={{display:"flex",gap:12,marginBottom:10,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
+                  {[["#66bb6a","Primary pos"],["#ffb300","Secondary pos"],["#ef5350","Out of pos"]].map(([col,lbl])=>(<div key={lbl} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:7,height:7,borderRadius:"50%",background:col}}/><span style={{color:C.muted,fontSize:10}}>{lbl}</span></div>))}
+                </div>
+                <div style={{overflowY:"auto",flex:1}}>
+                  <div onClick={()=>assignSlot(pickingSlot.zone,pickingSlot.idx,pickingSlot.isBackup,null)} style={{padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",background:"#1a0800",border:`1px solid ${C.border}`,color:"rgba(255,255,255,.4)",fontSize:13}}>— Clear slot</div>
+                  {[...allSorted].map(c=>({...c,fit:posFit(c,pickingSlot.zone)})).sort((a,b)=>{const fo={primary:0,secondary:1,none:2};if(fo[a.fit]!==fo[b.fit])return fo[a.fit]-fo[b.fit];return avgScore(b.scores)-avgScore(a.scores);}).map(c=>{
+                    const pc=posColor(c.primaryPos||c.positions?.[0]||"CM"),positions=c.positions||[c.primaryPos||"CM"],avg=avgScore(c.scores),fitCol=FIT_COLOR[c.fit]||C.muted;
+                    return(<div key={c.id} onClick={()=>assignSlot(pickingSlot.zone,pickingSlot.idx,pickingSlot.isBackup,c.id)} style={{padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",background:"#1a0800",border:`1px solid ${pc}33`,display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:fitCol,flexShrink:0}}/>
+                      <div style={{width:28,height:28,borderRadius:7,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:12,flexShrink:0}}>{positions[0]}</div>
+                      <div style={{flex:1}}><div style={{color:"rgba(255,255,255,.9)",fontWeight:700,fontSize:13}}>{c.name}</div><div style={{color:"rgba(255,255,255,.45)",fontSize:11}}>{positions.join(" / ")}{c.grade?` · Gr.${c.grade}`:""}</div></div>
+                      {avg>0&&<span style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>{avg.toFixed(1)}</span>}
+                    </div>);
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Team selector */}
+          <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+            {LINEUP_TEAMS.map(t=>(<button key={t.k} onClick={()=>{setLineupTeam(t.k);setSelLineupId(getLineupSaves(t.k)[0]?.id||"default");}} style={{padding:"8px 20px",background:lineupTeam===t.k?t.color+"22":C.surface,border:`1.5px solid ${lineupTeam===t.k?t.color:C.border}`,borderRadius:9,color:lineupTeam===t.k?t.color:C.muted,cursor:"pointer",fontWeight:700,fontSize:14}}>{t.label}</button>))}
+          </div>
+
+          {/* Lineup selector */}
+          <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>LINEUP:</div>
+            {lineupSaves.map(lu=>(<button key={lu.id} onClick={()=>setSelLineupId(lu.id)} style={{padding:"5px 14px",background:activeID===lu.id?C.accent+"22":C.surface,border:`1.5px solid ${activeID===lu.id?C.accent:C.border}`,borderRadius:8,color:activeID===lu.id?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:6}}>{lu.name}{lineupSaves.length>1&&<span onClick={e=>{e.stopPropagation();if(window.confirm(`Delete "${lu.name}"?`))deleteLineup(lu.id);}} style={{color:C.muted,fontSize:12,lineHeight:1,padding:"0 2px",opacity:.5}}>×</span>}</button>))}
+            {creatingLU?(<div style={{display:"flex",gap:6,alignItems:"center"}}><input value={newLUName} onChange={e=>setNewLUName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newLUName.trim()){createNewLineup(newLUName);setNewLUName("");setCreatingLU(false);}if(e.key==="Escape"){setCreatingLU(false);setNewLUName("");}}} placeholder="Lineup name..." autoFocus style={{...iS({width:140,padding:"5px 10px",fontSize:13})}}/><button onClick={()=>{if(newLUName.trim()){createNewLineup(newLUName);setNewLUName("");setCreatingLU(false);}}} style={{padding:"5px 12px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Save</button><button onClick={()=>{setCreatingLU(false);setNewLUName("");}} style={{padding:"5px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,cursor:"pointer",fontSize:12}}>✕</button></div>)
+            :(<button onClick={()=>setCreatingLU(true)} style={{padding:"5px 12px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:4}}><Plus size={11}/>New Lineup</button>)}
+          </div>
+
+          {/* Formation + note */}
+          <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"flex-end"}}>
+            <div><div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:6}}>FORMATION</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FORMATIONS.map(f=>(<button key={f} onClick={()=>setLineupFormation(f)} style={{padding:"6px 14px",background:curLU.formation===f?C.accent+"22":C.surface,border:`1px solid ${curLU.formation===f?C.accent:C.border}`,borderRadius:8,color:curLU.formation===f?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>{f}</button>))}</div>
+            </div>
+            <div style={{flex:1,minWidth:160}}><div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:6}}>OPPONENT / NOTE</div><input value={curLU.note||""} onChange={e=>updLineupSave(()=>({note:e.target.value}))} placeholder="e.g. vs Westview, Press system" style={iS({padding:"7px 12px"})}/></div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:16}}>
+
+            {/* ── VISUAL PITCH with drag & drop ── */}
+            <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 40%,#1c3c1c 60%,#162e16 100%)",borderRadius:16,padding:"20px 16px",border:"2px solid #2a522a",position:"relative",minHeight:480,userSelect:"none"}}>
+              {/* Pitch markings */}
+              <div style={{position:"absolute",top:"50%",left:20,right:20,height:1,background:"rgba(255,255,255,0.06)"}}/>
+              <div style={{position:"absolute",top:"50%",left:"50%",width:90,height:90,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.06)",transform:"translate(-50%,-50%)"}}/>
+              <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderBottom:"none"}}/>
+              <div style={{position:"absolute",top:16,left:"50%",transform:"translateX(-50%)",width:110,height:28,border:"1px solid rgba(255,255,255,0.06)",borderTop:"none"}}/>
+              {/* Drag hint */}
+              {!dragging&&<div style={{position:"absolute",top:10,left:12,color:"rgba(255,255,255,0.2)",fontSize:9}}>drag to move</div>}
+              {/* Fit legend */}
+              <div style={{position:"absolute",top:10,right:12,display:"flex",flexDirection:"column",gap:3}}>
+                {[["#66bb6a","Primary"],["#ffb300","Secondary"],["#ef5350","Out of pos"]].map(([col,lbl])=>(<div key={lbl} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:col}}/><span style={{color:"rgba(255,255,255,0.3)",fontSize:9}}>{lbl}</span></div>))}
+              </div>
+
+              <div style={{display:"flex",flexDirection:"column",gap:4,height:"100%",justifyContent:"space-around"}}>
+                {ZONES.map(zone=>{
+                  const slots=curLU.slots[zone.key]||[];
+                  const backups=curLU.backups?.[zone.key]||Array(slots.length).fill(null);
+                  const rows=getZoneRows(zone.key,curLU.formation,slots.length);
+                  return(
+                    <div key={zone.key}>
+                      {rows.map((rowIndices,rowIdx)=>(
+                        <div key={rowIdx} style={{display:"flex",justifyContent:"center",gap:8,marginBottom:rowIdx<rows.length-1?6:0}}>
+                          {rowIndices.map(idx=>{
+                            const candId=slots[idx]||null;
+                            const cand=candId?tryout.candidates.find(c=>c.id===candId):null;
+                            const subId=backups[idx]||null;
+                            const sub=subId?tryout.candidates.find(c=>c.id===subId):null;
+                            const avg=cand?avgScore(cand.scores):0;
+                            const pc=cand?posColor(cand.primaryPos||cand.positions?.[0]||"CM"):null;
+                            const fit=cand?posFit(cand,zone.key):null;
+                            const fitCol=fit?FIT_COLOR[fit]:"transparent";
+                            const isOver=dragOver?.zone===zone.key&&dragOver?.idx===idx&&!dragOver?.isBackup;
+                            const isSubOver=dragOver?.zone===zone.key&&dragOver?.idx===idx&&dragOver?.isBackup;
+                            const isDraggingThis=dragging?.fromZone===zone.key&&dragging?.fromIdx===idx&&!dragging?.isBackup;
+                            const isDraggingSubThis=dragging?.fromZone===zone.key&&dragging?.fromIdx===idx&&dragging?.isBackup;
+                            return(
+                              <div key={idx} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                {/* Starter slot */}
+                                <div
+                                  draggable={!!cand}
+                                  onDragStart={cand?e=>onDragStart(e,cand.id,zone.key,idx,false):undefined}
+                                  onDragEnd={onDragEnd}
+                                  onDragOver={e=>onDragOverSlot(e,zone.key,idx,false)}
+                                  onDragLeave={onDragLeaveSlot}
+                                  onDrop={e=>onDropSlot(e,zone.key,idx,false)}
+                                  onClick={()=>setPickingSlot({zone:zone.key,idx,isBackup:false})}
+                                  style={{width:76,padding:"7px 6px",borderRadius:10,cursor:cand?"grab":"pointer",transition:"all .1s",opacity:isDraggingThis?.35:1,
+                                    background:cand?"rgba(0,0,0,.5)":"rgba(255,255,255,0.03)",
+                                    border:`2px solid ${isOver?C.accent:cand?(pc||zone.color)+"99":"rgba(255,255,255,0.12)"}`,
+                                    boxShadow:isOver?`0 0 0 2px ${C.accent}44`:"none",
+                                    display:"flex",flexDirection:"column",alignItems:"center",gap:3}}
+                                  onMouseEnter={e=>{if(!dragging)e.currentTarget.style.borderColor=zone.color;}}
+                                  onMouseLeave={e=>{if(!dragging)e.currentTarget.style.borderColor=cand?(pc||zone.color)+"99":"rgba(255,255,255,0.12)";}}>
+                                  {cand?(<>
+                                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                                      <div style={{width:20,height:20,borderRadius:4,background:(pc||zone.color)+"33",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:800,color:pc||zone.color,fontSize:9}}>{(cand.positions||[cand.primaryPos||"CM"])[0]}</div>
+                                      <div style={{width:6,height:6,borderRadius:"50%",background:fitCol,flexShrink:0}}/>
+                                    </div>
+                                    <div style={{color:"#fff",fontSize:10,fontWeight:700,textAlign:"center",lineHeight:1.2,maxWidth:70,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cand.name.split(" ").slice(-1)[0]}</div>
+                                    {avg>0&&<div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:11}}>{avg.toFixed(1)}</div>}
+                                  </>):(<>
+                                    <div style={{color:"rgba(255,255,255,0.2)",fontSize:18,lineHeight:1}}>+</div>
+                                    <div style={{color:"rgba(255,255,255,0.12)",fontSize:8,fontWeight:600}}>{zone.key}</div>
+                                  </>)}
+                                </div>
+                                {/* Sub slot */}
+                                <div
+                                  draggable={!!sub}
+                                  onDragStart={sub?e=>onDragStart(e,sub.id,zone.key,idx,true):undefined}
+                                  onDragEnd={onDragEnd}
+                                  onDragOver={e=>onDragOverSlot(e,zone.key,idx,true)}
+                                  onDragLeave={onDragLeaveSlot}
+                                  onDrop={e=>onDropSlot(e,zone.key,idx,true)}
+                                  onClick={()=>setPickingSlot({zone:zone.key,idx,isBackup:true})}
+                                  title="Sub / backup"
+                                  style={{width:64,padding:"3px 5px",borderRadius:7,cursor:sub?"grab":"pointer",transition:"all .1s",opacity:isDraggingSubThis?.35:1,
+                                    background:sub?"rgba(0,0,0,.4)":"rgba(255,255,255,0.02)",
+                                    border:`1px dashed ${isSubOver?C.accent:sub?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.08)"}`,
+                                    display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                  {sub?(()=>{const spc=posColor(sub.primaryPos||sub.positions?.[0]||"CM"),sfit=posFit(sub,zone.key);return(<><div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:14,height:14,borderRadius:3,background:spc+"33",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:800,color:spc,fontSize:7}}>{(sub.positions||[sub.primaryPos||"CM"])[0]}</div><div style={{width:4,height:4,borderRadius:"50%",background:FIT_COLOR[sfit]}}/></div><div style={{color:"rgba(255,255,255,0.6)",fontSize:8,fontWeight:600,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:58}}>{sub.name.split(" ").slice(-1)[0]}</div></>);})():<div style={{color:"rgba(255,255,255,0.1)",fontSize:9}}>sub</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── PLAYER POOL with drag support ── */}
+            <div
+              onDragOver={onDragOverPool}
+              onDrop={onDropPool}
+              style={{background:C.card,border:`2px dashed ${dragging?"#66bb6a44":C.border}`,borderRadius:14,padding:16,maxHeight:520,display:"flex",flexDirection:"column",transition:"border-color .15s"}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:6}}>CANDIDATE POOL</div>
+              {dragging&&<div style={{color:"#66bb6a",fontSize:11,marginBottom:8,textAlign:"center"}}>↑ Drop here to remove from pitch</div>}
+              <div style={{marginBottom:10,display:"flex",flexWrap:"wrap",gap:4}}>
+                {ZONES.slice().reverse().map(zone=>{const filled=(curLU.slots[zone.key]||[]).filter(Boolean).length,total=(curLU.slots[zone.key]||[]).length;return(<div key={zone.key} style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:5,background:filled===total?zone.color+"22":C.surface,border:`1px solid ${filled===total?zone.color:C.border}`,color:filled===total?zone.color:C.muted}}>{zone.key} {filled}/{total}</div>);})}
+              </div>
+              <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
+                {allSorted.map(c=>{
+                  const positions=c.positions||[c.primaryPos||"CM"],pc=posColor(positions[0]),avg=avgScore(c.scores);
+                  const allStarters=Object.values(curLU.slots||{}).flat();
+                  const allBackups=Object.values(curLU.backups||{}).flat();
+                  const isStarter=allStarters.includes(c.id),isSub=allBackups.includes(c.id);
+                  const isDraggingThis=dragging?.candId===c.id;
+                  return(
+                    <div key={c.id}
+                      draggable={true}
+                      onDragStart={e=>onDragStart(e,c.id,null,null,false)}
+                      onDragEnd={onDragEnd}
+                      style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
+                        background:isStarter?C.accent+"11":isSub?"#ffb30011":C.surface,
+                        border:`1px solid ${isStarter?C.accent+"44":isSub?"#ffb30044":C.border}`,
+                        borderRadius:8,cursor:"grab",opacity:isDraggingThis?.4:1,transition:"opacity .1s"}}>
+                      <div style={{width:24,height:24,borderRadius:6,flexShrink:0,background:pc,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>{positions[0]}</div>
+                      <div style={{flex:1,minWidth:0}}><div style={{color:C.text,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>{positions.length>1&&<div style={{color:C.muted,fontSize:10}}>{positions.join(" / ")}</div>}</div>
+                      {avg>0&&<span style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:13,flexShrink:0}}>{avg.toFixed(1)}</span>}
+                      {isStarter&&<span style={{color:C.accent,fontSize:9,fontWeight:700,flexShrink:0}}>▶</span>}
+                      {isSub&&!isStarter&&<span style={{color:"#ffb300",fontSize:9,fontWeight:700,flexShrink:0}}>◎</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CUSTOM STATS TAB ─────────────────────────────────────────────── */}
+      {activeTab==="stats"&&(
+        <div style={{maxWidth:700}}>
+          <div style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>Define measurable stats. Toggle type: <strong style={{color:C.accent}}>⏱ MM:SS</strong> for mile/drill times, <strong style={{color:"#42a5f5"}}>⏱ Seconds</strong> for sprints like the 40-yard dash.</div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginBottom:18}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>ADD MEASURABLE</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto auto",gap:10,alignItems:"flex-end"}}>
+              <div><label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>STAT NAME</label><input value={newStatLabel} onChange={e=>setNewStatLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCustomStat()} placeholder="e.g. Mile Run, 40-Yard Dash" style={iS()}/></div>
+              <div><label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>UNIT</label><input value={newStatUnit} onChange={e=>setNewStatUnit(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCustomStat()} placeholder="e.g. min, sec, inches" style={iS()}/></div>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,whiteSpace:"nowrap"}}>TYPE</label><button onClick={()=>setNewStatTimeFormat(f=>f==="none"?"seconds":f==="seconds"?"mmss":"none")} style={{padding:"8px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,whiteSpace:"nowrap",background:newStatTimeFormat==="mmss"?C.accent+"22":newStatTimeFormat==="seconds"?"#42a5f522":C.surface,border:`1.5px solid ${newStatTimeFormat==="mmss"?C.accent:newStatTimeFormat==="seconds"?"#42a5f5":C.border}`,color:newStatTimeFormat==="mmss"?C.accent:newStatTimeFormat==="seconds"?"#42a5f5":C.muted}}>{newStatTimeFormat==="mmss"?"⏱ MM:SS":newStatTimeFormat==="seconds"?"⏱ Seconds":"# Number"}</button></div>
+              <button onClick={addCustomStat} disabled={!newStatLabel.trim()} style={{padding:"9px 18px",background:newStatLabel.trim()?C.accent:"#2a1000",border:"none",borderRadius:8,color:newStatLabel.trim()?"#000":C.muted,fontWeight:800,fontSize:14,cursor:"pointer",whiteSpace:"nowrap",alignSelf:"flex-end"}}>+ Add</button>
+            </div>
+          </div>
+          {customStats.length===0
+            ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"32px 24px",textAlign:"center"}}><div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No measurables yet</div><div style={{color:C.muted,fontSize:12,marginTop:6}}>Try: Mile Run (⏱ MM:SS), 40-Yard Dash (⏱ Seconds), Vertical Jump (# Number)</div></div>
+            :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {customStats.map(stat=>{
+                  const candBests=tryout.candidates.map(c=>{const hist=(c.customStatHistory||{})[stat.id]||[];const best=hist.length?getBestVal(hist,stat):(c.customStats?.[stat.id]||"");if(!best)return null;return{name:c.name,val:best,attempts:hist.length,imp:getImprovement(hist,stat)};}).filter(Boolean);
+                  const sorted2=[...candBests].sort((a,b)=>isTimeStat(stat)?timeToSecs(a.val)-timeToSecs(b.val):isSecondsStat(stat)?parseFloat(a.val)-parseFloat(b.val):parseFloat(b.val)-parseFloat(a.val));
+                  const medals=["🥇","🥈","🥉"];
+                  return(<div key={stat.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 18px",display:"flex",alignItems:"flex-start",gap:14}}>
+                    <div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:sorted2.length?8:0}}><div style={{color:C.text,fontWeight:700,fontSize:14}}>{stat.label}</div>{stat.unit&&<div style={{color:C.muted,fontSize:12}}>{stat.unit}</div>}{isTimeStat(stat)&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:C.accent+"22",color:C.accent}}>⏱ MM:SS</span>}{isSecondsStat(stat)&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#42a5f522",color:"#42a5f5"}}>⏱ Sec</span>}</div>
+                      {sorted2.length>0&&<div style={{display:"flex",flexDirection:"column",gap:5}}>{sorted2.slice(0,3).map((e,i)=>(<div key={e.name} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>{medals[i]}</span><span style={{color:i===0?C.accent:C.text,fontWeight:700,fontSize:15,fontFamily:"'Oswald',sans-serif"}}>{e.val}</span><span style={{color:C.muted,fontSize:12}}>{e.name.split(" ")[0]}</span>{e.attempts>1&&<span style={{color:C.muted,fontSize:10}}>{e.attempts} attempts</span>}{e.imp&&<span style={{color:e.imp.improved?"#66bb6a":C.danger,fontSize:11,fontWeight:700}}>{e.imp.label}</span>}</div>))}</div>}
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}><div style={{color:C.muted,fontSize:12}}>{candBests.length} entered</div></div>
+                    <button onClick={()=>removeCustomStat(stat.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:4,flexShrink:0}}><X size={14}/></button>
+                  </div>);
+                })}
+              </div>
+          }
+          {customStats.length>0&&tryout.candidates.length>0&&<div style={{marginTop:16,textAlign:"center"}}><button onClick={()=>setShowBulk(true)} style={{padding:"11px 28px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>⚡ Open Bulk Entry Grid</button></div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TryoutCloseWizard({tryout, teams, addPlayerToTeam, onClose, onDone}){
+  const TYPE_COLORS = {varsity:"#ff6b00",jv:"#ffb300",jvb:"#42a5f5",other:"#7c6af5"};
+  const TEAM_STATUSES = ["varsity","jv","jvb"];
+
+  // Build initial state: candidates with a team status, with their assigned team
+  const [step, setStep] = useState(1); // 1=review, 2=numbers, 3=confirm
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null); // {added:[], warned:[], skipped:[]}
+
+  // Editable candidate list for step 1
+  const [candidates, setCandidates] = useState(()=>
+    tryout.candidates.map(c=>({...c, assignedTeamId: (() => {
+      if(!TEAM_STATUSES.includes(c.status)) return null;
+      const match = (teams||[]).filter(t=>t.type===c.status);
+      return match[0]?.id || null;
+    })()}))
+  );
+
+  // Numbers state for step 2 — only for those going to a team
+  const [numbers, setNumbers] = useState(()=>{
+    const n = {};
+    tryout.candidates.forEach(c=>{ n[c.id] = ""; });
+    return n;
+  });
+
+  const toTransfer = candidates.filter(c=>TEAM_STATUSES.includes(c.status) && c.assignedTeamId);
+  const unresolved = candidates.filter(c=>c.status==="prospect");
+  const cuts       = candidates.filter(c=>c.status==="cut");
+
+  const iS = (extra={}) => ({padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
+    borderRadius:8,color:C.text,fontSize:13,outline:"none",
+    fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",...extra});
+
+  // Group by status for step 1
+  const grouped = {
+    varsity: candidates.filter(c=>c.status==="varsity"),
+    jv:      candidates.filter(c=>c.status==="jv"),
+    jvb:     candidates.filter(c=>c.status==="jvb"),
+    cut:     candidates.filter(c=>c.status==="cut"),
+    prospect:candidates.filter(c=>c.status==="prospect"),
+  };
+
+  // Group to-transfer by target team for step 2
+  const byTeam = {};
+  toTransfer.forEach(c=>{
+    if(!byTeam[c.assignedTeamId]) byTeam[c.assignedTeamId] = [];
+    byTeam[c.assignedTeamId].push(c);
+  });
+
+  async function submitRosters(){
+    setSubmitting(true);
+    const added=[], warned=[], skipped=[];
+
+    for(const cand of toTransfer){
+      const num = parseInt(numbers[cand.id])||1;
+      const positions = cand.positions||[cand.primaryPos||"CM"];
+      const newPlayer = {
+        id:   `p${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name: cand.name,
+        number: num,
+        position: positions,
+        captain:  false,
+        email:    "",
+        availability:"available",
+        availNote:"",returnDate:"",profilePin:"",
+      };
+
+      // Check for duplicate by fetching target roster
+      const {data} = await supabase.from("rosters").select("*",{filter:{team_id:cand.assignedTeamId}});
+      const existing = (data?.[0]?.players||[]).find(p=>
+        p.name.trim().toLowerCase()===cand.name.trim().toLowerCase()
+      );
+
+      if(existing){
+        warned.push({cand, teamId:cand.assignedTeamId});
+      } else {
+        await addPlayerToTeam(cand.assignedTeamId, newPlayer);
+        added.push({cand, teamId:cand.assignedTeamId});
+      }
+    }
+
+    setResult({added, warned, skipped});
+    setSubmitting(false);
+    setStep(4); // done screen
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000dd",zIndex:1000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16,
+      fontFamily:"'Outfit',sans-serif",overflowY:"auto"}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+        width:"100%",maxWidth:600,maxHeight:"90vh",display:"flex",flexDirection:"column",
+        overflow:"hidden"}}>
+
+        {/* Header */}
+        <div style={{padding:"22px 28px 16px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900}}>
+              {step===1&&"Review Selections"}
+              {step===2&&"Assign Jersey Numbers"}
+              {step===3&&"Confirm & Submit"}
+              {step===4&&"Tryout Closed ✓"}
+            </h2>
+            {step<4&&(
+              <button onClick={onClose}
+                style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:18}}>✕</button>
+            )}
+          </div>
+          {/* Progress */}
+          {step<4&&(
+            <div style={{display:"flex",gap:6,marginTop:12}}>
+              {[1,2,3].map(n=>(
+                <div key={n} style={{flex:1,height:4,borderRadius:99,
+                  background:n<=step?C.accent:C.border,transition:"background .3s"}}/>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1,overflowY:"auto",padding:"20px 28px"}}>
+
+          {/* ── STEP 1: Review ─────────────────────────────────────────── */}
+          {step===1&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Review your decisions before closing. You can still change any status here.
+                {unresolved.length>0&&<span style={{color:C.warning,fontWeight:600}}> {unresolved.length} player{unresolved.length!==1?"s":""} still marked Prospect.</span>}
+              </p>
+
+              {[
+                {key:"varsity",label:"Varsity",color:TYPE_COLORS.varsity},
+                {key:"jv",     label:"JV",     color:TYPE_COLORS.jv},
+                {key:"jvb",    label:"JVB",    color:TYPE_COLORS.jvb},
+                {key:"cut",    label:"Cut",    color:C.danger},
+                {key:"prospect",label:"Prospect (unresolved)",color:C.muted},
+              ].filter(g=>grouped[g.key]?.length>0).map(group=>(
+                <div key={group.key} style={{marginBottom:18}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <div style={{width:10,height:10,borderRadius:3,background:group.color,flexShrink:0}}/>
+                    <div style={{color:group.color,fontSize:11,fontWeight:700,letterSpacing:1}}>
+                      {group.label.toUpperCase()} ({grouped[group.key].length})
+                    </div>
+                  </div>
+                  {grouped[group.key].map(c=>{
+                    const pc = posColor(c.primaryPos||c.positions?.[0]||"CM");
+                    const matchingTeams=(teams||[]).filter(t=>t.type===c.status);
+                    const sel=candidates.find(x=>x.id===c.id);
+                    return(
+                      <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"8px 12px",background:C.surface,borderRadius:9,marginBottom:5,
+                        border:`1px solid ${C.border}`}}>
+                        <div style={{width:28,height:28,borderRadius:7,flexShrink:0,
+                          background:pc,border:"none",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:12}}>
+                          {(c.positions||[c.primaryPos||"CM"])[0]}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontWeight:600,fontSize:13}}>{c.name}</div>
+                          {c.grade&&<div style={{color:C.muted,fontSize:11}}>Grade {c.grade}</div>}
+                        </div>
+                        {/* Status selector inline */}
+                        <select value={sel?.status||c.status}
+                          onChange={e=>setCandidates(prev=>prev.map(x=>x.id===c.id?{...x,
+                            status:e.target.value,
+                            assignedTeamId:(()=>{
+                              const mt=(teams||[]).filter(t=>t.type===e.target.value);
+                              return mt[0]?.id||null;
+                            })()
+                          }:x))}
+                          style={{...iS({width:"auto",fontSize:11,padding:"4px 8px"})}}>
+                          <option value="prospect">Prospect</option>
+                          <option value="varsity">Varsity</option>
+                          <option value="jv">JV</option>
+                          <option value="jvb">JVB</option>
+                          <option value="cut">Cut</option>
+                        </select>
+                        {/* Team picker if multiple teams match */}
+                        {TEAM_STATUSES.includes(sel?.status||c.status)&&matchingTeams.length>1&&(
+                          <select value={sel?.assignedTeamId||""}
+                            onChange={e=>setCandidates(prev=>prev.map(x=>x.id===c.id?{...x,assignedTeamId:e.target.value}:x))}
+                            style={{...iS({width:"auto",fontSize:11,padding:"4px 8px"})}}>
+                            {matchingTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {toTransfer.length===0&&(
+                <div style={{background:C.surface,borderRadius:10,padding:"16px",textAlign:"center",color:C.muted,fontSize:13}}>
+                  No players assigned to a team yet. You can still close without moving anyone.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 2: Jersey numbers ──────────────────────────────────── */}
+          {step===2&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Assign jersey numbers for players being added to rosters. You can change these in the Roster tab later.
+              </p>
+              {Object.entries(byTeam).map(([teamId,cands])=>{
+                const team=(teams||[]).find(t=>t.id===teamId);
+                const col=TYPE_COLORS[team?.type||"other"];
+                return(
+                  <div key={teamId} style={{marginBottom:22}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,
+                      paddingBottom:8,borderBottom:`2px solid ${col}44`}}>
+                      <span style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:4,
+                        background:col+"22",color:col,letterSpacing:.5}}>
+                        {team?.type?.toUpperCase()||"TEAM"}
+                      </span>
+                      <span style={{color:C.text,fontWeight:700,fontSize:14}}>{team?.name}</span>
+                      <span style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{cands.length} player{cands.length!==1?"s":""}</span>
+                    </div>
+                    {cands.map(c=>{
+                      const pc=posColor(c.primaryPos||c.positions?.[0]||"CM");
+                      return(
+                        <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,
+                          padding:"9px 12px",background:C.surface,borderRadius:9,marginBottom:6,
+                          border:`1px solid ${C.border}`}}>
+                          <div style={{width:30,height:30,borderRadius:7,flexShrink:0,
+                            background:pc,border:"none",
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:13}}>
+                            {(c.positions||[c.primaryPos||"CM"])[0]}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{color:C.text,fontWeight:600,fontSize:14}}>{c.name}</div>
+                            {c.grade&&<div style={{color:C.muted,fontSize:11}}>Grade {c.grade}</div>}
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                            <label style={{color:C.muted,fontSize:11,fontWeight:600}}>JERSEY #</label>
+                            <input type="number" min="1" max="99"
+                              value={numbers[c.id]||""}
+                              onChange={e=>setNumbers(prev=>({...prev,[c.id]:e.target.value}))}
+                              placeholder="—"
+                              style={{...iS({width:64,textAlign:"center",fontFamily:"'Oswald',sans-serif",
+                                fontWeight:900,fontSize:18,padding:"6px 8px"})}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {toTransfer.length===0&&(
+                <div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"24px 0"}}>
+                  No players to transfer — skipping to confirmation.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 3: Confirm ─────────────────────────────────────────── */}
+          {step===3&&(
+            <div>
+              <p style={{color:C.muted,fontSize:13,marginBottom:18,lineHeight:1.6}}>
+                Review the final summary. Once submitted, the tryout will be archived and players added to their rosters.
+              </p>
+              {toTransfer.length>0&&(
+                <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>
+                    MOVING TO ROSTERS ({toTransfer.length})
+                  </div>
+                  {Object.entries(byTeam).map(([teamId,cands])=>{
+                    const team=(teams||[]).find(t=>t.id===teamId);
+                    const col=TYPE_COLORS[team?.type||"other"];
+                    return(
+                      <div key={teamId} style={{marginBottom:10}}>
+                        <div style={{color:col,fontSize:12,fontWeight:700,marginBottom:5}}>{team?.name}</div>
+                        {cands.map(c=>(
+                          <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,
+                            padding:"5px 8px",borderRadius:7,marginBottom:3,background:C.bg}}>
+                            <span style={{color:C.text,fontSize:13,flex:1}}>{c.name}</span>
+                            <span style={{color:C.muted,fontSize:12,fontFamily:"'Oswald',sans-serif",fontWeight:700}}>
+                              #{numbers[c.id]||"?"}
+                            </span>
+                            <span style={{color:posColor(c.primaryPos||"CM"),fontSize:11,fontWeight:700}}>
+                              {(c.positions||[c.primaryPos||"CM"])[0]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {cuts.length>0&&(
+                <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.danger,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>
+                    CUT ({cuts.length})
+                  </div>
+                  <div style={{color:C.muted,fontSize:12}}>
+                    {cuts.map(c=>c.name).join(", ")}
+                  </div>
+                </div>
+              )}
+              {unresolved.length>0&&(
+                <div style={{background:C.warning+"11",border:`1px solid ${C.warning}44`,borderRadius:12,padding:16,marginBottom:14}}>
+                  <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>
+                    ⚠ UNRESOLVED ({unresolved.length})
+                  </div>
+                  <div style={{color:C.muted,fontSize:12}}>
+                    {unresolved.map(c=>c.name).join(", ")} — still marked Prospect, will remain in archived tryout.
+                  </div>
+                </div>
+              )}
+              <div style={{color:C.muted,fontSize:12,lineHeight:1.6,marginTop:8}}>
+                The tryout record will be archived and can be referenced in future years.
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 4: Done ────────────────────────────────────────────── */}
+          {step===4&&result&&(
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+              <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:900,marginBottom:8}}>
+                Tryout Archived
+              </h3>
+              <p style={{color:C.muted,fontSize:14,marginBottom:24,lineHeight:1.6}}>
+                {result.added.length>0&&`${result.added.length} player${result.added.length!==1?"s":""} added to their rosters. `}
+                {result.warned.length>0&&<span style={{color:C.warning}}>{result.warned.length} skipped (name already on roster). </span>}
+                The tryout is now archived.
+              </p>
+              {result.warned.length>0&&(
+                <div style={{background:C.warning+"11",border:`1px solid ${C.warning}44`,borderRadius:10,
+                  padding:"12px 16px",marginBottom:16,textAlign:"left"}}>
+                  <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6}}>SKIPPED — ALREADY ON ROSTER</div>
+                  {result.warned.map(({cand,teamId})=>{
+                    const t=(teams||[]).find(x=>x.id===teamId);
+                    return <div key={cand.id} style={{color:C.muted,fontSize:12}}>{cand.name} → {t?.name}</div>;
+                  })}
+                </div>
+              )}
+              <button onClick={onDone}
+                style={{padding:"12px 32px",background:C.accent,border:"none",borderRadius:10,
+                  color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+                DONE
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer nav */}
+        {step<4&&(
+          <div style={{padding:"16px 28px",borderTop:`1px solid ${C.border}`,
+            display:"flex",justifyContent:"space-between",flexShrink:0}}>
+            <button onClick={()=>step>1?setStep(s=>s-1):onClose()}
+              style={{padding:"10px 20px",background:C.surface,border:`1px solid ${C.border}`,
+                borderRadius:9,color:C.muted,cursor:"pointer",fontWeight:600,fontSize:13}}>
+              {step===1?"Cancel":"← Back"}
+            </button>
+            {step<3&&(
+              <button onClick={()=>setStep(s=>s+1)}
+                style={{padding:"10px 24px",background:C.accent,border:"none",borderRadius:9,
+                  color:"#000",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                {step===1?"Next: Assign Numbers →":"Next: Confirm →"}
+              </button>
+            )}
+            {step===3&&(
+              <button onClick={submitRosters} disabled={submitting}
+                style={{padding:"10px 24px",background:submitting?C.muted:C.accent,border:"none",borderRadius:9,
+                  color:submitting?C.bg:"#000",fontWeight:800,fontSize:14,cursor:submitting?"default":"pointer",
+                  fontFamily:"'Oswald',sans-serif"}}>
+                {submitting?"Submitting…":"Submit & Archive →"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ONBOARDING WIZARD ────────────────────────────────────────────────────────
+function OnboardingWizard({teamName, onComplete}){
+  const [step, setStep]   = useState(1);
+  const [name, setName]   = useState(teamName==="My Team"?"":teamName||"");
+  const [player, setPlayer] = useState({name:"",number:"",primaryPos:"CM"});
+
+  const POSITIONS = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
+
+  const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
+    borderRadius:10,color:C.text,fontSize:15,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"};
+
+  function finish(skipPlayer=false){
+    onComplete(name.trim()||teamName, skipPlayer?null:{
+      id:`p${Date.now()}`,name:player.name.trim(),
+      number:parseInt(player.number)||1,
+      position:[player.primaryPos],captain:false,email:""
+    });
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:1000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+      fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:20,
+        padding:40,width:"100%",maxWidth:480,boxShadow:"0 32px 80px #00000099"}}>
+
+        {/* Progress dots */}
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:32}}>
+          {[1,2,3].map(n=>(
+            <div key={n} style={{width:n===step?24:8,height:8,borderRadius:99,
+              background:n<=step?"#ff6b00":"#2a1000",transition:"all .3s"}}/>
+          ))}
+        </div>
+
+        {/* Step 1 — Team name */}
+        {step===1&&(
+          <div>
+            <div style={{textAlign:"center",marginBottom:28}}>
+              <AppLogo size={52} glow={true}/>
+              <h2 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900,marginTop:14}}>
+                Welcome to CoachIQ
+              </h2>
+              <p style={{color:"#ffffff66",fontSize:14,marginTop:8,lineHeight:1.6}}>
+                Let's get you set up in 2 quick steps.
+              </p>
+            </div>
+            <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:8}}>WHAT'S YOUR TEAM CALLED?</label>
+            <input value={name} onChange={e=>setName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&name.trim()&&setStep(2)}
+              placeholder="e.g. Marion FC, Lincoln High Varsity..."
+              autoFocus style={iS}/>
+            <button onClick={()=>setStep(2)} disabled={!name.trim()}
+              style={{width:"100%",marginTop:16,padding:"13px",
+                background:name.trim()?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+                color:name.trim()?"#000":"#4a2a10",fontWeight:900,fontSize:16,cursor:name.trim()?"pointer":"default",
+                fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+              NEXT →
+            </button>
+            <button onClick={()=>finish(true)}
+              style={{width:"100%",marginTop:8,padding:"10px",background:"none",
+                border:"none",color:"#7a4a2a",fontSize:13,cursor:"pointer",
+                fontFamily:"'Outfit',sans-serif"}}>
+              Skip setup — I'll add my team later
+            </button>
+          </div>
+        )}
+
+        {/* Step 2 — First player */}
+        {step===2&&(
+          <div>
+            <h2 style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontSize:24,fontWeight:900,marginBottom:8}}>
+              Add your first player
+            </h2>
+            <p style={{color:"#ffffff66",fontSize:14,marginBottom:24,lineHeight:1.6}}>
+              You can add the whole squad later from the Roster tab. Just one to get started.
+            </p>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div>
+                <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>PLAYER NAME</label>
+                <input value={player.name} onChange={e=>setPlayer(p=>({...p,name:e.target.value}))}
+                  placeholder="e.g. James Mitchell" style={iS}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div>
+                  <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>JERSEY #</label>
+                  <input type="text" pattern="0{0,2}|[0-9]{1,2}" value={player.number}
+                    onChange={e=>setPlayer(p=>({...p,number:e.target.value}))}
+                    placeholder="1–99" style={iS}/>
+                </div>
+                <div>
+                  <label style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>POSITION</label>
+                  <select value={player.primaryPos} onChange={e=>setPlayer(p=>({...p,primaryPos:e.target.value}))}
+                    style={{...iS,background:"#181818"}}>
+                    {POSITIONS.map(pos=><option key={pos}>{pos}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button onClick={()=>finish(false)} disabled={!player.name.trim()||player.number===""}
+              style={{width:"100%",marginTop:16,padding:"13px",
+                background:player.name.trim()&&player.number!==""?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+                color:player.name.trim()&&player.number?"#000":"#4a2a10",
+                fontWeight:900,fontSize:16,cursor:player.name.trim()&&player.number?"pointer":"default",
+                fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+              ADD PLAYER →
+            </button>
+            <button onClick={()=>finish(true)}
+              style={{width:"100%",marginTop:8,padding:"11px",background:"transparent",border:"none",
+                color:"#ff6b0077",cursor:"pointer",fontSize:13,fontWeight:600}}>
+              Skip for now
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── OPPONENTS VIEW ───────────────────────────────────────────────────────────
+
+// ─── OPPONENT SQUAD GRID ──────────────────────────────────────────────────────
+function OppSquadGrid({positions, oppPlayers, update, updateOppPlayer, getOppPlayer, THREAT_OPTS}){
+  const extras = oppPlayers["extra"] || [];
+
+  function removeExtra(idx){
+    const updated = extras.filter((_,i)=>i!==idx);
+    update("oppPlayers", {...oppPlayers, extra: updated});
+  }
+  function addExtra(){
+    const updated = [...extras, {number:"",name:"",notes:"",threat:"",customPos:""}];
+    update("oppPlayers", {...oppPlayers, extra: updated});
+  }
+
+  const formationSlots = positions.map((pos,idx)=>({pos, idx, isExtra:false}));
+  const extraSlots     = extras.map((_,idx)=>({pos:"extra", idx, isExtra:true}));
+  const allSlots       = [...formationSlots, ...extraSlots];
+
+  return(
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+      {allSlots.map(({pos,idx,isExtra})=>{
+        const p      = getOppPlayer(pos, idx);
+        const threat = THREAT_OPTS.find(t=>t.k===p.threat) || THREAT_OPTS[0];
+        return(
+          <div key={pos+"-"+idx} style={{background:C.card,
+            border:"1.5px solid "+(p.threat ? threat.col+"44" : C.border),
+            borderRadius:12,padding:14,transition:"border-color .2s",position:"relative"}}>
+            {isExtra&&(
+              <button onClick={()=>removeExtra(idx)}
+                style={{position:"absolute",top:8,right:8,background:"none",border:"none",
+                  color:C.muted,cursor:"pointer",fontSize:14,lineHeight:1}}>✕</button>
+            )}
+            <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+              {isExtra ? (
+                <input value={p.customPos||""}
+                  onChange={e=>updateOppPlayer(pos,idx,"customPos",e.target.value)}
+                  placeholder="POS" maxLength={4}
+                  style={{width:44,height:36,padding:"2px 4px",background:C.surface,
+                    border:"1.5px solid "+C.border,borderRadius:8,
+                    color:C.accent,fontSize:12,outline:"none",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:800,textAlign:"center"}}/>
+              ) : (
+                <div style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                  background:posColor(pos)+"22",border:"1.5px solid "+posColor(pos)+"55",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:800,color:posColor(pos),fontSize:13}}>
+                  {pos}
+                </div>
+              )}
+              <input value={p.number}
+                onChange={e=>updateOppPlayer(pos,idx,"number",e.target.value)}
+                placeholder="#" maxLength={3}
+                style={{width:40,padding:"5px 6px",background:C.bg,border:"1px solid "+C.border,
+                  borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Oswald',sans-serif",fontWeight:700,textAlign:"center"}}/>
+              <input value={p.name}
+                onChange={e=>updateOppPlayer(pos,idx,"name",e.target.value)}
+                placeholder="Player name"
+                style={{flex:1,padding:"5px 8px",background:C.bg,border:"1px solid "+C.border,
+                  borderRadius:6,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif"}}/>
+            </div>
+            <div style={{display:"flex",gap:5,marginBottom:8}}>
+              {THREAT_OPTS.map(t=>(
+                <button key={t.k} onClick={()=>updateOppPlayer(pos,idx,"threat",t.k)}
+                  style={{flex:1,padding:"4px 0",fontSize:10,fontWeight:700,cursor:"pointer",
+                    border:"1px solid "+(p.threat===t.k ? t.col : C.border),borderRadius:5,
+                    background:p.threat===t.k ? t.col+"22" : "transparent",
+                    color:p.threat===t.k ? t.col : C.muted}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <textarea value={p.notes}
+              onChange={e=>updateOppPlayer(pos,idx,"notes",e.target.value)}
+              rows={2} placeholder="Notes on this player..."
+              style={{width:"100%",padding:"6px 8px",background:C.bg,
+                border:"1px solid "+C.border,borderRadius:6,color:C.text,
+                fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif",
+                boxSizing:"border-box",resize:"none"}}/>
+          </div>
+        );
+      })}
+
+      {/* Add player */}
+      <div onClick={addExtra}
+        style={{background:"transparent",border:"2px dashed "+C.border,borderRadius:12,
+          padding:14,cursor:"pointer",display:"flex",flexDirection:"column",
+          alignItems:"center",justifyContent:"center",gap:8,minHeight:120,
+          transition:"border-color .2s"}}
+        onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+        onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+        <div style={{width:36,height:36,borderRadius:8,background:C.accent+"22",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          color:C.accent,fontSize:22}}>+</div>
+        <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Add Player</div>
+      </div>
+    </div>
+  );
+}
+
+function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgrade, pendingOpp, onClearPendingOpp}){
+  if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Opponent intelligence database">{null}</ProGate>;
+  const [sel,    setSel]    = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newName,setNewName]= useState("");
+  const [oppTab, setOppTab] = useState("overview");
+
+  // Auto-select opponent navigated from Games tab
+  useEffect(()=>{
+    if(!pendingOpp) return;
+    const opp = opponents.find(o=>o.name===pendingOpp);
+    if(opp){ setSel(opp.id); }
+    onClearPendingOpp&&onClearPendingOpp();
+  },[pendingOpp]); // overview | squad | setpieces | response
+
+  // Auto-build opponent list from games
+  const allOpponentNames = useMemo(()=>{
+    const names = new Set(games.map(g=>g.opponent).filter(Boolean));
+    opponents.forEach(o=>names.add(o.name));
+    return [...names].sort();
+  },[games,opponents]);
+
+  function getOrCreate(name){
+    const existing = opponents.find(o=>o.name===name);
+    if(existing) return existing;
+    return {
+      id:`opp${Date.now()}`,name,
+      formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",
+      // New fields
+      oppPlayers:{},          // {position: [{number,name,notes,threat}]}
+      tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},
+      setPieces:{
+        cornersAtk:"",cornersDef:"",
+        freeKicksAtk:"",freeKicksDef:"",
+        throwInsAtk:"",throwInsDef:"",
+      },
+      counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},
+      createdAt:new Date().toISOString()
+    };
+  }
+
+  function saveOpponent(opp){
+    setOpponents(prev=>{
+      const exists = prev.find(o=>o.id===opp.id);
+      if(exists) return prev.map(o=>o.id===opp.id?opp:o);
+      return [...prev,opp];
+    });
+  }
+
+  function h2h(name){
+    const gs = games.filter(g=>g.opponent===name&&g.status==="completed");
+    const w=gs.filter(g=>g.ourScore>g.theirScore).length;
+    const d=gs.filter(g=>g.ourScore===g.theirScore).length;
+    const l=gs.filter(g=>g.ourScore<g.theirScore).length;
+    return {played:gs.length,w,d,l,games:gs};
+  }
+
+  function addManual(){
+    if(!newName.trim()) return;
+    const opp = getOrCreate(newName.trim());
+    saveOpponent(opp);
+    setSel(opp.id||`opp${Date.now()}`);
+    setAdding(false); setNewName("");
+  }
+
+  // Detail view
+  if(sel){
+    const opp = opponents.find(o=>o.id===sel) || getOrCreate(sel);
+    const {played,w,d,l,games:oppGames} = h2h(opp.name);
+    const plans = gamePlans.filter(p=>p.opponent===opp.name);
+
+    function update(key,val){
+      const updated = {...opp,[key]:val};
+      saveOpponent(updated);
+    }
+
+
+    // Formation positions map
+    const FORMATION_POSITIONS = {
+      "4-3-3":  ["GK","RB","CB","CB","LB","CM","CM","CM","RW","ST","LW"],
+      "4-4-2":  ["GK","RB","CB","CB","LB","RM","CM","CM","LM","ST","ST"],
+      "4-2-3-1":["GK","RB","CB","CB","LB","CDM","CDM","RAM","CAM","LAM","ST"],
+      "3-5-2":  ["GK","CB","CB","CB","RWB","CM","CM","CM","LWB","ST","ST"],
+      "5-3-2":  ["GK","RB","CB","CB","CB","LB","CM","CM","CM","ST","ST"],
+      "4-1-4-1":["GK","RB","CB","CB","LB","CDM","RM","CM","CM","LM","ST"],
+      "4-3-2-1":["GK","RB","CB","CB","LB","CM","CM","CM","SS","SS","ST"],
+    };
+    const positions = FORMATION_POSITIONS[opp.formation] || [];
+    const oppPlayers = opp.oppPlayers || {};
+    const tendencies = opp.tendencies || {};
+    const setPieces  = opp.setPieces  || {};
+    const counterPlan= opp.counterPlan|| {};
+    const THREAT_OPTS = [{k:"",label:"—",col:C.muted},{k:"watch",label:"Watch",col:C.warning},{k:"danger",label:"Danger",col:"#ff5500"},{k:"key",label:"Key",col:C.danger}];
+
+    function updateOppPlayer(pos, idx, field, val){
+      const current = [...(oppPlayers[pos]||[])];
+      while(current.length <= idx) current.push({number:"",name:"",notes:"",threat:""});
+      current[idx] = {...current[idx],[field]:val};
+      update("oppPlayers",{...oppPlayers,[pos]:current});
+    }
+    function getOppPlayer(pos,idx){
+      return (oppPlayers[pos]||[])[idx]||{number:"",name:"",notes:"",threat:""};
+    }
+
+    const iS = (extra={})=>({width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,
+      borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
+      boxSizing:"border-box",...extra});
+    const TA = (rows=3,extra={})=>({...iS({resize:"vertical",...extra}),padding:"9px 12px"});
+
+    return(
+      <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
+        {/* Header */}
+        {/* Async handlers extracted to avoid Babel async-in-JSX-prop error */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <button onClick={()=>setSel(null)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>OPPONENT PROFILE</div>
+            <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:900}}>{opp.name}</h2>
+          </div>
+          {played>0&&(
+            <div style={{display:"flex",gap:14}}>
+              {[["W",w,C.accent],["D",d,C.warning],["L",l,C.danger]].map(([lbl,val,col])=>(
+                <div key={lbl} style={{textAlign:"center"}}>
+                  <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{val}</div>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tab bar */}
+        <div style={{display:"flex",gap:4,marginBottom:20,background:C.surface,borderRadius:10,padding:4,border:`1px solid ${C.border}`}}>
+          {[
+            {key:"overview",  label:"Overview"},
+            {key:"squad",     label:"Their Squad", badge:positions.length>0?positions.length:null},
+            {key:"setpieces", label:"Set Pieces"},
+            {key:"response",  label:"Our Response"},
+          ].map(tab=>(
+            <button key={tab.key} onClick={()=>setOppTab(tab.key)}
+              style={{flex:1,padding:"9px 8px",borderRadius:7,border:"none",cursor:"pointer",
+                fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif",
+                background:oppTab===tab.key?C.accent+"22":"transparent",
+                color:oppTab===tab.key?C.accent:C.muted,
+                transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {tab.label}
+              {tab.badge&&<span style={{fontSize:10,background:C.accent+"33",color:C.accent,padding:"1px 5px",borderRadius:4}}>{tab.badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* ══ OVERVIEW TAB ══════════════════════════════════════════════ */}
+        {oppTab==="overview"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            {/* Scouting */}
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>SCOUTING</div>
+                <div style={{marginBottom:12}}>
+                  <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:5}}>TYPICAL FORMATION</label>
+                  <select value={opp.formation||""} onChange={e=>update("formation",e.target.value)} style={iS()}>
+                    <option value="">Unknown</option>
+                    {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2","4-1-4-1","4-3-2-1"].map(f=><option key={f}>{f}</option>)}
+                  </select>
+                </div>
+                {/* Tactical tendencies */}
+                {[
+                  ["pressing","Pressing Style","e.g. High press from front, triggered by GK"],
+                  ["buildUp","Build-up Play","e.g. Short passing out from back, direct long ball"],
+                  ["attackShape","Attacking Shape","e.g. Wide and direct, overloads right flank"],
+                  ["defShape","Defensive Shape","e.g. Low block 4-4-2, man-mark in midfield"],
+                  ["weaknesses","Known Weaknesses","e.g. Slow LB, struggles with high balls in box"],
+                ].map(([key,label,ph])=>(
+                  <div key={key} style={{marginBottom:10}}>
+                    <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
+                    <textarea value={tendencies[key]||""} onChange={e=>update("tendencies",{...tendencies,[key]:e.target.value})}
+                      rows={2} placeholder={ph} style={iS({resize:"vertical"})}/>
+                  </div>
+                ))}
+                <div style={{marginTop:4}}>
+                  <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:4}}>GENERAL SCOUT NOTES</label>
+                  <textarea value={opp.scoutNotes||""} onChange={e=>update("scoutNotes",e.target.value)} rows={3}
+                    placeholder="Playing style, pressing triggers, anything else..." style={iS({resize:"vertical"})}/>
+                </div>
+              </div>
+              {/* Linked game plans */}
+              {plans.length>0&&(
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:12}}>LINKED GAME PLANS</div>
+                  {plans.map(p=>(
+                    <div key={p.id} style={{padding:"8px 10px",background:C.surface,borderRadius:8,marginBottom:6,
+                      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{color:C.text,fontWeight:600,fontSize:13}}>{fmtDate(p.date)} · {p.formation}</div>
+                        <div style={{color:C.muted,fontSize:11}}>{p.location}</div>
+                      </div>
+                      <div style={{fontSize:11,color:C.accent,fontWeight:700}}>{p.location}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Match history */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>
+                MATCH HISTORY {played>0&&`(${played} games)`}
+              </div>
+              {oppGames.length===0
+                ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No games recorded yet</div>
+                :oppGames.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(g=>{
+                  const r=g.ourScore>g.theirScore?"W":g.ourScore<g.theirScore?"L":"D";
+                  const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
+                  // Find top scorer for this game
+                  const scorer = (g.stats||[]).filter(s=>s.goals>0)
+                    .sort((a,b)=>b.goals-a.goals)[0];
+                  const scorerName = scorer
+                    ? (()=>{ const p=roster.find(r=>r.id===scorer.playerId); return p?p.name.split(" ").pop()+" ("+scorer.goals+")":null; })()
+                    : null;
+                  const squadAvg = (g.stats||[]).length
+                    ? (g.stats.reduce((a,s)=>a+(s.rating||0),0)/g.stats.length).toFixed(1)
+                    : null;
+                  return(
+                    <div key={g.id} style={{marginBottom:8,padding:"10px 12px",background:C.surface,borderRadius:9,
+                      border:`1px solid ${C.border}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:scorerName||squadAvg?6:0}}>
+                        <div style={{width:28,height:28,borderRadius:7,background:rc+"22",
+                          border:`1.5px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:13,flexShrink:0}}>{r}</div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.text,fontSize:13,fontWeight:600}}>{fmtDate(g.date)} · {g.location}</div>
+                          {g.formation&&<div style={{color:C.muted,fontSize:11}}>Formation: {g.formation}</div>}
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                          <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18}}>
+                            {g.ourScore}–{g.theirScore}
+                          </div>
+                          <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+g.id,"_blank")}
+                            style={{background:"none",border:"none",color:C.accent,cursor:"pointer",
+                              fontSize:11,fontWeight:700,padding:0}}>
+                            Report →
+                          </button>
+                        </div>
+                      </div>
+                      {(scorerName||squadAvg)&&(
+                        <div style={{display:"flex",gap:12,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+                          {scorerName&&<span style={{color:C.muted,fontSize:11}}>⚽ {scorerName}</span>}
+                          {squadAvg&&<span style={{color:C.muted,fontSize:11}}>Avg rating: <span style={{color:rColor(parseFloat(squadAvg)),fontWeight:700}}>{squadAvg}</span></span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ══ THEIR SQUAD TAB ════════════════════════════════════════════ */}
+        {oppTab==="squad"&&(
+          <div>
+            {positions.length===0?(
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:32,textAlign:"center"}}>
+                <div style={{color:C.muted,fontSize:14,marginBottom:12}}>Set their formation in the Overview tab first</div>
+                <button onClick={()=>setOppTab("overview")}
+                  style={{padding:"9px 20px",background:C.accent,border:"none",borderRadius:8,
+                    color:"#000",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  Go to Overview →
+                </button>
+              </div>
+            ):(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,
+                  padding:"10px 16px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Formation:</div>
+                  <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:800}}>{opp.formation}</div>
+                  <div style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{positions.length} positions</div>
+                </div>
+                <OppSquadGrid
+                positions={positions}
+                oppPlayers={oppPlayers}
+                update={update}
+                updateOppPlayer={updateOppPlayer}
+                getOppPlayer={getOppPlayer}
+                THREAT_OPTS={THREAT_OPTS}
+              />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ SET PIECES TAB ═════════════════════════════════════════════ */}
+        {oppTab==="setpieces"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+            {[
+              {key:"corners",   label:"Corners",    icon:"⌒"},
+              {key:"freeKicks", label:"Free Kicks",  icon:"🎯"},
+              {key:"throwIns",  label:"Throw-ins",   icon:"↗"},
+            ].map(({key,label,icon})=>(
+              <div key={key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                  <span style={{fontSize:18}}>{icon}</span>
+                  <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:800}}>{label}</div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{color:C.accent,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:5}}>
+                    ATTACKING
+                  </label>
+                  <textarea value={setPieces[`${key}Atk`]||""} rows={3}
+                    onChange={e=>update("setPieces",{...setPieces,[`${key}Atk`]:e.target.value})}
+                    placeholder={`How they attack ${label.toLowerCase()}...`}
+                    style={iS({resize:"vertical"})}/>
+                </div>
+                <div>
+                  <label style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1,display:"block",marginBottom:5}}>
+                    HOW WE DEFEND IT
+                  </label>
+                  <textarea value={setPieces[`${key}Def`]||""} rows={3}
+                    onChange={e=>update("setPieces",{...setPieces,[`${key}Def`]:e.target.value})}
+                    placeholder={`Our defensive plan for their ${label.toLowerCase()}...`}
+                    style={iS({resize:"vertical"})}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ══ OUR RESPONSE TAB ═══════════════════════════════════════════ */}
+        {oppTab==="response"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>HOW WE ATTACK THEM</div>
+              <textarea value={counterPlan.howWeAttack||""}
+                onChange={e=>update("counterPlan",{...counterPlan,howWeAttack:e.target.value})}
+                rows={5} placeholder="Exploit their weak left back, use width, play in behind their high line..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.warning,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>HOW WE DEFEND THEM</div>
+              <textarea value={counterPlan.howWeDefend||""}
+                onChange={e=>update("counterPlan",{...counterPlan,howWeDefend:e.target.value})}
+                rows={5} placeholder="Deny space in behind, double up on their #9, track their #10 from front..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>KEY MATCHUPS</div>
+              <textarea value={counterPlan.keyMatchups||""}
+                onChange={e=>update("counterPlan",{...counterPlan,keyMatchups:e.target.value})}
+                rows={4} placeholder="Our #10 vs their #6 in midfield battle. Winger to track their RB overlaps..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>FOCUS POINTS FOR TEAM</div>
+              <textarea value={counterPlan.focusPoints||""}
+                onChange={e=>update("counterPlan",{...counterPlan,focusPoints:e.target.value})}
+                rows={4} placeholder="3-5 key points to communicate to the team in the pre-match talk..."
+                style={iS({resize:"vertical"})}/>
+            </div>
+            {/* Auto-fill game plan button */}
+            {plans.length>0&&(
+              <div style={{gridColumn:"1/-1",background:C.accent+"11",border:`1px solid ${C.accent}33`,borderRadius:12,padding:16,
+                display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{color:C.accent,fontWeight:700,fontSize:13}}>Push to Game Plans</div>
+                  <div style={{color:C.muted,fontSize:12,marginTop:2}}>Copies focus points and matchup notes into the instructions of all linked game plans against {opp.name}</div>
+                </div>
+                <button onClick={()=>{
+                  if(!window.confirm("Copy response notes into all linked game plans?")) return;
+                  // This would need setGamePlans — for now show confirmation
+                  alert("Notes pushed! Open the game plan to see them in Match Instructions.");
+                }}
+                  style={{padding:"9px 18px",background:C.accent,border:"none",borderRadius:8,
+                    color:"#000",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0,fontFamily:"'Oswald',sans-serif"}}>
+                  Push Notes →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+  return(
+    <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>INTELLIGENCE</div>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Opponents</h1>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {adding?(
+            <div style={{display:"flex",gap:8}}>
+              <input value={newName} onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&addManual()}
+                placeholder="Opponent name..." autoFocus
+                style={{padding:"9px 14px",background:C.card,border:`1px solid ${C.accent}44`,borderRadius:9,
+                  color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+              <button onClick={addManual} disabled={!newName.trim()}
+                style={{padding:"9px 16px",background:newName.trim()?C.accent:"#2a1000",border:"none",borderRadius:9,
+                  color:newName.trim()?"#000":C.muted,fontWeight:800,fontSize:13,cursor:"pointer"}}>Add</button>
+              <button onClick={()=>{setAdding(false);setNewName("");}}
+                style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,cursor:"pointer",fontSize:13}}>✕</button>
+            </div>
+          ):(
+            <button onClick={()=>setAdding(true)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,
+                border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              <Plus size={15}/>Add Opponent
+            </button>
+          )}
+        </div>
+      </div>
+
+      {allOpponentNames.length===0
+        ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+            <Award size={40} style={{color:C.muted,opacity:.3,marginBottom:12}}/>
+            <div style={{color:C.text,fontSize:15,fontWeight:600}}>No opponents yet</div>
+            <div style={{color:C.muted,fontSize:13,marginTop:6}}>Opponents appear automatically from your game history</div>
+          </div>
+        :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {allOpponentNames.map(name=>{
+              const {played,w,d,l} = h2h(name);
+              const opp = opponents.find(o=>o.name===name);
+              return(
+                <div key={name} onClick={()=>{
+                  const o=getOrCreate(name);
+                  if(!opponents.find(x=>x.id===o.id)) saveOpponent(o);
+                  setSel(o.id);
+                }}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+                    padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  <div style={{width:44,height:44,borderRadius:11,background:C.accent+"22",
+                    border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <Award size={20} color={C.accent}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4}}>{name}</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      {opp?.formation&&<span style={{color:C.muted,fontSize:12}}>{opp.formation}</span>}
+                      {played>0&&<span style={{color:C.muted,fontSize:12}}>{played} game{played!==1?"s":""}</span>}
+                      {opp?.keyPlayers&&<span style={{color:C.muted,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{opp.keyPlayers.slice(0,40)}{opp.keyPlayers.length>40?"…":""}</span>}
+                    </div>
+                  </div>
+                  {played>0&&(
+                    <div style={{display:"flex",gap:10,flexShrink:0}}>
+                      {[["W",w,C.accent],["D",d,C.warning],["L",l,C.danger]].map(([lbl,val,col])=>(
+                        <div key={lbl} style={{textAlign:"center",minWidth:28}}>
+                          <div style={{color:col,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>{val}</div>
+                          <div style={{color:C.muted,fontSize:9,fontWeight:700}}>{lbl}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <ChevronRight size={16} color={C.muted}/>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── PLAYER AVAILABILITY ─────────────────────────────────────────────────────
+// Added as fields on each player in the roster: availability, returnDate, availNote
+// Rendered in RosterView — we patch it via a helper component used inside PlayerModal
+
+// Availability badge used in roster list and game plan
+function AvailBadge({status}){
+  const map = {
+    available:  {label:"Available",  color:C.accent},
+    doubtful:   {label:"Doubtful",   color:C.warning},
+    injured:    {label:"Injured",    color:C.danger},
+    suspended:  {label:"Suspended",  color:"#7c6af5"},
+  };
+  const s = map[status||"available"];
+  return <Tag color={s.color}>{s.label}</Tag>;
+}
+
+// ─── SHAREABLE PLAYER PROFILE ────────────────────────────────────────────────
+// Hash-based routing: if URL hash starts with #/player/ show profile
+function PlayerProfilePage(){
+  const hash = window.location.hash; // e.g. #/player/p3
+  const match = hash.match(/^#\/player\/(.+)$/);
+  if(!match) return null;
+
+  const playerId = match[1];
+  const [pin, setPin]       = useState("");
+  const [unlocked,setUnlocked] = useState(false);
+  const [profile, setProfile]  = useState(null);
+  const [loading, setLoading]  = useState(false);
+  const [error,   setError]    = useState("");
+
+  async function loadProfile(){
+    setLoading(true); setError("");
+    try{
+      // Fetch all rosters (public read policy enabled)
+      const res = await fetch(
+        `https://lfhbkvdfxlawwwxtvwmj.supabase.co/rest/v1/rosters?select=*`,
+        {headers:{"apikey":"sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L"}}
+      );
+      const data = await res.json();
+      // Find the player across all rosters
+      let found = null;
+      let foundGames = [];
+      for(const row of (data||[])){
+        const players = row.players||[];
+        const p = players.find(pl=>pl.id===playerId);
+        if(p){
+          found = p;
+          // Also try to get games for this team
+          try{
+            const gr = await fetch(
+              `https://lfhbkvdfxlawwwxtvwmj.supabase.co/rest/v1/games?team_id=eq.${row.team_id}&select=*`,
+              {headers:{"apikey":"sb_publishable_Pjg3PkwsTB6iKfsRoGUZqw_MWGH505L"}}
+            );
+            const gd = await gr.json();
+            foundGames = (gd||[]).map(x=>x.data).filter(Boolean);
+          }catch(e){}
+          break;
+        }
+      }
+      if(!found){ setError("Player not found."); setLoading(false); return; }
+      // Check PIN
+      const playerPin = found.profilePin||"";
+      if(playerPin && pin !== playerPin){ setError("Incorrect PIN. Try again."); setLoading(false); return; }
+      setProfile({player:found, games:foundGames});
+      setUnlocked(true);
+    }catch(e){
+      setError("Could not load profile. Check your connection.");
+    }
+    setLoading(false);
+  }
+
+  const iS = {width:"100%",padding:"12px 16px",background:"#181818",border:"1px solid #3a1a00",
+    borderRadius:10,color:C.text,fontSize:18,outline:"none",fontFamily:"'Outfit',sans-serif",
+    boxSizing:"border-box",textAlign:"center",letterSpacing:8,fontWeight:700};
+
+  if(unlocked && profile){
+    const {player:p, games} = profile;
+    const pos = (Array.isArray(p.position)?p.position:[p.position||"CM"]);
+    const pc  = posColor(pos[0]);
+    const completedGames = games.filter(g=>g.status==="completed");
+    const hist = completedGames.map(g=>{
+      const st=g.stats?.find(s=>s.playerId===p.id);
+      if(!st) return null;
+      const cs=g.ourScore===0&&g.theirScore===0||g.theirScore===0;
+      const {rating,label}=calcRating(st,pos[0],cs);
+      return{date:g.date,opponent:g.opponent,rating,label,
+        goals:st.goals,assists:st.assists,st};
+    }).filter(Boolean).sort((a,b)=>b.date?.localeCompare(a.date||"")||0);
+
+    const avg = hist.length ? hist.reduce((a,h)=>a+h.rating,0)/hist.length : 0;
+    const totalGoals = hist.reduce((a,h)=>a+h.goals,0);
+    const totalAssists = hist.reduce((a,h)=>a+h.assists,0);
+
+    return(
+      <div style={{minHeight:"100vh",background:"#080808",fontFamily:"'Outfit',sans-serif",
+        backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)"}}>
+        <div style={{maxWidth:640,margin:"0 auto",padding:24}}>
+          {/* Header */}
+          <div style={{textAlign:"center",marginBottom:8,paddingTop:20}}>
+            <div style={{color:"#ff6b0088",fontSize:11,fontWeight:700,letterSpacing:2}}>PLAYER PROFILE</div>
+            <div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,marginTop:4}}>COACHIQ</div>
+          </div>
+          {/* Player hero */}
+          <div style={{background:"linear-gradient(135deg,#0d0400,#1a0800)",border:"1px solid #3a1a00",
+            borderRadius:18,padding:28,marginBottom:16,textAlign:"center"}}>
+            <div style={{width:72,height:72,borderRadius:16,background:pc,border:"none",
+              display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px",
+              fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:32}}>
+              {p.number}
+            </div>
+            <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28,marginBottom:6}}>{p.name}</div>
+            <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:16}}>
+              {pos.map(po=><span key={po} style={{background:posColor(po)+"22",color:posColor(po),border:`1px solid ${posColor(po)}44`,borderRadius:4,padding:"2px 10px",fontSize:12,fontWeight:700}}>{po}</span>)}
+            </div>
+            <div style={{display:"flex",gap:24,justifyContent:"center"}}>
+              <div><div style={{color:rColor(avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{avg>0?avg.toFixed(1):"—"}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Season Avg</div></div>
+              <div><div style={{color:"#ff6b00",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{totalGoals}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Goals</div></div>
+              <div><div style={{color:"#ffb300",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:44,lineHeight:1}}>{totalAssists}</div><div style={{color:"#ffffff66",fontSize:12,marginTop:2}}>Assists</div></div>
+            </div>
+          </div>
+          {/* Last 5 games */}
+          <div style={{background:"#141414",border:"1px solid #2a1000",borderRadius:14,padding:18}}>
+            <div style={{color:"#7a4a2a",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:14}}>RECENT GAMES</div>
+            {hist.slice(0,5).map((h,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,
+                padding:"9px 12px",background:"#0a0400",borderRadius:9}}>
+                <div style={{color:rColor(h.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20,minWidth:36}}>{h.rating.toFixed(1)}</div>
+                <div style={{flex:1}}>
+                  <div style={{color:C.text,fontWeight:600,fontSize:13}}>vs {h.opponent}</div>
+                  <div style={{color:"#7a4a2a",fontSize:11}}>{h.date}</div>
+                </div>
+                <div style={{color:"#7a4a2a",fontSize:12}}>{h.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PIN entry
+  return(
+    <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center",
+      fontFamily:"'Outfit',sans-serif",padding:20,
+      backgroundImage:"radial-gradient(ellipse at 50% 0%, #ff6b0018 0%, transparent 60%)"}}>
+      <div style={{width:"100%",maxWidth:380,textAlign:"center"}}>
+        <AppLogo size={56} glow={true}/>
+        <div style={{color:"#ffffff",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22,letterSpacing:1,marginTop:14,marginBottom:4}}>
+          COACH<span style={{color:"#ff6b00"}}>IQ</span>
+        </div>
+        <div style={{color:"#7a4a2a",fontSize:13,marginBottom:32}}>Player Profile</div>
+        <div style={{background:"#141414",border:"1px solid #3a1a00",borderRadius:16,padding:28}}>
+          <div style={{color:"#ffffff",fontSize:16,fontWeight:600,marginBottom:8}}>Enter your PIN</div>
+          <div style={{color:"#7a4a2a",fontSize:13,marginBottom:20}}>Your coach set a PIN to access your profile</div>
+          <input type="password" inputMode="numeric" maxLength={8} value={pin}
+            onChange={e=>setPin(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&loadProfile()}
+            placeholder="••••" style={iS}/>
+          {error&&<div style={{color:"#ff4444",fontSize:13,marginTop:10,fontWeight:600}}>{error}</div>}
+          <button onClick={loadProfile} disabled={loading||!pin}
+            style={{width:"100%",marginTop:16,padding:"13px",
+              background:pin?"#ff6b00":"#2a1000",border:"none",borderRadius:10,
+              color:pin?"#000":"#4a2a10",fontWeight:900,fontSize:15,cursor:pin?"pointer":"default",
+              fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+            {loading?"LOADING…":"VIEW PROFILE →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TRYOUT CLOSE WIZARD ──────────────────────────────────────────────────────
+
+// ─── PITCH WITH PLAYERS ───────────────────────────────────────────────────────
+function SharePitch({lineup, roster}){
+  var ZONE_Y   = {GK:152, DEF:124, MID:94, FWD:56};
+  var ZONE_COL = {GK:"#222", DEF:"#1565c0", MID:"#2e7d32", FWD:"#c94d00"};
+  var FL = 7, FW = 96;
+
+  function spread(count){
+    var out=[], sp=FW/(count+1);
+    for(var i=0;i<count;i++) out.push(FL+sp*(i+1));
+    return out;
+  }
+
+  var slots=[];
+  ["GK","DEF","MID","FWD"].forEach(function(zone){
+    var pids=(lineup[zone]||[]).filter(Boolean);
+    if(!pids.length) return;
+    var xs=spread(pids.length);
+    pids.forEach(function(pid,i){
+      var p=roster.find(function(r){return r.id===pid;});
+      if(p) slots.push({p:p,x:xs[i],y:ZONE_Y[zone],col:ZONE_COL[zone]});
+    });
+  });
+
+  return(
+    <svg viewBox="0 0 110 170" style={{width:"100%",height:"160px",display:"block"}}
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="102" height="162" fill="white" stroke="#333" strokeWidth="0.8"/>
+      <line x1="4" y1="85" x2="106" y2="85" stroke="#ccc" strokeWidth="0.5"/>
+      <circle cx="55" cy="85" r="14" fill="none" stroke="#ccc" strokeWidth="0.5"/>
+      <circle cx="55" cy="85" r="1.2" fill="#ccc"/>
+      <rect x="24" y="4" width="62" height="26" fill="none" stroke="#ccc" strokeWidth="0.5"/>
+      <rect x="36" y="4" width="38" height="12" fill="none" stroke="#ccc" strokeWidth="0.5"/>
+      <rect x="24" y="140" width="62" height="26" fill="none" stroke="#ccc" strokeWidth="0.5"/>
+      <rect x="36" y="154" width="38" height="12" fill="none" stroke="#ccc" strokeWidth="0.5"/>
+      {slots.map(function(s,i){
+        var ln=s.p.name.split(" ").pop();
+        if(ln.length>7) ln=ln.slice(0,6)+".";
+        return(
+          <g key={i}>
+            <circle cx={s.x} cy={s.y} r="6" fill={s.col} stroke="white" strokeWidth="0.5"/>
+            <text x={s.x} y={s.y+2.2} textAnchor="middle" fontSize="5.5" fill="white" fontFamily="Arial" fontWeight="bold">{s.p.number}</text>
+            <text x={s.x} y={s.y+11} textAnchor="middle" fontSize="4.5" fill="#444" fontFamily="Arial">{ln}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+
+// ─── PRO GATE ─────────────────────────────────────────────────────────────────
+function ProGate({isPro, onUpgrade, feature, children}){
+  if(isPro) return children;
+  return(
+    <div style={{padding:40,maxWidth:500,margin:"60px auto",textAlign:"center"}}>
+      <div style={{width:64,height:64,borderRadius:16,background:C.accent+"22",
+        border:`2px solid ${C.accent}44`,display:"flex",alignItems:"center",
+        justifyContent:"center",margin:"0 auto 20px",fontSize:28}}>★</div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,
+        fontWeight:900,marginBottom:10}}>Pro Feature</h2>
+      <p style={{color:C.muted,fontSize:14,lineHeight:1.7,marginBottom:24}}>
+        {feature} is available on CoachIQ Pro.<br/>
+        Upgrade to unlock all features.
+      </p>
+      <button onClick={onUpgrade}
+        style={{padding:"13px 32px",background:C.accent,border:"none",borderRadius:12,
+          color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",
+          fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        Upgrade to Pro → $9.99/mo
+      </button>
+      <div style={{color:C.muted,fontSize:12,marginTop:12}}>Cancel anytime</div>
+    </div>
+  );
+}
+
+// ─── GAME PLAN SHARE PAGE ─────────────────────────────────────────────────────
+function GamePlanSharePage(){
+  var hash    = window.location.hash;
+  var shareId = hash.replace("#/plan/","");
+  const [plan,    setPlan]    = useState(null);
+  const [roster,  setRoster]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  useEffect(()=>{
+    async function load(){
+      try{
+        var gpRes=await supabase.from("game_plans").select("*");
+        var gpRows=gpRes.data||[];
+        var foundPlan=null;
+        for(var ri=0;ri<gpRows.length;ri++){
+          var row=gpRows[ri];
+          if(!row.data) continue;
+          var plans=Array.isArray(row.data)?row.data:[row.data];
+          for(var pi=0;pi<plans.length;pi++){
+            var gp=plans[pi];
+            if(gp&&(gp.shareId===shareId||gp.id===shareId)){
+              foundPlan=gp;
+              var rRes=await supabase.from("rosters").select("*");
+              var rRows=(rRes.data||[]).filter(function(r){return r.team_id===row.team_id;});
+              setRoster(rRows[0]?rRows[0].players:[]);
+              break;
+            }
+          }
+          if(foundPlan) break;
+        }
+        if(!foundPlan){setError("Game plan not found.");setLoading(false);return;}
+        setPlan(foundPlan);
+        setLoading(false);
+      }catch(e){setError("Failed to load.");setLoading(false);}
+    }
+    load();
+  },[shareId]);
+
+  if(loading) return(<div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#ff6b00",fontFamily:"'Outfit',sans-serif",fontSize:14}}>Loading game plan…</div>);
+  if(error)   return(<div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#e53935",fontFamily:"'Outfit',sans-serif"}}>{error}</div>);
+
+  // Formation slot coordinates
+  var GP_FSLOTS={"4-3-3":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},
+    {zone:"MID",idx:1,lbl:"CM",x:50,y:43},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},
+    {zone:"FWD",idx:0,lbl:"LW",x:16,y:22},{zone:"FWD",idx:1,lbl:"ST",x:50,y:14},
+    {zone:"FWD",idx:2,lbl:"RW",x:84,y:22},
+  ],"4-4-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LM",x:12,y:48},
+    {zone:"MID",idx:1,lbl:"LCM",x:38,y:46},{zone:"MID",idx:2,lbl:"RCM",x:62,y:46},
+    {zone:"MID",idx:3,lbl:"RM",x:88,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ],"4-2-3-1":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
+    {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
+    {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:34,y:56},
+    {zone:"MID",idx:1,lbl:"CDM",x:66,y:56},{zone:"MID",idx:2,lbl:"LAM",x:16,y:36},
+    {zone:"MID",idx:3,lbl:"CAM",x:50,y:32},{zone:"MID",idx:4,lbl:"RAM",x:84,y:36},
+    {zone:"FWD",idx:0,lbl:"ST",x:50,y:14},
+  ],"3-5-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},
+    {zone:"DEF",idx:1,lbl:"CB",x:50,y:75},{zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},
+    {zone:"MID",idx:0,lbl:"LWM",x:8,y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},
+    {zone:"MID",idx:2,lbl:"CM",x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},
+    {zone:"MID",idx:4,lbl:"RWM",x:92,y:50},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ],"5-3-2":[
+    {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:8,y:68},
+    {zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},{zone:"DEF",idx:2,lbl:"CB",x:50,y:74},
+    {zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},{zone:"DEF",idx:4,lbl:"RB",x:92,y:68},
+    {zone:"MID",idx:0,lbl:"LCM",x:22,y:46},{zone:"MID",idx:1,lbl:"CM",x:50,y:42},
+    {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
+    {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
+  ]};
+  var slots=GP_FSLOTS[plan.formation]||GP_FSLOTS["4-3-3"];
+  var zoneCol={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
+  var benchExcluded=plan.benchExcluded||[];
+  var usedIds=Object.values(plan.lineup||{}).flat().filter(Boolean);
+  var bench=(roster||[]).filter(function(p){return !usedIds.includes(p.id)&&!benchExcluded.includes(p.id);});
+
+  return(
+    <div style={{minHeight:"100vh",background:"#111",fontFamily:"'Outfit',sans-serif",color:"#fff",padding:"24px 16px"}}>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;800;900&family=Outfit:wght@400;600;700;800&display=swap');@media print{@page{margin:8mm;size:A4;}body{background:#fff!important;color:#111!important;}.no-print{display:none!important;}}"}</style>
+
+      {/* Print button */}
+      <div className="no-print" style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
+        <button onClick={()=>window.print()}
+          style={{padding:"8px 18px",background:"#ff6b00",border:"none",borderRadius:8,
+            color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
+            fontFamily:"'Oswald',sans-serif"}}>
+          🖨 Print / PDF
+        </button>
+      </div>
+
+      <div style={{maxWidth:820,margin:"0 auto"}}>
+
+        {/* Header */}
+        <div style={{background:"#1a1a1a",borderRadius:14,padding:"20px 24px",marginBottom:16,
+          border:"1px solid #333"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+            <div>
+              <div style={{color:"#ff6b00",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>
+                GAME PLAN
+              </div>
+              <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:900,margin:0}}>
+                vs {plan.opponent}
+              </h1>
+              <div style={{color:"#888",fontSize:13,marginTop:4}}>
+                {plan.date&&<span>{plan.date}</span>}
+                {plan.location&&<span> · {plan.location}</span>}
+                {plan.formation&&<span> · {plan.formation}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:"#ff6b00"}}/>
+              <span style={{color:"#ff6b00",fontSize:12,fontWeight:700,letterSpacing:2}}>COACHIQ</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Two column layout */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+
+          {/* Pitch */}
+          <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 50%,#162e16 100%)",
+            borderRadius:14,border:"2px solid #2a522a",position:"relative",
+            paddingBottom:"130%",userSelect:"none"}}>
+            {/* Markings */}
+            <div style={{position:"absolute",top:"50%",left:"5%",right:"5%",height:1,background:"rgba(255,255,255,0.07)"}}/>
+            <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",borderRadius:"50%",border:"1px solid rgba(255,255,255,0.07)",transform:"translate(-50%,-50%)"}}/>
+            <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderBottom:"none"}}/>
+            <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
+            <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.2)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
+            {slots.map(function(slot,si){
+              var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+              var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
+              var pc=p?posColor(primaryPos(p)):null;
+              var col=zoneCol[slot.zone]||"#fff";
+              return(
+                <div key={si} style={{position:"absolute",left:slot.x+"%",top:slot.y+"%",
+                  transform:"translate(-50%,-50%)",width:46,height:46,borderRadius:"50%",
+                  background:p?pc+"44":"rgba(255,255,255,0.07)",
+                  border:"2px solid "+(p?pc:col+"55"),
+                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                  {p?(
+                    <>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:13,lineHeight:1}}>{p.number||"#"}</div>
+                      <div style={{color:"rgba(255,255,255,.75)",fontSize:6.5,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:42,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>{p.name.split(" ").pop()}</div>
+                    </>
+                  ):(
+                    <div style={{color:col+"99",fontSize:7.5,fontWeight:700,textAlign:"center"}}>{slot.lbl}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right side info */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Starting XI list */}
+            <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
+              <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
+              {slots.map(function(slot,si){
+                var pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
+                var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
+                var col=zoneCol[slot.zone]||"#888";
+                return(
+                  <div key={si} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #222"}}>
+                    <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
+                      background:col+"22",border:"1px solid "+col+"44",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:7,fontWeight:800,color:col}}>{slot.lbl}</div>
+                    <span style={{color:p?"#fff":"#444",fontWeight:p?600:400,fontSize:11}}>
+                      {p?"#"+p.number+" "+p.name:"—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
             {/* Bench */}
             {bench.length>0&&(
