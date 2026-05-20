@@ -7840,10 +7840,11 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
       MID: Array(slots.MID).fill(null),
       FWD: Array(slots.FWD).fill(null),
     };
+    const gpSubs={GK:Array(slots.GK).fill(null),DEF:Array(slots.DEF).fill(null),MID:Array(slots.MID).fill(null),FWD:Array(slots.FWD).fill(null)};
     const plan = {
       id:`gp${Date.now()}`, ...form,
       shareId:`s${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,
-      lineup, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
+      lineup, gpSubs, subs:[], oppNotes:{threats:"",setPieces:"",pressing:"",notes:""},
       instructions:"", benchExcluded:[], createdAt: new Date().toISOString()
     };
     setGamePlans(prev=>[plan,...prev]);
