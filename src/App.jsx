@@ -2391,6 +2391,8 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
   const [msg, setMsg]                     = useState(null);
   const [importing, setImporting]         = useState(false);
   const [search,    setSearch]            = useState("");
+  const [squadSort, setSquadSort]         = useState("position");
+  const [squadPos,  setSquadPos]          = useState("all");
   const [bulkEdit,  setBulkEdit]          = useState(false);
   const [bulkDraft, setBulkDraft]         = useState([]);
   const [bulkSaving,setBulkSaving]        = useState(false);
@@ -2458,16 +2460,32 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
     setImporting(false); e.target.value="";
   }
 
-  const posGroups = ["GK","CB","LB","RB","CM","CAM","CDM","RM","LM","W","ST"];
+  const posGroups = ["GK","DEF","MID","FWD"];
   const searchLC = search.toLowerCase();
-  const filteredPlayers = (players||[]).filter(p=>
-    !search || p.name?.toLowerCase().includes(searchLC) ||
-    allPos(p).some(x=>x.toLowerCase().includes(searchLC))
-  );
-  const grouped = posGroups.map(pos=>({
-    pos, players: filteredPlayers.filter(p=>primaryPos(p)===pos)
-  })).filter(g=>g.players.length>0);
-  const ungrouped = filteredPlayers.filter(p=>!posGroups.includes(primaryPos(p)));
+  const filteredPlayers = (players||[])
+    .filter(p=>!search || p.name?.toLowerCase().includes(searchLC) ||
+      allPos(p).some(x=>x.toLowerCase().includes(searchLC)) ||
+      String(p.number).includes(searchLC))
+    .filter(p=>squadPos==="all"||displayPos(primaryPos(p))===squadPos)
+    .sort(function(a,b){
+      if(squadSort==="name")    return (a.name||"").localeCompare(b.name||"");
+      if(squadSort==="number")  return (parseInt(a.number)||0)-(parseInt(b.number)||0);
+      if(squadSort==="grade")   return (a.grade||"").localeCompare(b.grade||"");
+      if(squadSort==="rating"){
+        var ra=games?avgRating(a.id,games):0;
+        var rb=games?avgRating(b.id,games):0;
+        return rb-ra;
+      }
+      // default: position
+      var order=["GK","DEF","MID","FWD"];
+      return order.indexOf(displayPos(primaryPos(a)))-order.indexOf(displayPos(primaryPos(b)));
+    });
+  const grouped = squadSort==="position"
+    ? posGroups.map(pos=>({
+        pos, players: filteredPlayers.filter(p=>displayPos(primaryPos(p))===pos)
+      })).filter(g=>g.players.length>0)
+    : [{pos:null,players:filteredPlayers}];
+  const ungrouped = [];
 
   function savePlayer(updated){
     if(players.find(p=>p.id===updated.id)){
@@ -2706,14 +2724,32 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
         </div>
       </div>
 
-      {/* Search */}
-      <div style={{marginBottom:14}}>
+      {/* Search + Filter + Sort */}
+      <div style={{marginBottom:14,display:"flex",gap:8,flexWrap:"wrap"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder={`Search ${(players||[]).length} players…`}
-          style={{width:"100%",padding:"9px 14px",background:C.surface,
+          style={{flex:1,minWidth:160,padding:"9px 14px",background:C.surface,
             border:"1px solid "+C.border,borderRadius:9,color:C.text,
             fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",
             boxSizing:"border-box"}}/>
+        <select value={squadPos} onChange={e=>setSquadPos(e.target.value)}
+          style={{padding:"9px 12px",background:C.surface,border:"1px solid "+C.border,
+            borderRadius:9,color:C.text,fontSize:13,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+          <option value="all">All Positions</option>
+          <option value="GK">GK</option>
+          <option value="DEF">Defense</option>
+          <option value="MID">Midfield</option>
+          <option value="FWD">Forward</option>
+        </select>
+        <select value={squadSort} onChange={e=>setSquadSort(e.target.value)}
+          style={{padding:"9px 12px",background:C.surface,border:"1px solid "+C.border,
+            borderRadius:9,color:C.text,fontSize:13,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+          <option value="position">Group by Position</option>
+          <option value="name">Sort by Name</option>
+          <option value="number">Sort by Number</option>
+          <option value="grade">Sort by Grade</option>
+          <option value="rating">Sort by Rating</option>
+        </select>
       </div>
 
       {msg&&(
@@ -13425,23 +13461,34 @@ function GamePlanSharePage(){
 
             {/* Starting XI list */}
             <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
-              <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
-              {slots.map(function(slot,si){
-                var pid=(_pLu[slot.zone]||[])[slot.idx]||null;
-                var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
-                var col=zoneCol[slot.zone]||"#888";
-                return(
-                  <div key={si} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #222"}}>
-                    <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
-                      background:col+"22",border:"1px solid "+col+"44",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:7,fontWeight:800,color:col}}>{slot.lbl}</div>
-                    <span style={{color:p?"#fff":"#444",fontWeight:p?600:400,fontSize:11}}>
-                      {p?"#"+p.number+" "+p.name:"—"}
-                    </span>
-                  </div>
-                );
-              })}
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5}}>STARTING XI</div>
+                <div style={{color:"#555",fontSize:9,fontWeight:700,letterSpacing:1}}>SUB</div>
+              </div>
+              {(function(){
+                var _pgSubs=(_slot0&&_slot0.gpSubs)||plan.gpSubs||{};
+                return slots.map(function(slot,si){
+                  var pid=(_pLu[slot.zone]||[])[slot.idx]||null;
+                  var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
+                  var subPid=(_pgSubs[slot.zone]||[])[slot.idx]||null;
+                  var subP=subPid?(roster||[]).find(function(r){return r.id===subPid;}):null;
+                  var col=zoneCol[slot.zone]||"#888";
+                  return(
+                    <div key={si} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #222"}}>
+                      <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
+                        background:col+"22",border:"1px solid "+col+"44",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:7,fontWeight:800,color:col}}>{slot.lbl}</div>
+                      <span style={{color:p?"#fff":"#444",fontWeight:p?600:400,fontSize:11,flex:1}}>
+                        {p?"#"+p.number+" "+p.name:"—"}
+                      </span>
+                      {subP&&<span style={{color:"#26a69a",fontSize:10,flexShrink:0}}>
+                        ↳ #{subP.number} {subP.name.split(" ").pop()}
+                      </span>}
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             {/* Bench */}
