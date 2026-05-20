@@ -7783,6 +7783,8 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
   const [gpTab,setGpTab]        = useState("gameplan");
   const [activeSlotIdx,setActiveSlotIdx] = useState(0);
+  const [gpSearch,setGpSearch] = useState("");
+  const [gpFullscreen,setGpFullscreen] = useState(false);
   const [shareLink,setShareLink]  = useState(null);
   const [oppSuggestions,setOppSuggestions] = useState([]);
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
@@ -8426,12 +8428,18 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
             {picking&&(
               <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
                 <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:22,width:"100%",maxWidth:400,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                     <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700}}>
                       {picking.isSub?"Select Sub":"Select Player"}
                     </h3>
-                    <button onClick={()=>setPicking(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
+                    <button onClick={()=>{setPicking(null);setGpSearch("");}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
                   </div>
+                  <input value={gpSearch||""} onChange={e=>setGpSearch(e.target.value)}
+                    placeholder="Search by name or number…"
+                    autoFocus
+                    style={{padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,
+                      borderRadius:8,color:C.text,fontSize:13,outline:"none",
+                      fontFamily:"'Outfit',sans-serif",marginBottom:10,width:"100%",boxSizing:"border-box"}}/>
                   <div style={{overflowY:"auto",flex:1}}>
                     {picking.isSub&&(
                       <div style={{background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:8,padding:"7px 12px",marginBottom:10,fontSize:11,color:C.accent,fontWeight:600}}>
@@ -8442,7 +8450,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
                       style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:C.surface,border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
                       — Clear slot
                     </div>
-                    {roster.map(p=>{
+                    {(roster||[]).filter(p=>!gpSearch||(p.name.toLowerCase().includes(gpSearch.toLowerCase())||String(p.number).includes(gpSearch))).map(p=>{
                       const cur=picking.isSub?(gpSubs[picking.zone]||[])[picking.idx]:activeLineup[picking.zone]?.[picking.idx];
                       const inUse=picking.isSub
                         ?(usedSubIds.includes(p.id)&&cur!==p.id)
@@ -8581,10 +8589,72 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
               </div>
             </div>
 
+            {/* ── Fullscreen availability modal ── */}
+            {gpFullscreen&&(
+              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:400,display:"flex",flexDirection:"column",padding:24}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <div>
+                    <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:2}}>AVAILABILITY</div>
+                    <h2 style={{color:"#fff",fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,margin:0}}>Mark Who's Playing</h2>
+                  </div>
+                  <button onClick={()=>setGpFullscreen(false)}
+                    style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                    Done
+                  </button>
+                </div>
+                <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"rgba(255,255,255,0.6)"}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:"#27a560"}}/> Playing
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"rgba(255,255,255,0.6)"}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:"#e53935"}}/> Unavailable
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"rgba(255,255,255,0.6)"}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:"rgba(255,255,255,0.15)"}}/> Unknown
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8,overflowY:"auto",flex:1}}>
+                  {(roster||[]).sort(function(a,b){return (a.number||0)-(b.number||0);}).map(function(p){
+                    const excluded=(plan.benchExcluded||[]).includes(p.id);
+                    const pc=posColor(primaryPos(p));
+                    return(
+                      <div key={p.id}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+                          borderRadius:10,cursor:"pointer",
+                          background:excluded?"rgba(229,57,53,0.15)":"rgba(39,165,96,0.12)",
+                          border:`1px solid ${excluded?"rgba(229,57,53,0.4)":"rgba(39,165,96,0.3)"}`}}
+                        onClick={()=>updatePlan(p2=>({
+                          benchExcluded:excluded
+                            ?(p2.benchExcluded||[]).filter(id=>id!==p.id)
+                            :[...(p2.benchExcluded||[]),p.id]
+                        }))}>
+                        <div style={{width:28,height:28,borderRadius:6,background:pc,flexShrink:0,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:12}}>
+                          {p.number}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:"#fff",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                          <div style={{color:"rgba(255,255,255,0.5)",fontSize:10}}>{displayPos(primaryPos(p))}</div>
+                        </div>
+                        <div style={{fontSize:16}}>{excluded?"❌":"✅"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* ── Bench horizontal strip ── */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
+                  <button onClick={()=>setGpFullscreen(true)}
+                    style={{padding:"2px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10,fontWeight:600,cursor:"pointer"}}>
+                    ⊞ Availability
+                  </button>
+                </div>
                 {excludedRoster.length>0&&(
                   <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
                     Restore all ({excludedRoster.length})
@@ -13286,8 +13356,7 @@ function GamePlanSharePage(){
             <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
               <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
               {slots.map(function(slot,si){
-                var _pl=_printLineup2;
-                var pid=(_pl[slot.zone]||[])[slot.idx]||null;
+                var pid=(_pLu[slot.zone]||[])[slot.idx]||null;
                 var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
                 var col=zoneCol[slot.zone]||"#888";
                 return(
