@@ -8049,15 +8049,16 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 
     // ── Multi-lineup slot support ────────────────────────────────────────────
     // Migration: wrap legacy lineup into lineupSlots (deferred to avoid setState-in-render)
-    const _needsMigration=!plan.lineupSlots;
-    React.useEffect(function(){
-      if(_needsMigration){
+    // Migration: wrap legacy lineup into lineupSlots
+    // Defer via setTimeout to avoid setState-in-render
+    if(!plan.lineupSlots){
+      setTimeout(function(){
         const initSlots=[{id:"slot0",name:"Starting XI",
           formation:plan.formation,lineup:plan.lineup,
           gpSubs:plan.gpSubs||{}}];
         updatePlan(()=>({lineupSlots:initSlots,slotActiveIdx:0}));
-      }
-    },[_needsMigration]);
+      },0);
+    }
     const safeSlotIdx=Math.min(activeSlotIdx,(plan.lineupSlots||[]).length-1)||0;
     const lineupSlots=plan.lineupSlots||[{id:"slot0",name:"Starting XI",
       formation:plan.formation,lineup:plan.lineup,gpSubs:plan.gpSubs||{}}];
