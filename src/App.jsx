@@ -13187,7 +13187,10 @@ function GamePlanSharePage(){
     {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
     {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
   ]};
-  var slots=GP_FSLOTS[plan.formation]||GP_FSLOTS["4-3-3"];
+  var _slot0=plan.lineupSlots&&plan.lineupSlots[0];
+  var _printFmt=(_slot0&&_slot0.formation)||plan.formation||"4-3-3";
+  var _printLineup2=(_slot0&&_slot0.lineup)||plan.lineup||{};
+  var slots=GP_FSLOTS[_printFmt]||GP_FSLOTS["4-3-3"];
   var zoneCol={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
   var benchExcluded=plan.benchExcluded||[];
   var usedIds=Object.values(plan.lineup||{}).flat().filter(Boolean);
@@ -13245,9 +13248,9 @@ function GamePlanSharePage(){
             <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",borderRadius:"50%",border:"1px solid rgba(255,255,255,0.07)",transform:"translate(-50%,-50%)"}}/>
             <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderBottom:"none"}}/>
             <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
-            <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.2)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
+            <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.2)",fontSize:10,fontWeight:700}}>{_printFmt}</div>
             {slots.map(function(slot,si){
-              var _printLineup=(plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].lineup)||plan.lineup||{};
+              var _printLineup=_printLineup2;
               var pid=(_printLineup[slot.zone]||[])[slot.idx]||null;
               var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
               var pc=p?posColor(primaryPos(p)):null;
@@ -13278,7 +13281,7 @@ function GamePlanSharePage(){
             <div style={{background:"#1a1a1a",borderRadius:12,padding:"14px 16px",border:"1px solid #333"}}>
               <div style={{color:"#888",fontSize:9,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>STARTING XI</div>
               {slots.map(function(slot,si){
-                var _pl=(plan.lineupSlots&&plan.lineupSlots[0]&&plan.lineupSlots[0].lineup)||plan.lineup||{};
+                var _pl=_printLineup2;
                 var pid=(_pl[slot.zone]||[])[slot.idx]||null;
                 var p=pid?(roster||[]).find(function(r){return r.id===pid;}):null;
                 var col=zoneCol[slot.zone]||"#888";
