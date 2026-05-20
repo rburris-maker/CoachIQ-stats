@@ -13335,6 +13335,7 @@ function GamePlanSharePage(){
   var _slot0=plan.lineupSlots&&plan.lineupSlots[0];
   var _printFmt=(_slot0&&_slot0.formation)||plan.formation||"4-3-3";
   var _printLineup2=(_slot0&&_slot0.lineup)||plan.lineup||{};
+  var _pLu=_printLineup2;
   var slots=GP_FSLOTS[_printFmt]||GP_FSLOTS["4-3-3"];
   var zoneCol={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
   var benchExcluded=plan.benchExcluded||[];
