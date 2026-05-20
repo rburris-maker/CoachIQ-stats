@@ -7783,6 +7783,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
   const [picking,setPicking]   = useState(null); // {zone,idx} for lineup slot picker
   const [gpTab,setGpTab]        = useState("gameplan");
   const [activeSlotIdx,setActiveSlotIdx] = useState(0);
+  const [activeSlotIdx,setActiveSlotIdx] = useState(0);
   const [shareLink,setShareLink]  = useState(null);
   const [oppSuggestions,setOppSuggestions] = useState([]);
   const [showSuggestions,setShowSuggestions] = useState(false); // shows share modal with link
