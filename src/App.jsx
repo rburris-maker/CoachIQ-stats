@@ -8373,355 +8373,299 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
         )}
 
         {/* ── GAME PLAN TAB ─────────────────────────────────── */}
-        {gpTab==="gameplan"&&<div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        {/* ── GAME PLAN TAB ─────────────────────────────────── */}
+        {gpTab==="gameplan"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
-          {/* ── Lineup builder — coordinate pitch ─────────────────────── */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>STARTING XI — {plan.formation}</div>
+            {/* ── Lineup slot tabs ── */}
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,flexShrink:0}}>LINEUP</div>
+              {lineupSlots.map(function(slot,si){
+                const isActive=si===safeSlotIdx;
+                return(
+                  <button key={slot.id} onClick={()=>setActiveSlotIdx(si)}
+                    style={{padding:"5px 12px",background:isActive?C.accent+"22":"transparent",
+                      border:`1px solid ${isActive?C.accent:C.border}`,borderRadius:7,
+                      color:isActive?C.accent:C.muted,fontWeight:isActive?700:400,
+                      fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif",
+                      display:"flex",alignItems:"center",gap:6}}>
+                    {slot.name}
+                    {si>0&&(
+                      <span onClick={e=>{e.stopPropagation();if(window.confirm("Delete this lineup?"))deleteLineupSlot(si);}}
+                        style={{opacity:.5,fontSize:13,lineHeight:1}}>×</span>
+                    )}
+                  </button>
+                );
+              })}
+              <button onClick={addLineupSlot}
+                style={{padding:"5px 10px",background:"transparent",
+                  border:`1px dashed ${C.border}`,borderRadius:7,
+                  color:C.muted,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                + Add Lineup
+              </button>
+              <div style={{marginLeft:"auto"}}>
+                <select value={activeFormation}
+                  onChange={e=>{
+                    const f=e.target.value;
+                    const sl=SLOTS[f]||SLOTS["4-3-3"];
+                    const lu={GK:Array(sl.GK).fill(null),DEF:Array(sl.DEF).fill(null),MID:Array(sl.MID).fill(null),FWD:Array(sl.FWD).fill(null)};
+                    saveActiveSlot({formation:f,lineup:lu,gpSubs:{GK:Array(sl.GK).fill(null),DEF:Array(sl.DEF).fill(null),MID:Array(sl.MID).fill(null),FWD:Array(sl.FWD).fill(null)}});
+                  }}
+                  style={{padding:"5px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                  {Object.keys(SLOTS).map(f=><option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
             </div>
-            {(()=>{
-              const GP_FSLOTS={
-                "4-3-3":[
-                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
-                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
-                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},
-                  {zone:"MID",idx:1,lbl:"CM",x:50,y:43},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},
-                  {zone:"FWD",idx:0,lbl:"LW",x:16,y:22},{zone:"FWD",idx:1,lbl:"ST",x:50,y:14},
-                  {zone:"FWD",idx:2,lbl:"RW",x:84,y:22},
-                ],
-                "4-4-2":[
-                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
-                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
-                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LM",x:12,y:48},
-                  {zone:"MID",idx:1,lbl:"LCM",x:38,y:46},{zone:"MID",idx:2,lbl:"RCM",x:62,y:46},
-                  {zone:"MID",idx:3,lbl:"RM",x:88,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
-                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
-                ],
-                "4-2-3-1":[
-                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},
-                  {zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},
-                  {zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:34,y:56},
-                  {zone:"MID",idx:1,lbl:"CDM",x:66,y:56},{zone:"MID",idx:2,lbl:"LAM",x:16,y:36},
-                  {zone:"MID",idx:3,lbl:"CAM",x:50,y:32},{zone:"MID",idx:4,lbl:"RAM",x:84,y:36},
-                  {zone:"FWD",idx:0,lbl:"ST",x:50,y:14},
-                ],
-                "3-5-2":[
-                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},
-                  {zone:"DEF",idx:1,lbl:"CB",x:50,y:75},{zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},
-                  {zone:"MID",idx:0,lbl:"LWM",x:8,y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},
-                  {zone:"MID",idx:2,lbl:"CM",x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},
-                  {zone:"MID",idx:4,lbl:"RWM",x:92,y:50},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
-                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
-                ],
-                "5-3-2":[
-                  {zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:8,y:68},
-                  {zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},{zone:"DEF",idx:2,lbl:"CB",x:50,y:74},
-                  {zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},{zone:"DEF",idx:4,lbl:"RB",x:92,y:68},
-                  {zone:"MID",idx:0,lbl:"LCM",x:22,y:46},{zone:"MID",idx:1,lbl:"CM",x:50,y:42},
-                  {zone:"MID",idx:2,lbl:"RCM",x:78,y:46},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},
-                  {zone:"FWD",idx:1,lbl:"ST",x:66,y:16},
-                ],
-              };
-              const slots=GP_FSLOTS[plan.formation]||GP_FSLOTS["4-3-3"];
-              const zc={"GK":"#ffb300","DEF":"#42a5f5","MID":"#66bb6a","FWD":"#ff6b00"};
-              return(
-                <div style={{background:"linear-gradient(180deg,#162e16 0%,#1c3c1c 50%,#162e16 100%)",
-                  borderRadius:12,border:"2px solid #2a522a",
-                  position:"relative",width:"100%",paddingBottom:"135%",userSelect:"none"}}>
-                  {/* Pitch markings */}
-                  <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
-                    <div style={{position:"absolute",top:"50%",left:"5%",right:"5%",height:1,background:"rgba(255,255,255,0.07)"}}/>
-                    <div style={{position:"absolute",top:"50%",left:"50%",width:"22%",paddingBottom:"22%",borderRadius:"50%",border:"1px solid rgba(255,255,255,0.07)",transform:"translate(-50%,-50%)"}}/>
-                    <div style={{position:"absolute",bottom:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderBottom:"none"}}/>
-                    <div style={{position:"absolute",top:"3%",left:"25%",right:"25%",height:"11%",border:"1px solid rgba(255,255,255,0.07)",borderTop:"none"}}/>
-                  </div>
-                  {/* Formation label */}
-                  <div style={{position:"absolute",top:8,left:10,color:"rgba(255,255,255,0.25)",fontSize:10,fontWeight:700}}>{plan.formation}</div>
-                  {/* Players */}
-                  {slots.map(function(slot,si){
-                    const pid=(plan.lineup[slot.zone]||[])[slot.idx]||null;
-                    const p=pid?roster.find(function(r){return r.id===pid;}):null;
-                    const pc=p?posColor(primaryPos(p)):null;
-                    const col=zc[slot.zone]||"#fff";
-                    const isActive=picking?.zone===slot.zone&&picking?.idx===slot.idx;
-                    return(
-                      <div key={si}
-                        onClick={function(){setPicking({zone:slot.zone,idx:slot.idx});}}
-                        style={{position:"absolute",left:slot.x+"%",top:slot.y+"%",
-                          transform:"translate(-50%,-50%)",
-                          width:48,height:48,borderRadius:"50%",
-                          background:p?pc+"44":"rgba(255,255,255,0.07)",
-                          border:`2px solid ${isActive?C.accent:p?pc:col+"55"}`,
-                          display:"flex",flexDirection:"column",alignItems:"center",
-                          justifyContent:"center",cursor:"pointer",transition:"all .15s",
-                          boxShadow:isActive?"0 0 0 3px "+C.accent+"66":p?"0 2px 8px rgba(0,0,0,.4)":"none",
-                          zIndex:1}}>
-                        {p?(
-                          <>
-                            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:14,lineHeight:1}}>{p.number||"#"}</div>
-                            <div style={{color:"rgba(255,255,255,.75)",fontSize:7,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:44,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>
-                              {p.name.split(" ").pop()}
-                            </div>
-                          </>
-                        ):(
-                          <div style={{color:col+"99",fontSize:8,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{slot.lbl}</div>
-                        )}
 
+            {/* ── Picker overlay ── */}
+            {picking&&(
+              <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:22,width:"100%",maxWidth:400,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                    <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:18,fontWeight:700}}>
+                      {picking.isSub?"Select Sub":"Select Player"}
+                    </h3>
+                    <button onClick={()=>setPicking(null)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={18}/></button>
+                  </div>
+                  <div style={{overflowY:"auto",flex:1}}>
+                    {picking.isSub&&(
+                      <div style={{background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:8,padding:"7px 12px",marginBottom:10,fontSize:11,color:C.accent,fontWeight:600}}>
+                        Sub for {picking.zone} #{picking.idx+1}
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-          </div>
-
-          {/* Bench — separate card below pitch */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"12px 14px",marginTop:0}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
-              {excludedRoster.length>0&&(
-                <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))}
-                  style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
-                  Restore all ({excludedRoster.length})
-                </button>
-              )}
-            </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {benchRoster.length===0&&excludedRoster.length===0
-                ? <span style={{color:C.muted,fontSize:12}}>All players assigned</span>
-                : benchRoster.map(p=>(
-                  <div key={p.id} style={{padding:"4px 6px 4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,display:"flex",alignItems:"center",gap:5}}>
-                    <div style={{width:20,height:20,borderRadius:4,background:posColor(primaryPos(p))+"22",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:10}}>{p.number}</div>
-                    <span style={{color:C.muted,fontSize:11}}>{p.name.split(" ")[1]||p.name}</span>
-                    <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))}
-                      style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px",opacity:.6}}>×</button>
-                  </div>
-                ))
-              }
-            </div>
-            {excludedRoster.length>0&&(
-              <div style={{marginTop:8}}>
-                <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
-                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                  {excludedRoster.map(p=>(
-                    <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
-                      style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,
-                        display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
-                      <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
-                      <span style={{color:C.accent,fontSize:9}}>+</span>
+                    )}
+                    <div onClick={()=>{picking.isSub?assignSubSlot(picking.zone,picking.idx,null):assignSlot(picking.zone,picking.idx,null);setPicking(null);}}
+                      style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",background:C.surface,border:`1px solid ${C.border}`,color:C.muted,fontSize:13,fontWeight:600}}>
+                      — Clear slot
                     </div>
-                  ))}
+                    {roster.map(p=>{
+                      const cur=picking.isSub?(gpSubs[picking.zone]||[])[picking.idx]:activeLineup[picking.zone]?.[picking.idx];
+                      const inUse=picking.isSub
+                        ?(Object.values(gpSubs).flat().filter(Boolean).includes(p.id)&&cur!==p.id)
+                        :(usedIds.includes(p.id)&&cur!==p.id);
+                      return(
+                        <div key={p.id} onClick={()=>{picking.isSub?assignSubSlot(picking.zone,picking.idx,p.id):assignSlot(picking.zone,picking.idx,p.id);setPicking(null);}}
+                          style={{padding:"10px 14px",borderRadius:9,marginBottom:6,cursor:"pointer",
+                            background:inUse?C.surface:C.bg,border:`1px solid ${inUse?C.border:posColor(primaryPos(p))+"44"}`,
+                            opacity:inUse?.5:1,display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:30,height:30,borderRadius:7,background:posColor(primaryPos(p)),display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:14,flexShrink:0}}>{p.number}</div>
+                          <div style={{flex:1}}>
+                            <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
+                            <div style={{display:"flex",gap:4,marginTop:2}}>
+                              {allPos(p).map(pos=><span key={pos} style={{background:posColor(pos)+"22",color:posColor(pos),border:`1px solid ${posColor(pos)}44`,borderRadius:3,padding:"0 5px",fontSize:9,fontWeight:700}}>{pos}</span>)}
+                            </div>
+                          </div>
+                          {inUse&&<span style={{color:C.muted,fontSize:10}}>In use</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* ── Right column: SUBS sidebar ── */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>SUBS</div>
-            </div>
-            <div style={{overflowY:"auto",flex:1}}>
-              {(()=>{
-                const GP_SIDEBAR={
-                  "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
-                  "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
-                  "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "4-1-4-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"LM"},{z:"MID",i:2,lbl:"LCM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"}],
-                };
-                const slots=(GP_SIDEBAR[plan.formation]||GP_SIDEBAR["4-3-3"]);
-                const zc2={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
-                return slots.map(function(slot,si){
-                  const starterPid=(plan.lineup[slot.z]||[])[slot.i]||null;
-                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
-                  const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
-                  const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
-                  const zcolor=zc2[slot.z]||C.accent;
-                  return(
-                    <div key={si} style={{padding:"8px 12px",borderBottom:`1px solid ${C.border}`,
-                      background:si%2===0?C.bg:C.surface}}>
-                      <div style={{color:zcolor,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>{slot.lbl}</div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-                        <div style={{width:4,height:4,borderRadius:"50%",background:starter?zcolor:C.border,flexShrink:0}}/>
-                        <div style={{color:starter?C.text:C.muted,fontSize:11,fontWeight:starter?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {starter?`#${starter.number} ${starter.name}`:"—"}
-                        </div>
-                      </div>
-                      <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
-                        style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",padding:"2px 4px",borderRadius:4}}>
-                        <div style={{width:4,height:4,borderRadius:2,background:sub?"#26a69a":C.border,flexShrink:0}}/>
-                        <div style={{color:sub?"#26a69a":C.muted,fontSize:10,fontWeight:sub?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:sub?"normal":"italic"}}>
-                          {sub?`#${sub.number} ${sub.name}`:"+ add sub"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        </div>}
+            {/* ── Pitch + SUBS sidebar ── */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 200px",gap:12}}>
 
-        {/* ── Notes row below lineup ── */}
-        {gpTab==="gameplan"&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginTop:14}}>
-            {/* ── Lineup card: starter + sub per position ── */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:0}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:12}}>
-                LINEUP — {plan.formation}
-              </div>
-              {(()=>{
-                const GP_FSLOTS2={
-                  "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
-                  "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
-                  "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                  "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
-                };
-                const slots2=GP_FSLOTS2[plan.formation]||GP_FSLOTS2["4-3-3"];
-                const ZC={"GK":"#ffb300","DEF":"#42a5f5","MID":"#ff6b00","FWD":"#e53935"};
-                return slots2.map(function(slot,si){
-                  const starterPid=(plan.lineup[slot.z]||[])[slot.i]||null;
-                  const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
-                  const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
-                  const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
-                  const zc=ZC[slot.z]||C.accent;
-                  const spc=starter?posColor(primaryPos(starter)):null;
-                  const subpc=sub?posColor(primaryPos(sub)):null;
-                  return(
-                    <div key={si} style={{display:"flex",alignItems:"stretch",
-                      marginBottom:4,borderRadius:8,overflow:"hidden",
-                      border:`1px solid ${C.border}`}}>
-                      <div style={{width:32,background:zc+"18",display:"flex",alignItems:"center",
-                        justifyContent:"center",flexShrink:0,borderRight:`1px solid ${C.border}`}}>
-                        <span style={{color:zc,fontSize:9,fontWeight:700}}>{slot.lbl}</span>
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i})}
-                          style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",
-                            cursor:"pointer",borderBottom:`1px solid ${C.border}`,
-                            background:C.surface}}
-                          onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
-                          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                          {starter?(
-                            <>
-                              <div style={{width:20,height:20,borderRadius:4,flexShrink:0,
-                                background:spc,display:"flex",alignItems:"center",
-                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
-                                fontWeight:900,color:"#fff",fontSize:9}}>
-                                {starter.number}
-                              </div>
-                              <span style={{color:C.text,fontSize:12,fontWeight:600,
-                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                                {starter.name.split(" ").pop()}
-                              </span>
-                            </>
-                          ):(
-                            <span style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>+ starter</span>
-                          )}
-                        </div>
-                        <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
-                          style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",
-                            cursor:"pointer",background:"transparent"}}
-                          onMouseEnter={e=>e.currentTarget.style.background=C.accent+"0a"}
-                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <span style={{color:C.muted,fontSize:10,minWidth:14}}>↳</span>
-                          {sub?(
-                            <>
-                              <div style={{width:16,height:16,borderRadius:3,flexShrink:0,
-                                background:subpc,display:"flex",alignItems:"center",
-                                justifyContent:"center",fontFamily:"'Oswald',sans-serif",
-                                fontWeight:900,color:"#fff",fontSize:8}}>
-                                {sub.number}
-                              </div>
-                              <span style={{color:C.muted,fontSize:11,
-                                flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                                {sub.name.split(" ").pop()}
-                              </span>
-                            </>
-                          ):(
-                            <span style={{color:C.muted,fontSize:10,opacity:.5,fontStyle:"italic"}}>sub...</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-
-            {/* Sub plan */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>SUBSTITUTION PLAN</div>
-                <button onClick={addSub} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                  <Plus size={12}/>Add Sub
-                </button>
-              </div>
-              {plan.subs.length===0
-                ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No substitutions planned yet</div>
-                :plan.subs.map(sub=>(
-                  <div key={sub.id} style={{background:C.bg,borderRadius:10,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                      <select value={sub.minute} onChange={e=>updateSub(sub.id,"minute",e.target.value)} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        {["45-55","55-65","60-70","65-75","70-80","75-85","80-90"].map(m=><option key={m} value={m}>{m}'</option>)}
-                      </select>
-                      <select value={sub.condition} onChange={e=>updateSub(sub.id,"condition",e.target.value)} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        {["Regardless","If Winning","If Drawing","If Losing","If Chasing"].map(c=><option key={c}>{c}</option>)}
-                      </select>
-                      <button onClick={()=>removeSub(sub.id)} style={{marginLeft:"auto",background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
-                    </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <span style={{color:C.accent,fontSize:12,fontWeight:700,flexShrink:0}}>ON</span>
-                      <select value={sub.playerOn||""} onChange={e=>updateSub(sub.id,"playerOn",e.target.value||null)} style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        <option value="">Select player</option>
-                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
-                      </select>
-                    </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <span style={{color:C.danger,fontSize:12,fontWeight:700,flexShrink:0}}>OFF</span>
-                      <select value={sub.playerOff||""} onChange={e=>updateSub(sub.id,"playerOff",e.target.value||null)} style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        <option value="">Select player</option>
-                        {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-            {/* Opposition notes */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>OPPOSITION NOTES</div>
-              {[["threats","Key Threats"],["setPieces","Set Pieces"],["pressing","Pressing Style"]].map(([key,label])=>(
-                <div key={key} style={{marginBottom:10}}>
-                  <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
-                  <input value={plan.oppNotes[key]||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,[key]:e.target.value}}))}
-                    placeholder={`e.g. ${key==="threats"?"Fast #9, strong in the air":key==="setPieces"?"Near post corners":"Press high, trigger = GK"}`}
-                    style={{width:"100%",padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+              {/* Pitch */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:12}}>
+                  STARTING XI — {activeFormation}
                 </div>
-              ))}
-              <div>
-                <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>ADDITIONAL NOTES</label>
-                <textarea value={plan.oppNotes.notes||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,notes:e.target.value}}))}
-                  rows={3} placeholder="Other notes about the opposition..."
-                  style={{width:"100%",padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",resize:"vertical",boxSizing:"border-box"}}/>
+                {(()=>{
+                  const GP_FSLOTS={
+                    "4-3-3":  [{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},{zone:"MID",idx:1,lbl:"CM",x:50,y:43},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},{zone:"FWD",idx:0,lbl:"LW",x:16,y:22},{zone:"FWD",idx:1,lbl:"ST",x:50,y:14},{zone:"FWD",idx:2,lbl:"RW",x:84,y:22}],
+                    "4-4-2":  [{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"LM",x:12,y:48},{zone:"MID",idx:1,lbl:"LCM",x:38,y:46},{zone:"MID",idx:2,lbl:"RCM",x:62,y:46},{zone:"MID",idx:3,lbl:"RM",x:88,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},{zone:"FWD",idx:1,lbl:"ST",x:66,y:16}],
+                    "4-2-3-1":[{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:34,y:56},{zone:"MID",idx:1,lbl:"CDM",x:66,y:56},{zone:"MID",idx:2,lbl:"LAM",x:16,y:36},{zone:"MID",idx:3,lbl:"CAM",x:50,y:32},{zone:"MID",idx:4,lbl:"RAM",x:84,y:36},{zone:"FWD",idx:0,lbl:"ST",x:50,y:14}],
+                    "3-5-2":  [{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LCB",x:22,y:72},{zone:"DEF",idx:1,lbl:"CB",x:50,y:75},{zone:"DEF",idx:2,lbl:"RCB",x:78,y:72},{zone:"MID",idx:0,lbl:"LWM",x:8,y:50},{zone:"MID",idx:1,lbl:"LCM",x:30,y:46},{zone:"MID",idx:2,lbl:"CM",x:50,y:44},{zone:"MID",idx:3,lbl:"RCM",x:70,y:46},{zone:"MID",idx:4,lbl:"RWM",x:92,y:50},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},{zone:"FWD",idx:1,lbl:"ST",x:66,y:16}],
+                    "5-3-2":  [{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:8,y:68},{zone:"DEF",idx:1,lbl:"LCB",x:28,y:72},{zone:"DEF",idx:2,lbl:"CB",x:50,y:74},{zone:"DEF",idx:3,lbl:"RCB",x:72,y:72},{zone:"DEF",idx:4,lbl:"RB",x:92,y:68},{zone:"MID",idx:0,lbl:"LCM",x:22,y:48},{zone:"MID",idx:1,lbl:"CM",x:50,y:44},{zone:"MID",idx:2,lbl:"RCM",x:78,y:48},{zone:"FWD",idx:0,lbl:"ST",x:34,y:16},{zone:"FWD",idx:1,lbl:"ST",x:66,y:16}],
+                    "4-1-4-1":[{zone:"GK",idx:0,lbl:"GK",x:50,y:88},{zone:"DEF",idx:0,lbl:"LB",x:12,y:70},{zone:"DEF",idx:1,lbl:"LCB",x:35,y:74},{zone:"DEF",idx:2,lbl:"RCB",x:65,y:74},{zone:"DEF",idx:3,lbl:"RB",x:88,y:70},{zone:"MID",idx:0,lbl:"CDM",x:50,y:56},{zone:"MID",idx:1,lbl:"LM",x:12,y:40},{zone:"MID",idx:2,lbl:"LCM",x:36,y:38},{zone:"MID",idx:3,lbl:"RCM",x:64,y:38},{zone:"MID",idx:4,lbl:"RM",x:88,y:40},{zone:"FWD",idx:0,lbl:"ST",x:50,y:14}],
+                  };
+                  const fslots=GP_FSLOTS[activeFormation]||GP_FSLOTS["4-3-3"];
+                  const ZCOL={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
+                  return(
+                    <div style={{position:"relative",width:"100%",paddingBottom:"130%",background:"#1a3a24",borderRadius:10,overflow:"visible"}}>
+                      <div style={{position:"absolute",inset:0,opacity:.12,backgroundImage:"linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",backgroundSize:"25% 12.5%"}}/>
+                      <div style={{position:"absolute",left:"10%",right:"10%",top:"45%",bottom:"2%",border:"1.5px solid rgba(255,255,255,.2)",borderRadius:2}}/>
+                      <div style={{position:"absolute",left:"37%",right:"37%",top:"85%",height:"13%",border:"1.5px solid rgba(255,255,255,.2)"}}/>
+                      {fslots.map(function(slot,si){
+                        const pid=(activeLineup[slot.zone]||[])[slot.idx]||null;
+                        const p=pid?(roster||[]).find(pl=>pl.id===pid):null;
+                        const pc=p?posColor(primaryPos(p)):null;
+                        const isActive=picking&&picking.zone===slot.zone&&picking.idx===slot.idx&&!picking.isSub;
+                        const zcol=ZCOL[slot.zone]||C.accent;
+                        return(
+                          <div key={si} onClick={()=>setPicking({zone:slot.zone,idx:slot.idx})}
+                            style={{position:"absolute",left:slot.x+"%",top:slot.y+"%",
+                              transform:"translate(-50%,-50%)",width:48,height:48,borderRadius:"50%",
+                              background:p?pc+"44":"rgba(255,255,255,0.07)",
+                              border:`2px solid ${isActive?C.accent:p?pc:zcol+"55"}`,
+                              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                              cursor:"pointer",transition:"all .15s",
+                              boxShadow:isActive?"0 0 0 3px "+C.accent+"66":p?"0 2px 8px rgba(0,0,0,.4)":"none",zIndex:1}}>
+                            {p?(<>
+                              <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:14,lineHeight:1}}>{p.number||"#"}</div>
+                              <div style={{color:"rgba(255,255,255,.75)",fontSize:7,fontWeight:700,marginTop:1,textAlign:"center",maxWidth:44,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>{p.name.split(" ").pop()}</div>
+                            </>):(
+                              <div style={{color:zcol+"99",fontSize:8,fontWeight:700,textAlign:"center",lineHeight:1.2}}>{slot.lbl}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* SUBS sidebar */}
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+                <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5}}>SUBS</div>
+                </div>
+                <div style={{flex:1,overflowY:"auto"}}>
+                  {(()=>{
+                    const SB={
+                      "4-3-3":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"LW"},{z:"FWD",i:1,lbl:"ST"},{z:"FWD",i:2,lbl:"RW"}],
+                      "4-4-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"LM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"RCM"},{z:"MID",i:3,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                      "4-2-3-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"CDM"},{z:"MID",i:2,lbl:"LAM"},{z:"MID",i:3,lbl:"CAM"},{z:"MID",i:4,lbl:"RAM"},{z:"FWD",i:0,lbl:"ST"}],
+                      "3-5-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LCB"},{z:"DEF",i:1,lbl:"CB"},{z:"DEF",i:2,lbl:"RCB"},{z:"MID",i:0,lbl:"LWM"},{z:"MID",i:1,lbl:"LCM"},{z:"MID",i:2,lbl:"CM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RWM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                      "5-3-2":  [{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"CB"},{z:"DEF",i:3,lbl:"RCB"},{z:"DEF",i:4,lbl:"RB"},{z:"MID",i:0,lbl:"LCM"},{z:"MID",i:1,lbl:"CM"},{z:"MID",i:2,lbl:"RCM"},{z:"FWD",i:0,lbl:"ST"},{z:"FWD",i:1,lbl:"ST"}],
+                      "4-1-4-1":[{z:"GK",i:0,lbl:"GK"},{z:"DEF",i:0,lbl:"LB"},{z:"DEF",i:1,lbl:"LCB"},{z:"DEF",i:2,lbl:"RCB"},{z:"DEF",i:3,lbl:"RB"},{z:"MID",i:0,lbl:"CDM"},{z:"MID",i:1,lbl:"LM"},{z:"MID",i:2,lbl:"LCM"},{z:"MID",i:3,lbl:"RCM"},{z:"MID",i:4,lbl:"RM"},{z:"FWD",i:0,lbl:"ST"}],
+                    };
+                    const sbSlots=(SB[activeFormation]||SB["4-3-3"]);
+                    const ZC2={GK:"#ffb300",DEF:"#42a5f5",MID:"#66bb6a",FWD:"#ff6b00"};
+                    return sbSlots.map(function(slot,si){
+                      const starterPid=(activeLineup[slot.z]||[])[slot.i]||null;
+                      const subPid=(gpSubs[slot.z]||[])[slot.i]||null;
+                      const starter=starterPid?(roster||[]).find(p=>p.id===starterPid):null;
+                      const sub=subPid?(roster||[]).find(p=>p.id===subPid):null;
+                      const zcolor=ZC2[slot.z]||C.accent;
+                      return(
+                        <div key={si} style={{padding:"7px 10px",borderBottom:`1px solid ${C.border}`,background:si%2===0?C.bg:C.surface}}>
+                          <div style={{color:zcolor,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:3}}>{slot.lbl}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
+                            <div style={{width:4,height:4,borderRadius:"50%",background:starter?zcolor:C.border,flexShrink:0}}/>
+                            <div style={{color:starter?C.text:C.muted,fontSize:11,fontWeight:starter?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                              {starter?`#${starter.number} ${starter.name}`:"—"}
+                            </div>
+                          </div>
+                          <div onClick={()=>setPicking({zone:slot.z,idx:slot.i,isSub:true})}
+                            style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",padding:"1px 3px",borderRadius:4}}>
+                            <div style={{width:4,height:4,borderRadius:2,background:sub?"#26a69a":C.border,flexShrink:0}}/>
+                            <div style={{color:sub?"#26a69a":C.muted,fontSize:10,fontWeight:sub?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:sub?"normal":"italic"}}>
+                              {sub?`#${sub.number} ${sub.name}`:"+ add sub"}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
             </div>
-            {/* Match instructions */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
-              <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>MATCH INSTRUCTIONS</div>
-              <textarea value={plan.instructions||""} onChange={e=>updatePlan(()=>({instructions:e.target.value}))}
-                rows={8} placeholder="Team instructions, tactical focus, set piece routines..."
-                style={{width:"100%",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+
+            {/* ── Bench horizontal strip ── */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:1}}>BENCH ({benchRoster.length})</div>
+                {excludedRoster.length>0&&(
+                  <button onClick={()=>updatePlan(p=>({benchExcluded:[]}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:10,fontWeight:600}}>
+                    Restore all ({excludedRoster.length})
+                  </button>
+                )}
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {benchRoster.length===0&&excludedRoster.length===0
+                  ?<span style={{color:C.muted,fontSize:12}}>All players assigned</span>
+                  :benchRoster.map(p=>{
+                    const pc=posColor(primaryPos(p));
+                    return(
+                      <div key={p.id} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>
+                        <div style={{width:20,height:20,borderRadius:4,background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:700,color:"#fff",fontSize:9,flexShrink:0}}>{p.number}</div>
+                        <span style={{color:C.text,fontSize:11,fontWeight:500}}>{p.name.split(" ").pop()}</span>
+                        <span style={{color:C.muted,fontSize:9}}>{displayPos(primaryPos(p))}</span>
+                        <button onClick={()=>updatePlan(p2=>({benchExcluded:[...(p2.benchExcluded||[]),p.id]}))} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,lineHeight:1,padding:"0 2px",opacity:.5}}>×</button>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+              {excludedRoster.length>0&&(
+                <div style={{marginTop:8}}>
+                  <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}}>NOT AVAILABLE</div>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {excludedRoster.map(p=>(
+                      <div key={p.id} onClick={()=>updatePlan(p2=>({benchExcluded:(p2.benchExcluded||[]).filter(id=>id!==p.id)}))}
+                        style={{padding:"3px 8px",background:C.surface,border:`1px dashed ${C.border}`,borderRadius:6,display:"flex",alignItems:"center",gap:4,cursor:"pointer",opacity:.5}}>
+                        <span style={{color:C.muted,fontSize:10,textDecoration:"line-through"}}>{p.name.split(" ")[1]||p.name}</span>
+                        <span style={{color:C.accent,fontSize:9}}>+</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* ── Notes row ── */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1}}>SUBSTITUTION PLAN</div>
+                  <button onClick={addSub} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:7,color:C.accent,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                    <Plus size={12}/>Add Sub
+                  </button>
+                </div>
+                {plan.subs.length===0
+                  ?<div style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No substitutions planned yet</div>
+                  :plan.subs.map(sub=>(
+                    <div key={sub.id} style={{background:C.bg,borderRadius:10,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                        <select value={sub.minute} onChange={e=>updateSub(sub.id,"minute",e.target.value)} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          {["45-55","55-65","60-70","65-75","70-80","75-85","80-90"].map(m=><option key={m} value={m}>{m}'</option>)}
+                        </select>
+                        <select value={sub.condition} onChange={e=>updateSub(sub.id,"condition",e.target.value)} style={{padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          {["Regardless","If Winning","If Drawing","If Losing","If Chasing"].map(c=><option key={c}>{c}</option>)}
+                        </select>
+                        <button onClick={()=>removeSub(sub.id)} style={{marginLeft:"auto",background:"none",border:"none",color:C.muted,cursor:"pointer"}}><X size={13}/></button>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{color:C.accent,fontSize:12,fontWeight:700,flexShrink:0}}>ON</span>
+                        <select value={sub.playerOn||""} onChange={e=>updateSub(sub.id,"playerOn",e.target.value||null)} style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          <option value="">Select player</option>
+                          {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                        </select>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{color:C.danger,fontSize:12,fontWeight:700,flexShrink:0}}>OFF</span>
+                        <select value={sub.playerOff||""} onChange={e=>updateSub(sub.id,"playerOff",e.target.value||null)} style={{flex:1,padding:"5px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          <option value="">Select player</option>
+                          {roster.map(p=><option key={p.id} value={p.id}>{p.name} #{p.number}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:14}}>OPPOSITION NOTES</div>
+                {[["threats","Key Threats"],["setPieces","Set Pieces"],["pressing","Pressing Style"]].map(([key,label])=>(
+                  <div key={key} style={{marginBottom:10}}>
+                    <label style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:.5,display:"block",marginBottom:4}}>{label.toUpperCase()}</label>
+                    <input value={plan.oppNotes[key]||""} onChange={e=>updatePlan(p=>({oppNotes:{...p.oppNotes,[key]:e.target.value}}))}
+                      placeholder={`e.g. ${key==="threats"?"Fast #9, strong in the air":key==="setPieces"?"Near post corners":"Press high, trigger = GK"}`}
+                      style={{width:"100%",padding:"8px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}>
+                <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>MATCH INSTRUCTIONS</div>
+                <textarea value={plan.instructions||""} onChange={e=>updatePlan(()=>({instructions:e.target.value}))}
+                  rows={7} placeholder="Team instructions, tactical focus, set piece routines..."
+                  style={{width:"100%",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+
           </div>
         )}
-
-
 
         {/* ── SCOUT REPORT TAB ────────────────────────────────── */}
         {gpTab==="scout"&&(
