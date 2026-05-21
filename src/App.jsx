@@ -13369,12 +13369,31 @@ function PlayerProfilePage(){
           break;
         }
       }
+      const foundTeamId = found ? (function(){
+        for(var i=0;i<(data||[]).length;i++){
+          if((data[i].players||[]).some(function(p){return p.id===playerId;})) return data[i].team_id;
+        }
+        return null;
+      })() : null;
       if(!found){ setError("Player not found."); setLoading(false); return; }
       // Check PIN
       const playerPin = found.profilePin||"";
       if(playerPin && pin !== playerPin){ setError("Incorrect PIN. Try again."); setLoading(false); return; }
       setProfile({player:found, games:foundGames});
       setUnlocked(true);
+      // Log visit (fire-and-forget)
+      if(found.id && foundTeamId){
+        fetch(SUPABASE_URL+"/rest/v1/player_visits",{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            "apikey":SUPABASE_KEY,
+            "Authorization":"Bearer "+SUPABASE_KEY,
+            "Prefer":"return=minimal"
+          },
+          body:JSON.stringify({player_id:found.id,team_id:foundTeamId})
+        }).catch(function(){});
+      }
     }catch(e){
       setError("Could not load profile. Check your connection.");
     }
