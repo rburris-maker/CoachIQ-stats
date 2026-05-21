@@ -3642,64 +3642,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
       )}
 
       {/* Attendance */}
-      {(()=>{
-        const donePractices=(practices||[]).filter(function(p){
-          return Object.keys(p.attendance||{}).length>0;
-        });
-        if(!donePractices.length) return null;
-        const attStats=(roster||[]).map(function(p){
-          var present=0,absent=0,total=0;
-          donePractices.forEach(function(s){
-            var att=s.attendance||{};
-            if(att[p.id]!==undefined){
-              total++;
-              if(att[p.id]==="present") present++;
-              else if(att[p.id]==="absent") absent++;
-            }
-          });
-          if(!total) return null;
-          return {player:p,present,absent,total};
-        }).filter(Boolean)
-          .sort(function(a,b){ return a.absent-b.absent||(b.present-a.present); });
-        if(!attStats.length) return null;
-        return(
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
-            padding:"18px 20px",marginBottom:20}}>
-            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>
-              ATTENDANCE — {donePractices.length} SESSION{donePractices.length!==1?"S":""}
-            </div>
-            <div style={{display:"grid",
-              gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
-              {attStats.map(function(x){
-                const pc=posColor(primaryPos(x.player));
-                const col=x.absent===0?"#27a560":x.absent<=2?C.warning:C.danger;
-                return(
-                  <div key={x.player.id} style={{display:"flex",alignItems:"center",
-                    gap:8,padding:"8px 10px",background:C.surface,borderRadius:8,
-                    border:`1px solid ${C.border}`}}>
-                    <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
-                      background:pc,border:"none",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:11}}>
-                      {x.player.number}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{color:C.text,fontSize:12,fontWeight:600,
-                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {x.player.name.split(" ").pop()}
-                      </div>
-                    </div>
-                    <div style={{color:col,fontWeight:700,fontSize:12,
-                      fontFamily:"'Oswald',sans-serif",flexShrink:0}}>
-                      {x.present}/{x.total}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
+      <AttendanceCard practices={practices} roster={roster}/>
 
             {/* Top players */}
       {topPlayers.length>0&&(
@@ -3742,6 +3685,107 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
       {/* ── Profile Views ── */}
       <ProfileViewsCard safeTeamId={safeTeamId} roster={roster}/>
 
+    </div>
+  );
+}
+
+function AttendanceCard({practices, roster}){
+  const [expanded, setExpanded] = useState(false);
+
+  const donePractices=(practices||[]).filter(function(p){
+    return Object.keys(p.attendance||{}).length>0;
+  });
+  if(!donePractices.length) return null;
+
+  const attStats=(roster||[]).map(function(p){
+    var present=0,absent=0,total=0;
+    donePractices.forEach(function(s){
+      var att=s.attendance||{};
+      if(att[p.id]!==undefined){
+        total++;
+        if(att[p.id]==="present") present++;
+        else if(att[p.id]==="absent") absent++;
+      }
+    });
+    if(!total) return null;
+    return {player:p,present,absent,total,pct:Math.round(present/total*100)};
+  }).filter(Boolean).sort(function(a,b){ return a.absent-b.absent||(b.present-a.present); });
+
+  if(!attStats.length) return null;
+
+  const avgPct=Math.round(attStats.reduce(function(a,x){return a+x.pct;},0)/attStats.length);
+  const flagged=attStats.filter(function(x){return x.absent>2;}).length;
+  const perfect=attStats.filter(function(x){return x.absent===0;}).length;
+
+  return(
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+      padding:"16px 20px",marginBottom:20}}>
+
+      {/* Summary row — always visible */}
+      <div style={{display:"flex",alignItems:"center",gap:0,cursor:"pointer"}}
+        onClick={function(){setExpanded(function(e){return !e;})}}>
+        <div style={{flex:1}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:8}}>
+            ATTENDANCE — {donePractices.length} SESSION{donePractices.length!==1?"S":""}
+          </div>
+          <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
+            <div>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{avgPct}%</div>
+              <div style={{color:C.muted,fontSize:11}}>Avg attendance</div>
+            </div>
+            <div>
+              <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{perfect}</div>
+              <div style={{color:C.muted,fontSize:11}}>Perfect attendance</div>
+            </div>
+            <div>
+              <div style={{color:flagged>0?C.danger:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{flagged}</div>
+              <div style={{color:C.muted,fontSize:11}}>Players flagged (3+ absences)</div>
+            </div>
+          </div>
+        </div>
+        <div style={{color:C.muted,fontSize:20,marginLeft:12,transition:"transform .2s",
+          transform:expanded?"rotate(180deg)":"rotate(0deg)"}}>⌄</div>
+      </div>
+
+      {/* Expanded grid */}
+      {expanded&&(
+        <div style={{marginTop:16,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+          <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+            PLAYER BREAKDOWN
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+            {attStats.map(function(x){
+              const pc=posColor(primaryPos(x.player));
+              const col=x.absent===0?"#27a560":x.absent<=2?C.warning:C.danger;
+              return(
+                <div key={x.player.id} style={{display:"flex",alignItems:"center",
+                  gap:8,padding:"9px 10px",background:C.surface,borderRadius:8,
+                  border:`1px solid ${x.absent>2?C.danger+"44":C.border}`}}>
+                  <div style={{width:26,height:26,borderRadius:5,flexShrink:0,
+                    background:pc,display:"flex",alignItems:"center",justifyContent:"center",
+                    fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:11}}>
+                    {x.player.number}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:C.text,fontSize:12,fontWeight:600,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {x.player.name.split(" ").pop()}
+                    </div>
+                    <div style={{height:3,background:C.border,borderRadius:2,marginTop:3}}>
+                      <div style={{height:3,background:col,borderRadius:2,width:x.pct+"%"}}/>
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{color:col,fontWeight:700,fontSize:13,
+                      fontFamily:"'Oswald',sans-serif"}}>{x.present}/{x.total}</div>
+                    <div style={{color:C.muted,fontSize:9}}>{x.pct}%</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
