@@ -15127,6 +15127,15 @@ function PlayerPortalPage(){
         if(!found){setError("Player not found.");setLoading(false);return;}
         setPlayer(Object.assign({},found,{teamId:tid}));
         setWkLog(found.workoutLog||{});
+        // Log visit (fire-and-forget — don't block load)
+        if(found.id&&tid){
+          fetch(SUPABASE_URL+"/rest/v1/player_visits",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,
+              "Authorization":"Bearer "+SUPABASE_KEY,"Prefer":"return=minimal"},
+            body:JSON.stringify({player_id:found.id,team_id:tid})
+          }).catch(function(){});
+        }
         setPhotoUrl(found.photoUrl||"");
         setVideos(found.videoLinks||[]);
         var {data:teams} = await supabase.from("teams").select("name").eq("id",tid);
