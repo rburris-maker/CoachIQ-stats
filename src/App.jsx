@@ -3570,7 +3570,7 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
 }
 
 
-function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
+function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Season analytics and reports">{null}</ProGate>;
 
   const done = (games||[]).filter(g=>g.status==="completed");
@@ -3736,6 +3736,145 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade}){
           <div style={{fontSize:36,marginBottom:12}}>📊</div>
           <div style={{fontWeight:700,fontSize:16,marginBottom:6}}>No data yet</div>
           <div style={{fontSize:13}}>Log some games to see analytics</div>
+        </div>
+      )}
+
+      {/* ── Profile Views ── */}
+      <ProfileViewsCard safeTeamId={safeTeamId} roster={roster}/>
+
+    </div>
+  );
+}
+
+function ProfileViewsCard({safeTeamId, roster}){
+  const [expanded,  setExpanded]  = useState(false);
+  const [visits,    setVisits]    = useState(null);
+  const [loading,   setLoading]   = useState(false);
+
+  useEffect(function(){
+    if(!safeTeamId) return;
+    setLoading(true);
+    fetch(SUPABASE_URL+"/rest/v1/player_visits?team_id=eq."+safeTeamId+"&select=player_id,visited_at&order=visited_at.desc&limit=500",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+    })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      setVisits(Array.isArray(data)?data:[]);
+      setLoading(false);
+    })
+    .catch(function(){setVisits([]);setLoading(false);});
+  },[safeTeamId]);
+
+  if(loading||visits===null){
+    return(
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px 20px",marginTop:16,opacity:.6}}>
+        <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2}}>PROFILE VIEWS</div>
+        <div style={{color:C.muted,fontSize:13,marginTop:6}}>Loading…</div>
+      </div>
+    );
+  }
+
+  // Aggregate by player
+  const byPlayer={};
+  var lastVisit=null;
+  (visits||[]).forEach(function(v){
+    if(!byPlayer[v.player_id]) byPlayer[v.player_id]={count:0,last:v.visited_at};
+    byPlayer[v.player_id].count++;
+    if(!lastVisit||v.visited_at>lastVisit) lastVisit=v.visited_at;
+  });
+  const totalViews=visits.length;
+  const uniquePlayers=Object.keys(byPlayer).length;
+  const lastDate=lastVisit?new Date(lastVisit).toLocaleDateString("en-US",{month:"short",day:"numeric"}):null;
+
+  // Last 30 days activity
+  const now=Date.now();
+  const days30=30*24*60*60*1000;
+  const recent=visits.filter(function(v){return (now-new Date(v.visited_at).getTime())<days30;});
+
+  // Ranked list
+  const ranked=(roster||[]).map(function(p){
+    var d=byPlayer[p.id];
+    if(!d) return null;
+    return {player:p,count:d.count,last:d.last};
+  }).filter(Boolean).sort(function(a,b){return b.count-a.count;});
+
+  return(
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"16px 20px",marginTop:16}}>
+      {/* Summary row — always visible */}
+      <div style={{display:"flex",alignItems:"center",gap:0,cursor:"pointer"}}
+        onClick={function(){setExpanded(function(e){return !e;})}}>
+        <div style={{flex:1}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:8}}>PROFILE VIEWS</div>
+          <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
+            <div>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{totalViews}</div>
+              <div style={{color:C.muted,fontSize:11}}>Total views</div>
+            </div>
+            <div>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{uniquePlayers}</div>
+              <div style={{color:C.muted,fontSize:11}}>Players viewed</div>
+            </div>
+            <div>
+              <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{recent.length}</div>
+              <div style={{color:C.muted,fontSize:11}}>Views (last 30d)</div>
+            </div>
+            {lastDate&&(
+              <div>
+                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:28}}>{lastDate}</div>
+                <div style={{color:C.muted,fontSize:11}}>Last viewed</div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{color:C.muted,fontSize:20,marginLeft:12,transition:"transform .2s",
+          transform:expanded?"rotate(180deg)":"rotate(0deg)"}}>⌄</div>
+      </div>
+
+      {/* Expanded breakdown */}
+      {expanded&&(
+        <div style={{marginTop:18,borderTop:`1px solid ${C.border}`,paddingTop:16}}>
+          {ranked.length===0?(
+            <div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>
+              No profile views recorded yet. Views are logged when players open their portal link.
+            </div>
+          ):(
+            <>
+              <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}}>
+                VIEWS BY PLAYER
+              </div>
+              {ranked.map(function(item,i){
+                const pc=posColor(primaryPos(item.player));
+                const pct=Math.round(item.count/totalViews*100);
+                const lastD=new Date(item.last).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+                return(
+                  <div key={item.player.id} style={{display:"flex",alignItems:"center",gap:10,
+                    padding:"8px 0",borderBottom:i<ranked.length-1?`1px solid ${C.border}`:"none"}}>
+                    <div style={{width:22,height:22,borderRadius:5,background:pc,flexShrink:0,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"'Oswald',sans-serif",fontWeight:900,color:"#fff",fontSize:10}}>
+                      {item.player.number}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:C.text,fontWeight:600,fontSize:13,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {item.player.name}
+                      </div>
+                      <div style={{height:4,background:C.border,borderRadius:3,marginTop:4}}>
+                        <div style={{height:4,background:C.accent,borderRadius:3,width:pct+"%",transition:"width .4s"}}/>
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:14}}>{item.count}</div>
+                      <div style={{color:C.muted,fontSize:10}}>Last: {lastD}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{marginTop:14,color:C.muted,fontSize:11,textAlign:"center"}}>
+                Views are anonymous — no personal data is collected about visitors.
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -7680,7 +7819,7 @@ export default function CoachIQStats(){
             }}/>}
             {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)} gamePlans={gamePlans} livePreload={livePreload} onClearPreload={()=>setLivePreload(null)}/>}
-            {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)}/>}
+            {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} safeTeamId={safeTeamId}/>}
             {view==="settings"&&!isCoCoach&&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
             {view==="roster"    &&<RosterView    players={roster} setPlayers={setRoster} teamName={activeTeam?.name} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} games={games} practices={practices}/>}
             {view==="gameplan"  &&<GamePlanView  gamePlans={gamePlans} setGamePlans={setGamePlans} games={games} roster={roster} opponents={opponents} setOpponents={setOpponents} lineups={lineups} setLivePreload={setLivePreload} setView={setView}/>}
