@@ -10936,7 +10936,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                           style={{flex:1,padding:"9px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,fontWeight:700,fontSize:13,cursor:"pointer"}}>
                           Use → Schedule
                         </button>
-                        <button onClick={()=>{setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(plan.blocks||EMPTY_BLOCKS())),focus:plan.focus||"Mixed",duration:plan.duration||"60",objectives:plan.objectives||""}));setCreating(true);}}
+                        <button onClick={()=>{setForm({title:plan.name,date:"",duration:plan.duration||"60",focus:plan.focus||"Mixed",objectives:plan.objectives||"",linkedGame:"",blocks:JSON.parse(JSON.stringify(plan.blocks||EMPTY_BLOCKS()))});setEditPlanId(plan.id);setCreating("plan");}}
                           style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
                           Edit
                         </button>
