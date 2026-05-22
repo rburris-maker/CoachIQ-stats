@@ -9591,6 +9591,201 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
   );
 }
 
+
+function DrillDiagramEditor({initialData, onSave, onClose}){
+  const DW=580, DH=390;
+  const cvRef=useRef(null);
+  const D=useRef({
+    objects:(initialData?.objects||[]).map(o=>({...o})),
+    lines:(initialData?.lines||[]).map(l=>({...l})),
+    zones:(initialData?.zones||[]).map(z=>({...z})),
+    half:initialData?.half||false, size:14, tool:'select',
+    selected:null, history:[], counters:{red:1,blue:1,yellow:1},
+    drag:null, dragOx:0, dragOy:0,
+    lineStart:null, zoneStart:null, mx:0, my:0
+  });
+  const [ui,setUi]=useState({tool:'select',half:false,size:14,histLen:0,selected:null});
+  const sync=()=>setUi({tool:D.current.tool,half:D.current.half,size:D.current.size,histLen:D.current.history.length,selected:D.current.selected});
+  const PC={red:{fill:'#e53935',text:'#fff'},blue:{fill:'#1565C0',text:'#fff'},yellow:{fill:'#f9a825',text:'#111'}};
+  const LS={pass:{d:false,w:false,c:'#fff',lw:2},run:{d:true,w:false,c:'#ffd600',lw:2},dribble:{d:false,w:true,c:'#69f0ae',lw:2.5},shot:{d:false,w:false,c:'#ff5252',lw:2.5}};
+
+  function pushH(){D.current.history=[...D.current.history.slice(-19),{objects:JSON.parse(JSON.stringify(D.current.objects)),lines:JSON.parse(JSON.stringify(D.current.lines)),zones:JSON.parse(JSON.stringify(D.current.zones))}];}
+  function undo(){if(!D.current.history.length)return;const p=D.current.history.pop();D.current.objects=p.objects;D.current.lines=p.lines;D.current.zones=p.zones;D.current.selected=null;draw();sync();}
+  function setDTool(t){D.current.tool=t;D.current.lineStart=null;D.current.zoneStart=null;sync();}
+  function setHalf(v){D.current.half=v;draw();sync();}
+  function changeSize(d){D.current.size=Math.max(8,Math.min(22,D.current.size+d));sync();}
+  function clearAll(){pushH();D.current.objects=[];D.current.lines=[];D.current.zones=[];D.current.selected=null;D.current.counters={red:1,blue:1,yellow:1};draw();sync();}
+
+  function getPos(e){const r=cvRef.current.getBoundingClientRect(),sx=DW/r.width,sy=DH/r.height;const cl=e.touches?e.touches[0]:e;return{x:(cl.clientX-r.left)*sx,y:(cl.clientY-r.top)*sy};}
+  function hitObj(x,y){for(let i=D.current.objects.length-1;i>=0;i--){const o=D.current.objects[i];if(Math.hypot(x-o.x,y-o.y)<(o.size||D.current.size)+5)return o;}return null;}
+  function hitLine(x,y){for(let i=D.current.lines.length-1;i>=0;i--){const l=D.current.lines[i];if(Math.hypot(x-(l.x1+l.x2)/2,y-(l.y1+l.y2)/2)<18)return l;}return null;}
+
+  function dn(e){e.preventDefault();const{x,y}=getPos(e);const t=D.current.tool;
+    if(t==='select'){const o=hitObj(x,y);if(o){D.current.selected=o.id;D.current.drag=o.id;D.current.dragOx=x-o.x;D.current.dragOy=y-o.y;}else D.current.selected=null;draw();sync();return;}
+    if(t==='erase'){const o=hitObj(x,y);if(o){pushH();D.current.objects=D.current.objects.filter(oo=>oo.id!==o.id);draw();sync();return;}const l=hitLine(x,y);if(l){pushH();D.current.lines=D.current.lines.filter(ll=>ll.id!==l.id);draw();sync();}return;}
+    if(['pass','run','dribble','shot'].includes(t)){D.current.lineStart={x,y};return;}
+    if(['zone_circle','zone_rect'].includes(t)){D.current.zoneStart={x,y};return;}
+    pushH();
+    if(['red','blue','yellow'].includes(t)){D.current.objects.push({id:'o'+Date.now(),type:'player',color:t,x,y,label:String(D.current.counters[t]++),size:D.current.size});}
+    else if(t==='cone')D.current.objects.push({id:'o'+Date.now(),type:'cone',x,y,size:D.current.size});
+    else if(t==='ball')D.current.objects.push({id:'o'+Date.now(),type:'ball',x,y,size:D.current.size*0.75});
+    draw();sync();
+  }
+  function mv(e){e.preventDefault();const{x,y}=getPos(e);D.current.mx=x;D.current.my=y;
+    if(D.current.drag){const i=D.current.objects.findIndex(o=>o.id===D.current.drag);if(i>=0){D.current.objects[i].x=x-D.current.dragOx;D.current.objects[i].y=y-D.current.dragOy;}}
+    draw();
+  }
+  function up(e){e.preventDefault();const{x,y}=getPos(e);
+    if(D.current.drag){D.current.drag=null;draw();return;}
+    if(D.current.lineStart){if(Math.hypot(x-D.current.lineStart.x,y-D.current.lineStart.y)>10){pushH();D.current.lines.push({id:'l'+Date.now(),type:D.current.tool,x1:D.current.lineStart.x,y1:D.current.lineStart.y,x2:x,y2:y});}D.current.lineStart=null;draw();sync();return;}
+    if(D.current.zoneStart){const dx=x-D.current.zoneStart.x,dy=y-D.current.zoneStart.y;
+      if(Math.hypot(dx,dy)>15){pushH();const ZC=['#2196F3','#4CAF50','#FF9800','#9C27B0','#F44336'],col=ZC[D.current.zones.length%ZC.length];
+        if(D.current.tool==='zone_circle')D.current.zones.push({id:'z'+Date.now(),shape:'circle',x:D.current.zoneStart.x,y:D.current.zoneStart.y,rx:Math.abs(dx),ry:Math.abs(dy),color:col});
+        else{const nx=Math.min(D.current.zoneStart.x,x),ny=Math.min(D.current.zoneStart.y,y);D.current.zones.push({id:'z'+Date.now(),shape:'rect',x:nx,y:ny,w:Math.abs(dx),h:Math.abs(dy),color:col});}
+      }D.current.zoneStart=null;draw();sync();}
+  }
+
+  function draw(){
+    const canvas=cvRef.current;if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,DW,DH);
+    // Pitch
+    ctx.fillStyle='#1d6e2a';ctx.fillRect(0,0,DW,DH);
+    for(let i=0;i<8;i++){ctx.fillStyle=i%2===0?'rgba(255,255,255,.022)':'rgba(0,0,0,.03)';ctx.fillRect(i*(DW/8),0,DW/8,DH);}
+    ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;ctx.lineCap='round';
+    const half=D.current.half,ml=22,mt=18,fw=DW-ml*2,fh=DH-mt*2,cx=ml+fw/2,cy=mt+fh/2;
+    const pw=fw*.14,ph=fh*.53,gw=fw*.05,gh=fh*.28,lSpotX=ml+fw*.094,rSpotX=DW-ml-fw*.094;
+    ctx.strokeRect(ml,mt,fw,fh);
+    if(!half){
+      ctx.beginPath();ctx.moveTo(cx,mt);ctx.lineTo(cx,mt+fh);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,cy,fh*.17,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='white';ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fill();
+    }
+    // Left box
+    ctx.strokeRect(ml,cy-ph/2,pw,ph);ctx.strokeRect(ml,cy-gh/2,gw,gh);
+    ctx.strokeRect(ml-fw*.013,cy-fh*.11,fw*.013,fh*.22);
+    ctx.fillStyle='white';ctx.beginPath();ctx.arc(lSpotX,cy,3,0,Math.PI*2);ctx.fill();
+    ctx.save();ctx.beginPath();ctx.rect(ml+pw,0,DW,DH);ctx.clip();
+    ctx.beginPath();ctx.arc(lSpotX,cy,fh*.17,0,Math.PI*2);ctx.stroke();ctx.restore();
+    if(!half){
+      // Right box
+      ctx.strokeRect(DW-ml-pw,cy-ph/2,pw,ph);ctx.strokeRect(DW-ml-gw,cy-gh/2,gw,gh);
+      ctx.strokeRect(DW-ml,cy-fh*.11,fw*.013,fh*.22);
+      ctx.fillStyle='white';ctx.beginPath();ctx.arc(rSpotX,cy,3,0,Math.PI*2);ctx.fill();
+      ctx.save();ctx.beginPath();ctx.rect(0,0,DW-ml-pw,DH);ctx.clip();
+      ctx.beginPath();ctx.arc(rSpotX,cy,fh*.17,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
+    // Zones
+    D.current.zones.forEach(z=>{
+      ctx.save();ctx.globalAlpha=z.id===D.current.selected?.35:.18;ctx.fillStyle=z.color;ctx.strokeStyle=z.color;ctx.lineWidth=2;ctx.setLineDash([4,3]);
+      if(z.shape==='circle'){ctx.beginPath();ctx.ellipse(z.x,z.y,z.rx,z.ry,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.6;ctx.stroke();}
+      else{ctx.fillRect(z.x,z.y,z.w,z.h);ctx.globalAlpha=.6;ctx.strokeRect(z.x,z.y,z.w,z.h);}
+      ctx.restore();
+    });
+    // Lines
+    D.current.lines.forEach(l=>{
+      const s=LS[l.type]||LS.pass,dx=l.x2-l.x1,dy=l.y2-l.y1,len=Math.hypot(dx,dy);if(len<5)return;
+      const ang=Math.atan2(dy,dx),al=11,ex=l.x2-al*Math.cos(ang),ey=l.y2-al*Math.sin(ang);
+      ctx.save();ctx.strokeStyle=s.c;ctx.fillStyle=s.c;ctx.lineWidth=s.lw;ctx.lineCap='round';
+      ctx.beginPath();
+      if(s.w){ctx.setLineDash([]);const steps=Math.max(4,Math.floor(len/20)),amp=7;for(let i=0;i<=steps;i++){const t=i/steps,bx=l.x1+dx*t,by=l.y1+dy*t,px=-dy/len,py=dx/len,wv=Math.sin(t*Math.PI*4)*amp;i===0?ctx.moveTo(bx+px*wv,by+py*wv):ctx.lineTo(bx+px*wv,by+py*wv);}}
+      else{ctx.setLineDash(s.d?[7,5]:[]);ctx.moveTo(l.x1,l.y1);ctx.lineTo(ex,ey);}
+      ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(l.x2,l.y2);ctx.lineTo(l.x2-al*Math.cos(ang-.4),l.y2-al*Math.sin(ang-.4));ctx.lineTo(l.x2-al*Math.cos(ang+.4),l.y2-al*Math.sin(ang+.4));ctx.closePath();ctx.fill();
+      ctx.restore();
+    });
+    // Preview
+    if(D.current.lineStart){const s=LS[D.current.tool]||LS.pass;ctx.globalAlpha=.5;const l={x1:D.current.lineStart.x,y1:D.current.lineStart.y,x2:D.current.mx,y2:D.current.my};const dx=l.x2-l.x1,dy=l.y2-l.y1,len=Math.hypot(dx,dy);if(len>5){const ang=Math.atan2(dy,dx),al=11;ctx.save();ctx.strokeStyle=s.c;ctx.fillStyle=s.c;ctx.lineWidth=s.lw;ctx.lineCap='round';ctx.beginPath();ctx.setLineDash(s.d?[7,5]:[]);ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2-al*Math.cos(ang),l.y2-al*Math.sin(ang));ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(l.x2,l.y2);ctx.lineTo(l.x2-al*Math.cos(ang-.4),l.y2-al*Math.sin(ang-.4));ctx.lineTo(l.x2-al*Math.cos(ang+.4),l.y2-al*Math.sin(ang+.4));ctx.closePath();ctx.fill();ctx.restore();}ctx.globalAlpha=1;}
+    if(D.current.zoneStart){const dx=D.current.mx-D.current.zoneStart.x,dy=D.current.my-D.current.zoneStart.y;ctx.save();ctx.globalAlpha=.2;ctx.fillStyle='#2196F3';ctx.strokeStyle='#90caf9';ctx.lineWidth=2;ctx.setLineDash([4,3]);if(D.current.tool==='zone_circle'){ctx.beginPath();ctx.ellipse(D.current.zoneStart.x,D.current.zoneStart.y,Math.abs(dx),Math.abs(dy),0,0,Math.PI*2);ctx.fill();ctx.stroke();}else{const nx=Math.min(D.current.zoneStart.x,D.current.mx),ny=Math.min(D.current.zoneStart.y,D.current.my);ctx.fillRect(nx,ny,Math.abs(dx),Math.abs(dy));ctx.strokeRect(nx,ny,Math.abs(dx),Math.abs(dy));}ctx.restore();}
+    // Objects
+    D.current.objects.forEach(o=>{
+      const sel=o.id===D.current.selected,sz=o.size||D.current.size;
+      if(o.type==='cone'){ctx.save();ctx.fillStyle='#FF6B00';ctx.strokeStyle='#b84d00';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(o.x,o.y-sz*.8);ctx.lineTo(o.x-sz*.65,o.y+sz*.5);ctx.lineTo(o.x+sz*.65,o.y+sz*.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
+      else if(o.type==='ball'){ctx.save();ctx.fillStyle='#fff';ctx.strokeStyle='#222';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(o.x,o.y,sz,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#111';for(let i=0;i<5;i++){const a=(i/5)*Math.PI*2-Math.PI/2,r=sz*.34;ctx.beginPath();for(let j=0;j<5;j++){const a2=a+(j/5)*Math.PI*2;j===0?ctx.moveTo(o.x+Math.cos(a2)*r,o.y+Math.sin(a2)*r):ctx.lineTo(o.x+Math.cos(a2)*r,o.y+Math.sin(a2)*r);}ctx.closePath();ctx.fill();}ctx.restore();}
+      else{const col=PC[o.color]||PC.red;ctx.save();if(sel){ctx.shadowColor='#fff';ctx.shadowBlur=10;}ctx.fillStyle=col.fill;ctx.strokeStyle=sel?'#fff':'rgba(0,0,0,.5)';ctx.lineWidth=sel?2.5:1.5;ctx.beginPath();ctx.arc(o.x,o.y,sz,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle=col.text;ctx.font=`bold ${sz*.92}px 'Outfit',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(o.label,o.x,o.y+1);ctx.restore();}
+    });
+  }
+
+  useEffect(()=>{draw();},[]);
+
+  function handleSave(){
+    const png=cvRef.current.toDataURL('image/png');
+    onSave({objects:JSON.parse(JSON.stringify(D.current.objects)),lines:JSON.parse(JSON.stringify(D.current.lines)),zones:JSON.parse(JSON.stringify(D.current.zones)),diagramPNG:png,half:D.current.half});
+  }
+
+  const TOOLS=[
+    {id:'red',icon:'●',lbl:'HOME',col:'#e53935'},{id:'blue',icon:'●',lbl:'AWAY',col:'#1565C0'},{id:'yellow',icon:'●',lbl:'GK',col:'#f9a825'},
+    {id:'cone',icon:'▲',lbl:'CONE',col:'#FF6B00'},{id:'ball',icon:'⬤',lbl:'BALL',col:'#eee'},
+    {id:'pass',icon:'→',lbl:'PASS',col:'#fff'},{id:'run',icon:'⇢',lbl:'RUN',col:'#ffd600'},{id:'dribble',icon:'~›',lbl:'DRIBBLE',col:'#69f0ae'},{id:'shot',icon:'⇒',lbl:'SHOT',col:'#ff5252'},
+    {id:'zone_circle',icon:'○',lbl:'OVAL',col:'#90caf9'},{id:'zone_rect',icon:'□',lbl:'BOX',col:'#90caf9'},
+    {id:'select',icon:'↖',lbl:'SELECT',col:'#ccc'},{id:'erase',icon:'✕',lbl:'ERASE',col:'#ff8a80'},
+  ];
+
+  const tbBtn=(id,icon,lbl,col)=>(
+    <button key={id} onClick={()=>setDTool(id)}
+      style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'7px 4px',borderRadius:7,cursor:'pointer',transition:'all .12s',width:62,border:`1px solid ${ui.tool===id?C.accent:'#2a2a2a'}`,background:ui.tool===id?C.accent+'22':'transparent'}}>
+      <span style={{fontSize:15,color:col,lineHeight:1}}>{icon}</span>
+      <span style={{fontSize:8,fontWeight:700,letterSpacing:.5,color:ui.tool===id?C.accent:'#555'}}>{lbl}</span>
+    </button>
+  );
+
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,background:'#141414',display:'flex',flexDirection:'column'}}>
+      {/* Header */}
+      <div style={{background:'#1e1e1e',borderBottom:'1px solid #2a2a2a',padding:'7px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:15,letterSpacing:1,marginRight:4}}>⚽ DRILL DIAGRAM</div>
+        <div style={{display:'flex',gap:3,background:'#252525',borderRadius:7,padding:3}}>
+          {[['Full',false],['Half',true]].map(([l,v])=>(
+            <button key={l} onClick={()=>setHalf(v)} style={{padding:'4px 9px',borderRadius:5,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:"'Outfit',sans-serif",background:ui.half===v?C.accent:'transparent',color:ui.half===v?'#000':'#666'}}>{l}</button>
+          ))}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <span style={{color:'#444',fontSize:10}}>SIZE</span>
+          <button onClick={()=>changeSize(-2)} style={{width:22,height:22,background:'#252525',border:'1px solid #383838',borderRadius:4,color:'#aaa',cursor:'pointer',fontSize:13}}>−</button>
+          <span style={{color:'#777',fontSize:11,minWidth:18,textAlign:'center'}}>{ui.size}</span>
+          <button onClick={()=>changeSize(2)}  style={{width:22,height:22,background:'#252525',border:'1px solid #383838',borderRadius:4,color:'#aaa',cursor:'pointer',fontSize:13}}>+</button>
+        </div>
+        <div style={{flex:1}}/>
+        <button onClick={undo} style={{padding:'5px 11px',background:'#252525',border:'1px solid #383838',borderRadius:6,color:ui.histLen?'#ccc':'#444',fontSize:11,fontWeight:700,cursor:'pointer'}}>↩ Undo</button>
+        <button onClick={clearAll} style={{padding:'5px 11px',background:'#252525',border:'1px solid #383838',borderRadius:6,color:'#aaa',fontSize:11,fontWeight:700,cursor:'pointer'}}>Clear</button>
+        <button onClick={onClose} style={{padding:'5px 14px',background:'#252525',border:'1px solid #383838',borderRadius:6,color:'#aaa',fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+        <button onClick={handleSave} style={{padding:'5px 18px',background:'#27a560',border:'none',borderRadius:6,color:'#fff',fontSize:12,fontWeight:800,cursor:'pointer'}}>✓ Done</button>
+      </div>
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+        {/* Toolbar */}
+        <div style={{width:68,background:'#181818',borderRight:'1px solid #222',padding:'8px 3px',display:'flex',flexDirection:'column',gap:4,overflowY:'auto'}}>
+          <div style={{color:'#2a2a2a',fontSize:8,fontWeight:700,textAlign:'center',marginBottom:2}}>PLAYERS</div>
+          {TOOLS.slice(0,3).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
+          <div style={{height:1,background:'#222',margin:'4px 0'}}/>
+          <div style={{color:'#2a2a2a',fontSize:8,fontWeight:700,textAlign:'center',marginBottom:2}}>OBJECTS</div>
+          {TOOLS.slice(3,5).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
+          <div style={{height:1,background:'#222',margin:'4px 0'}}/>
+          <div style={{color:'#2a2a2a',fontSize:8,fontWeight:700,textAlign:'center',marginBottom:2}}>LINES</div>
+          {TOOLS.slice(5,9).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
+          <div style={{height:1,background:'#222',margin:'4px 0'}}/>
+          <div style={{color:'#2a2a2a',fontSize:8,fontWeight:700,textAlign:'center',marginBottom:2}}>ZONES</div>
+          {TOOLS.slice(9,11).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
+          <div style={{height:1,background:'#222',margin:'4px 0'}}/>
+          {TOOLS.slice(11).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
+        </div>
+        {/* Canvas */}
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:12,background:'#141414'}}>
+          <canvas ref={cvRef} width={DW} height={DH}
+            style={{width:'100%',maxWidth:DW,height:'auto',borderRadius:10,boxShadow:'0 8px 40px rgba(0,0,0,.8)',cursor:ui.tool==='select'?'default':'crosshair'}}
+            onMouseDown={dn} onMouseMove={mv} onMouseUp={up}
+            onTouchStart={dn} onTouchMove={mv} onTouchEnd={up}/>
+        </div>
+      </div>
+      {/* Legend */}
+      <div style={{background:'#181818',borderTop:'1px solid #222',padding:'5px 14px',display:'flex',gap:14,flexWrap:'wrap'}}>
+        {[['#fff','Pass'],['#ffd600','Run (dashed)'],['#69f0ae','Dribble (wavy)'],['#ff5252','Shot'],['#90caf9','Zone (drag)']].map(([c,l])=>(
+          <div key={l} style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:16,height:2,background:c}}/><span style={{color:'#444',fontSize:9}}>{l}</span></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PracticeView({practices, setPractices, gamePlans, roster, drills, setDrills, templates, setTemplates}){
   const [sel,setSel]               = useState(null);
   const [creating,setCreating]     = useState(false);
@@ -9608,6 +9803,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [usingPlan,  setUsingPlan] = useState(null);
   const [planDate,   setPlanDate]  = useState(new Date().toISOString().split("T")[0]);
   const [editingDrill,setEditingDrill] = useState(null);
+  const [showDiagramFor,setShowDiagramFor] = useState(null); // 'new' | drill.id
   const [showDiagramFor,setShowDiagramFor] = useState(null); // 'new' | drill.id
   const [fullAttSel,setFullAttSel]  = useState(null);
   const [attSort,    setAttSort]     = useState("name");
@@ -10934,6 +11130,20 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     style={{width:"100%",maxHeight:120,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,display:"block"}}/>
                 )}
               </div>
+              {/* Diagram thumbnail + draw button */}
+              <div style={{marginBottom:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700}}>DIAGRAM</label>
+                  <button onClick={()=>setShowDiagramFor(editingDrill||'new')}
+                    style={{padding:"4px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                    {drillForm.diagram?"✏ Edit Diagram":"+ Draw Diagram"}
+                  </button>
+                </div>
+                {drillForm.diagram?.diagramPNG&&(
+                  <img src={drillForm.diagram.diagramPNG} alt="drill diagram"
+                    style={{width:"100%",maxHeight:120,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,display:"block"}}/>
+                )}
+              </div>
               <div style={{marginBottom:14}}>
                 <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>NOTES / INSTRUCTIONS</label>
                 <textarea value={drillForm.notes} onChange={e=>setDrillForm(f=>({...f,notes:e.target.value}))}
@@ -10952,6 +11162,22 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
               </div>
             </div>
           )}
+          {/* Diagram editor modal */}
+          {showDiagramFor&&(
+            <DrillDiagramEditor
+              initialData={showDiagramFor!=='new'?(drills||[]).find(d=>d.id===showDiagramFor)?.diagram:drillForm.diagram}
+              onSave={function(diagramData){
+                if(showDiagramFor==='new'){
+                  setDrillForm(f=>({...f,diagram:diagramData}));
+                } else {
+                  setDrills(prev=>prev.map(d=>d.id===showDiagramFor?{...d,diagram:diagramData}:d));
+                }
+                setShowDiagramFor(null);
+              }}
+              onClose={()=>setShowDiagramFor(null)}
+            />
+          )}
+
           {/* Diagram editor modal */}
           {showDiagramFor&&(
             <DrillDiagramEditor
