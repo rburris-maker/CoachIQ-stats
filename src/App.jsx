@@ -10241,9 +10241,15 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         {diagramCard&&(()=>{
           const card=(blocks[diagramCard.sec]||[]).find(c=>c.id===diagramCard.cardId);
           if(!card) return null;
+          // Support both new format {objects,lines,zones,diagramPNG} and old format (JSON string)
+          const initDiagram=(()=>{
+            if(!card.diagram) return null;
+            if(card.diagram.objects||card.diagram.diagramPNG) return card.diagram;
+            return null; // old format — start fresh
+          })();
           return(
-            <DrillCanvas
-              diagram={card.diagram||null}
+            <DrillDiagramEditor
+              initialData={initDiagram}
               onSave={data=>{updateCard(diagramCard.sec,diagramCard.cardId,"diagram",data);setDiagramCard(null);}}
               onClose={()=>setDiagramCard(null)}
             />
@@ -14786,9 +14792,17 @@ function DiagramArrow({x1,y1,x2,y2,color,dashed}){
 // ─── DIAGRAM PREVIEW (SVG render of saved canvas for print) ──────────────────
 function DiagramPreview({data, size=160}){
   if(!data) return null;
+  // New format: {objects, lines, zones, diagramPNG}
+  if(data.diagramPNG){
+    return(
+      <img src={data.diagramPNG} alt="drill diagram"
+        style={{width:size,height:Math.round(size*0.67),objectFit:"cover",display:"block",borderRadius:6,border:"1px solid #444"}}/>
+    );
+  }
+  // Old format: JSON string with elements array
   let elements=[], fieldType2="full";
   try{
-    const parsed=JSON.parse(data);
+    const parsed=typeof data==="string"?JSON.parse(data):data;
     if(Array.isArray(parsed)){ elements=parsed; }
     else{ elements=parsed.elements||[]; fieldType2=parsed.fieldType||"full"; }
   }catch(e){ return null; }
