@@ -9398,7 +9398,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 // ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
 
 function DrillDiagramEditor({initialData, onSave, onClose}){
-  const DW=580, DH=390;
+  const DW=780, DH=520;
   const cvRef=useRef(null);
   const D=useRef({
     objects:(initialData?.objects||[]).map(o=>({...o})),
@@ -9574,9 +9574,9 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
           {TOOLS.slice(11).map(t=>tbBtn(t.id,t.icon,t.lbl,t.col))}
         </div>
         {/* Canvas */}
-        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:12,background:'#141414'}}>
+        <div style={{flex:1,display:'flex',alignItems:'stretch',padding:8,background:'#141414'}}>
           <canvas ref={cvRef} width={DW} height={DH}
-            style={{width:'100%',maxWidth:DW,height:'auto',borderRadius:10,boxShadow:'0 8px 40px rgba(0,0,0,.8)',cursor:ui.tool==='select'?'default':'crosshair'}}
+            style={{width:'100%',height:'100%',minHeight:360,borderRadius:10,boxShadow:'0 8px 40px rgba(0,0,0,.8)',cursor:ui.tool==='select'?'default':'crosshair'}}
             onMouseDown={dn} onMouseMove={mv} onMouseUp={up}
             onTouchStart={dn} onTouchMove={mv} onTouchEnd={up}/>
         </div>
