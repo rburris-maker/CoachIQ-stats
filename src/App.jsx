@@ -10584,6 +10584,202 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             );
           })()
       }
+    </>}
+
+      {/* ── PLANS TAB ── */}
+      {practTab==="plans"&&(
+        <div>
+          {usingPlan&&(()=>{
+            const plan=(templates||[]).find(t=>t.id===usingPlan);
+            if(!plan) return null;
+            return(
+              <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+                <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:24,width:"100%",maxWidth:360}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:4}}>USE PLAN</div>
+                  <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:800,marginBottom:16}}>{plan.name}</h3>
+                  <label style={{color:C.muted,fontSize:11,fontWeight:600,display:"block",marginBottom:6}}>SESSION DATE</label>
+                  <input type="date" value={planDate} onChange={e=>setPlanDate(e.target.value)}
+                    style={{width:"100%",padding:"10px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",marginBottom:16}}/>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>{
+                      const initAtt={}; roster.forEach(p=>{initAtt[p.id]="present";});
+                      const session={id:`pr${Date.now()}`,title:plan.name,date:planDate,
+                        duration:plan.duration||"60",focus:plan.focus||"Mixed",
+                        objectives:plan.objectives||"",linkedGame:"",
+                        blocks:JSON.parse(JSON.stringify(plan.blocks||EMPTY_BLOCKS())),
+                        rating:0,attendance:initAtt,playerNotes:[],createdAt:new Date().toISOString()};
+                      setPractices(prev=>[session,...prev]);
+                      setUsingPlan(null); setPractTab("sessions"); setSel(session.id);
+                    }}
+                      style={{flex:1,padding:"11px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                      Create Session
+                    </button>
+                    <button onClick={()=>setUsingPlan(null)}
+                      style={{padding:"11px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,color:C.muted,fontWeight:600,fontSize:13,cursor:"pointer"}}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          {plans.length===0
+            ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+                <div style={{fontSize:40,marginBottom:12}}>📋</div>
+                <div style={{color:C.text,fontSize:15,fontWeight:600}}>No practice plans yet</div>
+                <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create a reusable plan — schedule it as a session when needed</div>
+                <button onClick={()=>setCreating(true)}
+                  style={{marginTop:16,padding:"10px 20px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                  New Plan
+                </button>
+              </div>
+            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+                {plans.map(function(plan){
+                  const col=FOCUS_COLORS[plan.focus]||C.accent;
+                  const blocks=plan.blocks||{};
+                  const drillCount=Object.values(blocks).flat().length;
+                  const totalMin=Object.values(blocks).flat().reduce(function(a,d){return a+(parseInt(d.duration)||0);},0);
+                  return(
+                    <div key={plan.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{plan.name}</div>
+                          <span style={{display:"inline-block",padding:"2px 8px",background:col+"22",color:col,border:`1px solid ${col}44`,borderRadius:5,fontSize:10,fontWeight:700}}>{plan.focus||"Mixed"}</span>
+                        </div>
+                        <button onClick={()=>setTemplates(prev=>prev.filter(t=>t.id!==plan.id))}
+                          style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,flexShrink:0}}>
+                          <X size={14}/>
+                        </button>
+                      </div>
+                      <div style={{display:"flex",gap:12}}>
+                        <div style={{color:C.muted,fontSize:12}}><span style={{color:C.text,fontWeight:700}}>{drillCount}</span> drill{drillCount!==1?"s":""}</div>
+                        {totalMin>0&&<div style={{color:C.muted,fontSize:12}}>~<span style={{color:C.text,fontWeight:700}}>{totalMin}</span> min</div>}
+                        {plan.duration&&<div style={{color:C.muted,fontSize:12}}>Session: <span style={{color:C.text,fontWeight:700}}>{plan.duration} min</span></div>}
+                      </div>
+                      {plan.objectives&&<div style={{color:C.muted,fontSize:12,fontStyle:"italic",lineHeight:1.4}}>{plan.objectives}</div>}
+                      <div style={{display:"flex",gap:8,marginTop:4}}>
+                        <button onClick={()=>{setUsingPlan(plan.id);setPlanDate(new Date().toISOString().split("T")[0]);}}
+                          style={{flex:1,padding:"9px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                          Use → Schedule
+                        </button>
+                        <button onClick={()=>{setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(plan.blocks||EMPTY_BLOCKS())),focus:plan.focus||"Mixed",duration:plan.duration||"60",objectives:plan.objectives||""}));setCreating(true);}}
+                          style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </div>
+      )}
+
+      {/* ── DRILL LIBRARY TAB ── */}
+      {practTab==="drill_library"&&(
+        <div>
+          {(creatingDrill||editingDrill)&&(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,marginBottom:16}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1.5,marginBottom:14}}>
+                {editingDrill?"EDIT DRILL":"NEW DRILL"}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>DRILL NAME</label>
+                  <input value={drillForm.name} onChange={e=>setDrillForm(f=>({...f,name:e.target.value}))}
+                    placeholder="e.g. Rondo 4v2"
+                    style={{width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>DURATION (min)</label>
+                  <input value={drillForm.duration} onChange={e=>setDrillForm(f=>({...f,duration:e.target.value}))}
+                    placeholder="e.g. 15"
+                    style={{width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>FOCUS</label>
+                  <select value={drillForm.focus} onChange={e=>setDrillForm(f=>({...f,focus:e.target.value}))}
+                    style={{width:"100%",padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                    {FOCUS_TAGS.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>INTENSITY</label>
+                  <div style={{display:"flex",gap:5}}>
+                    {INTENSITY.map(opt=>(
+                      <button key={opt.k} onClick={()=>setDrillForm(f=>({...f,intensity:opt.k}))}
+                        style={{flex:1,padding:"9px 4px",border:`1px solid ${drillForm.intensity===opt.k?opt.color:C.border}`,borderRadius:7,
+                          background:drillForm.intensity===opt.k?opt.color+"22":"transparent",
+                          color:drillForm.intensity===opt.k?opt.color:C.muted,fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{color:C.muted,fontSize:10,fontWeight:700,display:"block",marginBottom:4}}>NOTES / INSTRUCTIONS</label>
+                <textarea value={drillForm.notes} onChange={e=>setDrillForm(f=>({...f,notes:e.target.value}))}
+                  rows={3} placeholder="Coaching points, setup, progressions..."
+                  style={{width:"100%",padding:"9px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={saveFullDrill} disabled={!drillForm.name.trim()}
+                  style={{padding:"10px 20px",background:drillForm.name.trim()?C.accent:C.surface,border:"none",borderRadius:8,color:drillForm.name.trim()?"#000":C.muted,fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                  {editingDrill?"Save Changes":"Add to Library"}
+                </button>
+                <button onClick={()=>{setCreatingDrill(false);setEditingDrill(null);setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});}}
+                  style={{padding:"10px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontWeight:600,fontSize:13,cursor:"pointer"}}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {(drills||[]).length===0&&!creatingDrill
+            ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
+                <div style={{fontSize:40,marginBottom:12}}>⚽</div>
+                <div style={{color:C.text,fontSize:15,fontWeight:600}}>No drills in your library yet</div>
+                <div style={{color:C.muted,fontSize:13,marginTop:6}}>Build a reusable drill bank — add them to any session or plan</div>
+                <button onClick={()=>{setCreatingDrill(true);setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});}}
+                  style={{marginTop:16,padding:"10px 20px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                  Add First Drill
+                </button>
+              </div>
+            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+                {(drills||[]).map(function(drill){
+                  const col=FOCUS_COLORS[drill.focus]||C.muted;
+                  const intens=INTENSITY.find(i=>i.k===drill.intensity)||INTENSITY[1];
+                  return(
+                    <div key={drill.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:14,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{drill.name}</div>
+                          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                            {drill.focus&&<span style={{padding:"2px 7px",background:col+"22",color:col,border:`1px solid ${col}33`,borderRadius:4,fontSize:10,fontWeight:700}}>{drill.focus}</span>}
+                            {drill.intensity&&<span style={{padding:"2px 7px",background:intens.color+"22",color:intens.color,border:`1px solid ${intens.color}33`,borderRadius:4,fontSize:10,fontWeight:700}}>{intens.label}</span>}
+                            {drill.duration&&<span style={{padding:"2px 7px",background:C.surface,color:C.muted,border:`1px solid ${C.border}`,borderRadius:4,fontSize:10,fontWeight:600}}>{drill.duration} min</span>}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexShrink:0}}>
+                          <button onClick={()=>{setEditingDrill(drill.id);setDrillForm({name:drill.name,duration:drill.duration||"",intensity:drill.intensity||"medium",focus:drill.focus||"Mixed",notes:drill.notes||""});setCreatingDrill(false);}}
+                            style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2,fontSize:14}}>✎</button>
+                          <button onClick={()=>setDrills(prev=>prev.filter(d=>d.id!==drill.id))}
+                            style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:2}}>
+                            <X size={13}/>
+                          </button>
+                        </div>
+                      </div>
+                      {drill.notes&&<div style={{color:C.muted,fontSize:12,lineHeight:1.5,fontStyle:"italic"}}>{drill.notes}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </div>
+      )}
+
     </div>
   );
 }
