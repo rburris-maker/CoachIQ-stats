@@ -9384,6 +9384,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
   const [fullAttSel,setFullAttSel]  = useState(null);
+  const [attSort,    setAttSort]     = useState("name");
   const [teamDropOpen,setTeamDropOpen]= useState(false);
   const [diagramCard, setDiagramCard] = useState(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -10255,18 +10256,43 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                     ⚕ {fInj}
                   </div>}
                 </div>
-                <button onClick={()=>setFullAttSel(null)}
-                  style={{padding:"8px 18px",background:C.surface,border:`1px solid ${C.border}`,
-                    borderRadius:8,color:C.text,cursor:"pointer",fontWeight:700,fontSize:13}}>
-                  ✕ Done
-                </button>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <select value={attSort} onChange={e=>setAttSort(e.target.value)}
+                    style={{padding:"7px 12px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:8,color:C.text,fontSize:12,cursor:"pointer",
+                      fontFamily:"'Outfit',sans-serif"}}>
+                    <option value="name">A → Z</option>
+                    <option value="number">Jersey #</option>
+                    <option value="grade">Grade</option>
+                    <option value="position">Position</option>
+                    <option value="status">Status</option>
+                  </select>
+                  <button onClick={()=>setFullAttSel(null)}
+                    style={{padding:"8px 18px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:8,color:C.text,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    ✕ Done
+                  </button>
+                </div>
               </div>
             </div>
             {/* Player grid */}
             <div style={{flex:1,overflowY:"auto",padding:16}}>
               <div style={{display:"grid",
                 gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
-                {(roster||[]).map(p=>{
+                {(roster||[]).slice().sort(function(a,b){
+                  if(attSort==="name")    return (a.name||"").localeCompare(b.name||"");
+                  if(attSort==="number")  return (parseInt(a.number)||0)-(parseInt(b.number)||0);
+                  if(attSort==="grade")   return (a.grade||"").localeCompare(b.grade||"");
+                  if(attSort==="position"){
+                    var order=["GK","DEF","MID","FWD"];
+                    return order.indexOf(displayPos(primaryPos(a)))-order.indexOf(displayPos(primaryPos(b)));
+                  }
+                  if(attSort==="status"){
+                    var so={"present":0,"injured":1,"absent":2};
+                    return (so[fAtt[a.id]||"present"]||0)-(so[fAtt[b.id]||"present"]||0);
+                  }
+                  return 0;
+                }).map(p=>{
                   const status=fAtt[p.id]||"present";
                   const pc=posColor(primaryPos(p));
                   const statusCol=status==="present"?"#27a560":status==="absent"?C.danger:C.warning;
@@ -10290,6 +10316,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                           </div>
                           <div style={{color:C.muted,fontSize:11}}>
                             {[...new Set(allPos(p).map(displayPos))].join(" · ")}
+                            {p.grade&&<span style={{color:C.muted,marginLeft:4}}>· Gr {p.grade}</span>}
                           </div>
                         </div>
                       </div>
