@@ -9958,8 +9958,9 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
       <button onClick={()=>{
         if(creating==="plan"){
           if(!form.title.trim()) return;
+          const planId=editPlanId||presetIdForNew||`pl${Date.now()}`;
           const plan={
-            id: editPlanId||`pl${Date.now()}`,
+            id:planId,
             name:form.title.trim(), type:"plan",
             focus:form.focus, duration:form.duration,
             objectives:form.objectives||"",
@@ -9968,9 +9969,11 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           if(editPlanId){
             setTemplates(prev=>prev.map(t=>t.id===editPlanId?plan:t));
           } else {
-            setTemplates(prev=>[plan,...prev]);
+            setTemplates(prev=>prev.some(t=>t.id===planId)
+              ? prev.map(t=>t.id===planId?plan:t)
+              : [plan,...prev]);
           }
-          setCreating(false); setEditPlanId(null);
+          setCreating(false); setEditPlanId(null); setPresetIdForNew(null);
           setPractTab("plans");
         } else {
           createSession(null);
