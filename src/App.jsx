@@ -9527,7 +9527,7 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
   function changeSize(d){D.current.size=Math.max(8,Math.min(22,D.current.size+d));sync();}
   function clearAll(){pushH();D.current.objects=[];D.current.lines=[];D.current.zones=[];D.current.selected=null;D.current.counters={red:1,blue:1,yellow:1};draw();sync();}
 
-  function getPos(e){const r=cvRef.current.getBoundingClientRect(),sx=DW/r.width,sy=DH/r.height;const cl=e.touches?e.touches[0]:e;return{x:(cl.clientX-r.left)*sx,y:(cl.clientY-r.top)*sy};}
+  function getPos(e){const r=cvRef.current.getBoundingClientRect();const dpr=window.devicePixelRatio||1;const lw=cvRef.current.width/dpr,lh=cvRef.current.height/dpr;const sx=lw/r.width,sy=lh/r.height;const cl=e.touches?e.touches[0]:e;return{x:(cl.clientX-r.left)*sx,y:(cl.clientY-r.top)*sy};}
   function hitObj(x,y){for(let i=D.current.objects.length-1;i>=0;i--){const o=D.current.objects[i];if(Math.hypot(x-o.x,y-o.y)<(o.size||D.current.size)+5)return o;}return null;}
   function hitLine(x,y){for(let i=D.current.lines.length-1;i>=0;i--){const l=D.current.lines[i];if(Math.hypot(x-(l.x1+l.x2)/2,y-(l.y1+l.y2)/2)<18)return l;}return null;}
 
