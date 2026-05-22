@@ -4194,6 +4194,30 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     e.target.value="";
   }
 
+  function saveFullDrill(){
+    if(!drillForm.name.trim()) return;
+    const drill={id:`d${Date.now()}`,name:drillForm.name.trim(),
+      duration:drillForm.duration,intensity:drillForm.intensity,
+      focus:drillForm.focus,notes:drillForm.notes};
+    if(editingDrill){
+      setDrills(prev=>prev.map(d=>d.id===editingDrill?{...d,...drill,id:d.id}:d));
+      setEditingDrill(null);
+    } else {
+      setDrills(prev=>[drill,...prev]);
+    }
+    setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
+    setCreatingDrill(false);
+  }
+
+  function savePlan(){
+    if(!tplName.trim()) return;
+    const plan={id:`pl${Date.now()}`,name:tplName.trim(),type:"plan",
+      focus:form.focus,duration:form.duration,objectives:form.objectives||"",
+      blocks:JSON.parse(JSON.stringify(form.blocks||EMPTY_BLOCKS()))};
+    setTemplates(prev=>[plan,...prev]);
+    setTplName(""); setSavingTpl(false);
+  }
+
   if(sel){
     const game=games.find(g=>g.id===sel); if(!game)return null;
     const res=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
@@ -9575,28 +9599,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim(),duration:"",intensity:"medium",focus:"Mixed",notes:""}]);
       setDrillName("");
     }
-    function saveFullDrill(){
-      if(!drillForm.name.trim()) return;
-      const drill={id:`d${Date.now()}`,name:drillForm.name.trim(),
-        duration:drillForm.duration,intensity:drillForm.intensity,
-        focus:drillForm.focus,notes:drillForm.notes};
-      if(editingDrill){
-        setDrills(prev=>prev.map(d=>d.id===editingDrill?{...d,...drill,id:d.id}:d));
-        setEditingDrill(null);
-      } else {
-        setDrills(prev=>[drill,...prev]);
-      }
-      setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
-      setCreatingDrill(false);
-    }
-    function savePlan(){
-      if(!tplName.trim()) return;
-      const plan={id:`pl${Date.now()}`,name:tplName.trim(),type:"plan",
-        focus:form.focus,duration:form.duration,objectives:form.objectives||"",
-        blocks:JSON.parse(JSON.stringify(form.blocks||EMPTY_BLOCKS()))};
-      setTemplates(prev=>[plan,...prev]);
-      setTplName(""); setSavingTpl(false);
-    }
+
     function saveTemplate(){
       if(!tplName.trim()) return;
       const tpl={id:`t${Date.now()}`,name:tplName.trim(),
