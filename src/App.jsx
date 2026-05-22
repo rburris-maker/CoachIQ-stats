@@ -9724,6 +9724,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [practTab,   setPractTab]  = useState("sessions");
   const [editPlanId,  setEditPlanId] = useState(null);
   const [showPresets,  setShowPresets] = useState(false);
+  const [presetIdForNew,setPresetIdForNew] = useState(null);
   const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
   const [creatingDrill,setCreatingDrill] = useState(false);
   const [usingPlan,  setUsingPlan] = useState(null);
@@ -9890,6 +9891,69 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </select>
         </div>
       )}
+
+      {/* ── Drill blocks preview/editor ── */}
+      {creating==="plan"&&(()=>{
+        const SECS=[
+          {key:"warmup",label:"Warmup",color:"#27a560"},
+          {key:"main",  label:"Main work",color:C.accent},
+          {key:"cooldown",label:"Cooldown",color:"#378add"},
+        ];
+        const totalDrills=SECS.reduce(function(a,s){return a+((form.blocks?.[s.key]||[]).length);},0);
+        if(totalDrills===0) return null;
+        return(
+          <div style={{marginBottom:24}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:10}}>
+              DRILL BLOCKS — {totalDrills} drills
+            </div>
+            {SECS.map(function(sec){
+              const cards=form.blocks?.[sec.key]||[];
+              if(!cards.length) return null;
+              const secMins=cards.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0);
+              return(
+                <div key={sec.key} style={{marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,
+                    padding:"5px 10px",background:sec.color+"18",borderRadius:7,
+                    borderLeft:`3px solid ${sec.color}`}}>
+                    <span style={{color:sec.color,fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{sec.label}</span>
+                    <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{cards.length} drills{secMins>0?` · ${secMins} min`:""}</span>
+                  </div>
+                  {cards.map(function(card,idx){
+                    const col={low:"#27a560",medium:"#ffb300",high:"#ef5350"}[card.intensity]||C.muted;
+                    return(
+                      <div key={card.id||idx} style={{display:"flex",gap:8,padding:"8px 10px",
+                        background:C.surface,borderRadius:7,marginBottom:4,
+                        border:`1px solid ${C.border}`}}>
+                        <div style={{width:20,height:20,borderRadius:"50%",background:sec.color+"22",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:10,fontWeight:700,color:sec.color,flexShrink:0,marginTop:1}}>
+                          {idx+1}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}>
+                            <span style={{color:C.text,fontWeight:600,fontSize:12}}>{card.name}</span>
+                            {card.duration&&<span style={{color:C.muted,fontSize:10,background:C.card,padding:"1px 6px",borderRadius:4,border:`1px solid ${C.border}`}}>{card.duration} min</span>}
+                            {card.intensity&&<span style={{color:col,fontSize:10,background:col+"18",padding:"1px 6px",borderRadius:4}}>{card.intensity}</span>}
+                          </div>
+                          {card.notes&&(
+                            <div style={{color:C.muted,fontSize:11,lineHeight:1.5,
+                              display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",
+                              overflow:"hidden"}}>
+                              {card.notes}
+                            </div>
+                          )}
+                        </div>
+                        <button onClick={()=>setForm(f=>({...f,blocks:{...f.blocks,[sec.key]:(f.blocks?.[sec.key]||[]).filter(function(c){return c.id!==card.id;})}}))}
+                          style={{background:"none",border:"none",color:C.muted,cursor:"pointer",padding:"2px 4px",flexShrink:0,alignSelf:"flex-start",fontSize:14}}>✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <button onClick={()=>{
         if(creating==="plan"){
@@ -11101,23 +11165,22 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                         </div>
                       </div>
                       <button
-                        disabled={alreadyAdded}
                         onClick={()=>{
-                          if(alreadyAdded) return;
-                          const plan={
-                            id:preset.id, name:preset.name, type:"plan",
-                            focus:preset.focus, duration:preset.duration,
-                            objectives:preset.objectives,
+                          setForm({
+                            title:preset.name,date:"",
+                            duration:preset.duration,focus:preset.focus,
+                            objectives:preset.objectives,linkedGame:"",
                             blocks:JSON.parse(JSON.stringify(preset.blocks))
-                          };
-                          setTemplates(prev=>[plan,...prev]);
+                          });
+                          setEditPlanId(alreadyAdded?preset.id:null);
+                          setPresetIdForNew(alreadyAdded?null:preset.id);
+                          setCreating("plan");
                         }}
                         style={{width:"100%",padding:"9px",
-                          background:alreadyAdded?C.surface:C.accent,
-                          border:`1px solid ${alreadyAdded?C.border:C.accent}`,
-                          borderRadius:8,color:alreadyAdded?C.muted:"#000",
-                          fontWeight:700,fontSize:12,cursor:alreadyAdded?"default":"pointer"}}>
-                        {alreadyAdded?"Added to My Plans":"+ Add to My Plans"}
+                          background:C.accent,border:"none",
+                          borderRadius:8,color:"#000",
+                          fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                        {alreadyAdded?"Open & Edit":"Open & Customise"}
                       </button>
                     </div>
                   );
