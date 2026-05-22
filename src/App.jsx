@@ -9383,6 +9383,12 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [showTemplates,setShowTemplates] = useState(false);
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
+  const [practTab,   setPractTab]  = useState("sessions");
+  const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
+  const [creatingDrill,setCreatingDrill] = useState(false);
+  const [usingPlan,  setUsingPlan] = useState(null);
+  const [planDate,   setPlanDate]  = useState(new Date().toISOString().split("T")[0]);
+  const [editingDrill,setEditingDrill] = useState(null);
   const [fullAttSel,setFullAttSel]  = useState(null);
   const [attSort,    setAttSort]     = useState("name");
   const [teamDropOpen,setTeamDropOpen]= useState(false);
@@ -9566,8 +9572,30 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
     function saveDrill(){
       if(!drillName.trim()) return;
       if(!(drills||[]).find(d=>d.name.toLowerCase()===drillName.trim().toLowerCase()))
-        setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim()}]);
+        setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:drillName.trim(),duration:"",intensity:"medium",focus:"Mixed",notes:""}]);
       setDrillName("");
+    }
+    function saveFullDrill(){
+      if(!drillForm.name.trim()) return;
+      const drill={id:`d${Date.now()}`,name:drillForm.name.trim(),
+        duration:drillForm.duration,intensity:drillForm.intensity,
+        focus:drillForm.focus,notes:drillForm.notes};
+      if(editingDrill){
+        setDrills(prev=>prev.map(d=>d.id===editingDrill?{...d,...drill,id:d.id}:d));
+        setEditingDrill(null);
+      } else {
+        setDrills(prev=>[drill,...prev]);
+      }
+      setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
+      setCreatingDrill(false);
+    }
+    function savePlan(){
+      if(!tplName.trim()) return;
+      const plan={id:`pl${Date.now()}`,name:tplName.trim(),type:"plan",
+        focus:form.focus,duration:form.duration,objectives:form.objectives||"",
+        blocks:JSON.parse(JSON.stringify(form.blocks||EMPTY_BLOCKS()))};
+      setTemplates(prev=>[plan,...prev]);
+      setTplName(""); setSavingTpl(false);
     }
     function saveTemplate(){
       if(!tplName.trim()) return;
@@ -10350,25 +10378,53 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
 
   // ─── SESSION LIST ──────────────────────────────────────────────────────────
   const filtered=filterTag==="All"?practices:practices.filter(p=>p.focus===filterTag);
+  const plans=(templates||[]).filter(t=>t.type==="plan"||!t.type);
 
   return(
     <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
         <div>
           <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>TRAINING</div>
-          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice Log</h1>
+          <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,marginTop:4}}>Practice</h1>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {(templates||[]).length>0&&(
-            <span style={{color:C.muted,fontSize:12}}>{templates.length} template{templates.length!==1?"s":""}</span>
+          {practTab==="sessions"&&(
+            <button onClick={()=>setCreating(true)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              <Plus size={15}/>New Session
+            </button>
           )}
-          <button onClick={()=>setCreating(true)}
-            style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-            <Plus size={15}/>New Session
-          </button>
+          {practTab==="plans"&&(
+            <button onClick={()=>{setCreating(true);}}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              <Plus size={15}/>New Plan
+            </button>
+          )}
+          {practTab==="drill_library"&&(
+            <button onClick={()=>{setCreatingDrill(true);setDrillForm({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:"",});}}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              <Plus size={15}/>New Drill
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:4,marginBottom:18,background:C.surface,padding:4,borderRadius:10,border:`1px solid ${C.border}`}}>
+        {[["sessions",`Sessions (${practices.length})`],["plans",`Plans (${plans.length})`],["drill_library",`Drill Library (${(drills||[]).length})`]].map(([k,l])=>(
+          <button key={k} onClick={()=>setPractTab(k)}
+            style={{flex:1,padding:"8px",border:"none",borderRadius:7,cursor:"pointer",
+              fontWeight:700,fontSize:12,fontFamily:"'Outfit',sans-serif",
+              background:practTab===k?C.accent+"22":"transparent",
+              color:practTab===k?C.accent:C.muted,transition:"all .15s"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SESSIONS TAB ── */}
+      {practTab==="sessions"&&<>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
         {["All",...FOCUS_TAGS].map(t=>{
           const col=t==="All"?C.accent:(FOCUS_COLORS[t]||C.accent);
