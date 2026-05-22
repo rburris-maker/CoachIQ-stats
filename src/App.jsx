@@ -9617,6 +9617,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [savingTpl,setSavingTpl]   = useState(false);
   const [tplName,setTplName]       = useState("");
   const [practTab,   setPractTab]  = useState("sessions");
+  const [editPlanId,  setEditPlanId] = useState(null);
   const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
   const [creatingDrill,setCreatingDrill] = useState(false);
   const [usingPlan,  setUsingPlan] = useState(null);
@@ -9703,36 +9704,45 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   // ─── CREATE FORM ───────────────────────────────────────────────────────────
   if(creating) return(
     <div style={{padding:24,maxWidth:560,margin:"0 auto"}}>
-      <button onClick={()=>setCreating(false)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
-      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>PRACTICE</div>
-      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>New Session</h2>
+      <button onClick={()=>{setCreating(false);setEditPlanId(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",marginBottom:20,fontSize:13}}>← Back</button>
+      <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>
+        {creating==="plan"?"PRACTICE PLANS":"PRACTICE"}
+      </div>
+      <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:22}}>
+        {creating==="plan"?(editPlanId?"Edit Plan":"New Plan"):"New Session"}
+      </h2>
 
-      {/* Templates picker */}
-      {(templates||[]).length>0&&(
+      {/* Load from existing plan (session mode only) */}
+      {creating==="session"&&(templates||[]).length>0&&(
         <div style={{marginBottom:18}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>START FROM TEMPLATE</div>
+          <div style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:8}}>START FROM PLAN</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-            {(templates||[]).map(t=>(
-              <button key={t.id} onClick={()=>{setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(t.blocks))})); }}
-                style={{padding:"7px 14px",background:C.surface,border:`1px solid ${C.accent}44`,borderRadius:8,
-                  color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>{t.name}</button>
+            {(templates||[]).filter(t=>t.type==="plan"||!t.type).map(t=>(
+              <button key={t.id} onClick={()=>setForm(f=>({...f,blocks:JSON.parse(JSON.stringify(t.blocks)),focus:t.focus||f.focus,duration:t.duration||f.duration,objectives:t.objectives||f.objectives}))}
+                style={{padding:"7px 14px",background:C.surface,border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>{t.name}</button>
             ))}
           </div>
         </div>
       )}
 
+      {/* Plan name / session name */}
       <div style={{marginBottom:14}}>
-        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION NAME</label>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
+          {creating==="plan"?"PLAN NAME":"SESSION NAME"}
+        </label>
         <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}
-          placeholder="e.g. Pre-season fitness, Set piece work, Defensive shape..."
+          placeholder={creating==="plan"?"e.g. Half-space attacking, High press, Set pieces..":"e.g. Pre-season fitness, Defensive shape..."}
           autoFocus style={{...iS(),background:C.card}}/>
       </div>
 
-      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-        <div>
-          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
-          <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{...iS(),background:C.card}}/>
-        </div>
+      {/* Date — sessions only */}
+      <div className="resp-grid" style={{display:"grid",gridTemplateColumns:creating==="session"?"1fr 1fr":"1fr",gap:12,marginBottom:14}}>
+        {creating==="session"&&(
+          <div>
+            <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+            <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{...iS(),background:C.card}}/>
+          </div>
+        )}
         <div>
           <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DURATION</label>
           <div style={{display:"flex",gap:4}}>
@@ -9756,24 +9766,49 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
       </div>
 
-      <div style={{marginBottom:14}}>
-        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SESSION OBJECTIVES</label>
+      <div style={{marginBottom:creating==="session"?14:24}}>
+        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>
+          {creating==="plan"?"DESCRIPTION / OBJECTIVES":"SESSION OBJECTIVES"}
+        </label>
         <input value={form.objectives} onChange={e=>setForm(f=>({...f,objectives:e.target.value}))}
-          placeholder="e.g. Improve defensive shape in transition" style={{...iS(),background:C.card}}/>
+          placeholder={creating==="plan"?"What is this plan designed to achieve?":"e.g. Improve defensive shape in transition"} style={{...iS(),background:C.card}}/>
       </div>
 
-      <div style={{marginBottom:24}}>
-        <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LINKED GAME (OPTIONAL)</label>
-        <select value={form.linkedGame} onChange={e=>setForm(f=>({...f,linkedGame:e.target.value}))} style={{...iS(),background:C.card}}>
-          <option value="">None</option>
-          {gamePlans.map(gp=><option key={gp.id} value={gp.id}>vs {gp.opponent} ({gp.date})</option>)}
-        </select>
-      </div>
+      {/* Linked game — sessions only */}
+      {creating==="session"&&(
+        <div style={{marginBottom:24}}>
+          <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LINKED GAME (OPTIONAL)</label>
+          <select value={form.linkedGame} onChange={e=>setForm(f=>({...f,linkedGame:e.target.value}))} style={{...iS(),background:C.card}}>
+            <option value="">None</option>
+            {gamePlans.map(gp=><option key={gp.id} value={gp.id}>vs {gp.opponent} ({gp.date})</option>)}
+          </select>
+        </div>
+      )}
 
-      <button onClick={()=>createSession(null)}
+      <button onClick={()=>{
+        if(creating==="plan"){
+          if(!form.title.trim()) return;
+          const plan={
+            id: editPlanId||`pl${Date.now()}`,
+            name:form.title.trim(), type:"plan",
+            focus:form.focus, duration:form.duration,
+            objectives:form.objectives||"",
+            blocks:form.blocks||EMPTY_BLOCKS()
+          };
+          if(editPlanId){
+            setTemplates(prev=>prev.map(t=>t.id===editPlanId?plan:t));
+          } else {
+            setTemplates(prev=>[plan,...prev]);
+          }
+          setCreating(false); setEditPlanId(null);
+          setPractTab("plans");
+        } else {
+          createSession(null);
+        }
+      }}
         style={{width:"100%",padding:"14px",background:C.accent,border:"none",borderRadius:10,
           color:"#000",fontWeight:900,fontSize:16,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-        CREATE SESSION →
+        {creating==="plan"?(editPlanId?"SAVE PLAN →":"CREATE PLAN →"):"CREATE SESSION →"}
       </button>
     </div>
   );
@@ -10629,13 +10664,13 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {practTab==="sessions"&&(
-            <button onClick={()=>setCreating(true)}
+            <button onClick={()=>{setForm({title:"",date:new Date().toISOString().split("T")[0],duration:"60",focus:"Mixed",objectives:"",linkedGame:"",blocks:EMPTY_BLOCKS()});setCreating("session");}}
               style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
               <Plus size={15}/>New Session
             </button>
           )}
           {practTab==="plans"&&(
-            <button onClick={()=>{setCreating(true);}}
+            <button onClick={()=>{setForm({title:"",date:"",duration:"60",focus:"Mixed",objectives:"",linkedGame:"",blocks:EMPTY_BLOCKS()});setCreating("plan");}}
               style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",background:C.accent,border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
               <Plus size={15}/>New Plan
             </button>
