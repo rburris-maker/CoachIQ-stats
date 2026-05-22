@@ -9397,6 +9397,111 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 
 // ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
 
+
+const PREBUILT_PLANS = [
+  {
+    id:"pbp-halfspace",
+    name:"Finding the Pockets",
+    type:"plan", focus:"Attacking", duration:"90",
+    objectives:"Attack through the half-spaces. Build the triangle: wide pinner, half-space receiver, central finisher. Cutbacks beat crosses.",
+    blocks:{
+      warmup:[
+        {id:"pbp-hs-w1",name:"Pre-session whiteboard",duration:"3",intensity:"low",notes:"Draw five vertical lanes on a whiteboard. Ask three questions in order:\n1. \"If I'm defending, where do I put my players?\" (Let them arrive at: central.)\n2. \"So where is there going to be space?\" (Wide and in-between zones.)\n3. \"Of those two places, where would you most want the ball — and why?\"\n\nLet them argue. Don't give the answer. They'll get to 'half-space' with one nudge. Then say: 'That's what we're working on today. Let's find them.'"},
+        {id:"pbp-hs-w2",name:"Block 1 — Five-lane tag",duration:"8",intensity:"low",notes:"Setup: Mark five vertical lanes on a 40×30 grid using flat discs. Three taggers in pinnies.\n\nDrill: Standard tag. Every 60 seconds — freeze. Coach calls one lane (e.g. 'yellow lane only!'). After freeze, only players in the called lane can be tagged. Players run TO the called lane to escape. 2–3 freezes, then switch taggers.\n\nNo ball yet. Players experience where the lanes are physically.\n\nCoaching question: 'When I called central, where was the safest place? When I called yellow, where was the safest?'"},
+      ],
+      main:[
+        {id:"pbp-hs-m1",name:"Block 2 — Channel-restricted possession",duration:"12",intensity:"medium",notes:"Setup: Same 30×40 grid, five lanes marked. Two teams of 5–6 plus 2 neutrals. Normal possession.\n\nConditions:\n• Two consecutive passes cannot stay in the same lane\n• Every fourth pass must land in a yellow (half-space) lane\n• Score 1 point for a sequence ending with a half-space entry + clean 2-touch combo\n\nProgression: Add two passive defenders who can only intercept central passes — now the half-space is the only safe progression route.\n\nCoaching questions: 'Who's in the half-space right now? Who could be?' / 'What kind of pass gets you there — straight or diagonal?'"},
+        {id:"pbp-hs-m2",name:"Block 3 — Half-space entry rondo",duration:"12",intensity:"medium",notes:"Setup: 15×20 rectangle split into 3 horizontal lanes (top half-space, central, bottom half-space). 6v3 in the central lane, 2 neutrals locked into the half-space lanes.\n\nDrill: Possession team scores 1 point each time they enter a half-space neutral with a clean pass. Bonus point if the half-space neutral plays across to the OTHER half-space neutral without losing possession.\n\nCoaching cues:\n• 'Disguise the pass — don't telegraph it'\n• 'Receiver: show late. Move when the ball is in motion, not before'\n• 'After entry, the next pass is forward or wide — never back'\n\nCoaching questions: 'What did the defender do that opened the half-space?' / 'Was there a pass available before the one you played?'"},
+        {id:"pbp-hs-m3",name:"Block 4A — Pattern: pin and penetrate",duration:"10",intensity:"high",notes:"Setup: Half-field, full goal + GK. CB, FB, #6, #8, winger, striker + rotation. Right side first.\n\nPattern: CB plays #6. #6 switches to FB. FB drives wide — holds run to pin the defending fullback. #8 makes delayed underlap run into the half-space behind the opposition midfielder. FB plays inside to #8 in the half-space. #8 one-touches cutback to striker arriving at penalty spot.\n\nThe triangle: FB (width/pin) — #8 (half-space) — striker (finish).\n\nRun 4–5 times per side. First 4 minutes no defenders. Then add 2 passive defenders at 50% pressure.\n\nCoaching questions: 'Whose run pinned the fullback?' / 'When did the half-space open?' / 'Could the receiver have taken a better first touch?'"},
+        {id:"pbp-hs-m4",name:"Block 4B — Pattern: inverted winger",duration:"10",intensity:"high",notes:"Setup: Same half-field. Switch sides from 4A.\n\nPattern: Winger starts wide. FB starts deep. CB plays #6. As ball travels, winger drifts inside into the half-space and FB makes overlapping run wide to fill winger's old space. CB plays winger directly in the half-space. Winger turns, plays give-and-go with striker, shoots.\n\nThe triangle: Overlapping FB (width) — winger (half-space) — striker (combine).\n\nThe roles reverse from Pattern A. Now the winger is the half-space player; the fullback is the wide pinner.\n\nCoaching questions: Same as 4A — 'Whose run pinned the fullback? When did the half-space open?'"},
+        {id:"pbp-hs-m5",name:"Block 5 — Phase of play 8v8",duration:"20",intensity:"high",notes:"Setup: Two-thirds of pitch, two full goals + keepers. 8v8. Defenders: compact 4-3 mid-block. Attackers: 2-3-2 with both wide midfielders sitting INSIDE the half-space lanes (not on touchlines). 90 seconds per possession.\n\nScoring:\n• Normal goal = 1 point\n• Goal from an assist originating in the half-space = 2 points\n• Goal from a cutback = 3 points\n• Defenders score 1 point by carrying over halfway under control\n\nUse FREEZE-REPLAY 3–4 times maximum. Ask the question, don't give the answer:\n• 'Where could the receiver have been?'\n• 'Who pinned the fullback there? Nobody — that's why the lane closed'\n• 'See how the cutback gave us three finishers instead of one?'"},
+      ],
+      cooldown:[
+        {id:"pbp-hs-c1",name:"Block 6 — Conditioned scrimmage",duration:"12",intensity:"medium",notes:"Setup: Full or near-full pitch, even sides, normal rules.\n\nOne condition: every goal must involve at least one pass that originated in or traveled through a half-space during the attacking sequence. If not — goal disallowed. Restart with GK.\n\nOtherwise: play freely. Coach minimally. The patterns and habits should now emerge organically.\n\nIf the constraint isn't producing enough half-space activity: add one free floater who can join either team but MUST receive in a half-space lane before joining any attack."},
+        {id:"pbp-hs-c2",name:"Block 7 — Player-led debrief",duration:"3",intensity:"low",notes:"Light jog and stretch. Three questions in order — ask, wait, let players answer. Do not fill the silence (10 seconds of silence is fine — the player thinking IS the learning):\n\n1. 'When was the half-space most open today?'\n2. 'What did your teammates do — without the ball — that helped you receive there?'\n3. 'What's the one thing you'll try to do differently in your next game?'\n\nPlayer-led answers stick. If they get the principle right, nod and move on. Don't lecture."},
+      ]
+    }
+  },
+  {
+    id:"pbp-highpress",
+    name:"High Press Triggers",
+    type:"plan", focus:"Defending", duration:"75",
+    objectives:"Establish coordinated pressing triggers. Press as a unit, not as individuals. Win the ball high up the pitch.",
+    blocks:{
+      warmup:[
+        {id:"pbp-hp-w1",name:"Pressing shadow warm-up",duration:"10",intensity:"medium",notes:"Setup: 20×20 grid, pairs. One player with ball, one without.\n\nDrill: Ball carrier passes to a cone (acts as a teammate). As the ball travels to the cone, the pressing player sprints to show the carrier onto their weaker foot. Hold the press position for 2 seconds, then reset.\n\nCoaching cues:\n• Arrive at the moment the ball reaches the cone — not before, not after\n• Body shape: angle the approach to show one way\n• Arms out, low centre of gravity\n\nCoaching question: 'When is the exact trigger moment to press?'"},
+      ],
+      main:[
+        {id:"pbp-hp-m1",name:"5v2 pressing rondo",duration:"12",intensity:"high",notes:"Setup: 12×12 grid. 5 defenders (blue) keep possession. 2 red players press.\n\nDrill: When the ball is played to a corner player's back foot, the nearest red presses and the second red cuts the passing lane to the most obvious outlet. Rotate pressing pair every 90 seconds.\n\nCoaching cues:\n• The TRIGGER is the back foot receive — not the moment the ball is played\n• Second presser's job: cut the escape route, not chase the ball\n• Compact shape — stay within 5 yards of first presser\n\nCoaching questions: 'What was the trigger?' / 'Did the second player get to the right position?'"},
+        {id:"pbp-hp-m2",name:"GK build-up press pattern",duration:"15",intensity:"high",notes:"Setup: Half-field. GK + 4 defenders build out. 3 attackers press.\n\nDrill: GK plays to a CB. Pressing team applies press based on the trigger (back foot, poor touch, GK long). Defending team scores by playing through to a target player at halfway. Pressing team scores by winning the ball and hitting an empty goal.\n\nRun 6 rounds of 90 seconds. Rotate who presses.\n\nCoaching cues:\n• 'Press as a pack — all three move together when trigger fires'\n• 'Set the trap — show them short, then win it'\n• 'If you can't win it in 4 seconds, drop and reset'\n\nCoaching questions: 'What triggered that press?' / 'Did the press have a direction?'"},
+        {id:"pbp-hp-m3",name:"Phase of play — pressing triggers",duration:"25",intensity:"high",notes:"Setup: Two-thirds pitch. 9v9 + GKs. One team plays a 4-4-1 mid-block that transitions to a high press on trigger. Other team builds from GK.\n\nTriggers to press:\n• GK holds the ball more than 3 seconds\n• Any back pass to the GK\n• Defender receives with back to goal\n• Poor first touch by any player in the back four\n\nScoring:\n• Defending team: 1 point for clean press win in final third, 2 points for goal after press win\n• Attacking team: 1 point for playing through the press to a striker, 2 points for goal\n\nCoaching questions after each press: 'Was there a trigger? What was it?' / 'Did all four attackers press together?'"},
+      ],
+      cooldown:[
+        {id:"pbp-hp-c1",name:"Conditioned game — press rules",duration:"10",intensity:"medium",notes:"Normal 7v7 game. One rule: teams must attempt a coordinated press (all forwards moving together) at least once per minute. Coach calls 'PRESS' if a trigger appears and team doesn't react.\n\nNo goals count unless the scoring team either scored after a press win OR played through a press.\n\nDebrief: 'What was the hardest trigger to react to as a team?'"},
+        {id:"pbp-hp-c2",name:"Cool-down + pressing principles review",duration:"3",intensity:"low",notes:"Light stretching. Coach asks:\n1. 'What are our three pressing triggers?'\n2. 'What does the second presser do while the first presses?'\n3. 'When do we stop pressing and reset?'\n\nPlayers answer, coach confirms. Keep it under 3 minutes."},
+      ]
+    }
+  },
+  {
+    id:"pbp-possession",
+    name:"Possession Under Pressure",
+    type:"plan", focus:"Technical", duration:"60",
+    objectives:"Maintain possession when pressed. Improve decision-making speed, body shape on receiving, and finding the third man.",
+    blocks:{
+      warmup:[
+        {id:"pbp-pos-w1",name:"Directional passing warm-up",duration:"8",intensity:"low",notes:"Setup: 15×15 grid, groups of 4 in a diamond. Ball starts at one player.\n\nDrill: Pass around the diamond. Receiver must show on the half-turn to see the whole diamond before receiving. Progress: add a fifth player in the middle who presses passively — receiver now must open body shape to face away from the presser.\n\nCoaching cues:\n• 'Check your shoulder BEFORE the ball arrives'\n• 'Open your body so you can see both the passer and the next pass'\n• 'Play early — don't hold while pressure arrives'\n\nKey coaching question: 'When you receive, how many options can you see?'"},
+      ],
+      main:[
+        {id:"pbp-pos-m1",name:"Rondo 4v2 — standard",duration:"10",intensity:"medium",notes:"Setup: 10×10 grid. 4 keep ball vs 2 defenders. When defenders win, the player who lost it and the nearest attacker become defenders.\n\nConstraint: 2-touch maximum.\n\nCoaching cues:\n• Movement off the ball — never stand still after passing\n• Pass to the player with the most space, not the nearest\n• Defenders: press together, don't split\n\nCoaching question: 'Why did that pass work? Was it the weight, the timing, or the movement?'"},
+        {id:"pbp-pos-m2",name:"Rondo 6v3 — third man",duration:"12",intensity:"medium",notes:"Setup: 20×20 grid. 6 keep vs 3 press. Score a point for a 'third-man combination': A plays to B, B lays off to C who arrived late. Any sequence of A→B→C where C receives in space and has 3+ seconds = 1 point.\n\nCoaching cues:\n• Third player: time your run so you arrive as B receives, not before\n• B: receive, show the ball, play early to C\n• A: after playing, move to a new position immediately\n\nCoaching questions: 'Who was the third man?' / 'Did C arrive at the right time?'"},
+        {id:"pbp-pos-m3",name:"Possession game 7v7 with pressing rules",duration:"22",intensity:"high",notes:"Setup: 40×30. 7v7 + two neutral players who always join the team in possession. Pressing team must apply man-to-man press for the first 6 seconds after winning possession.\n\nScoring:\n• 1 point for 8 consecutive passes\n• 2 points for 8 passes + a switch of play\n• 1 point for pressing team if they win ball within 6 seconds of losing it\n\nCoaching cues:\n• 'Play away from pressure — find the free man'\n• 'The neutral is always available — use them to relieve pressure'\n• 'When we win it, press immediately — don't let them breathe'\n\nCoaching questions: 'When did we circulate well? Why?' / 'When did we lose it? What could we have done differently?'"},
+      ],
+      cooldown:[
+        {id:"pbp-pos-c1",name:"Free possession + debrief",duration:"8",intensity:"low",notes:"Free 4v4 or 5v5 keep-ball, no rules. Let players play.\n\nAfter 5 minutes, bring them in:\n1. 'What does good possession look like from your position?'\n2. 'When is the right time to play a risky pass vs a safe one?'\n3. 'Who was the most important player for keeping possession today — and why?'"},
+      ]
+    }
+  },
+  {
+    id:"pbp-transition",
+    name:"Winning the Second Ball",
+    type:"plan", focus:"Transition", duration:"60",
+    objectives:"Dominate transitions. Win second balls. Press immediately after losing possession. Counter-attack quickly after winning it.",
+    blocks:{
+      warmup:[
+        {id:"pbp-tr-w1",name:"Reaction + sprint warm-up",duration:"8",intensity:"medium",notes:"Setup: Two lines of players facing each other, 15 yards apart, one ball between each pair.\n\nDrill: Server rolls the ball between them. Both sprint for the ball. Player who reaches it first keeps possession. Player who doesn't wins it back within 3 seconds or concedes a point.\n\nProgress: Add a small goal at each end. Winner attacks immediately.\n\nCoaching cues:\n• 'Anticipate the bounce — read the ball, not just the roll'\n• 'First step: explosive. Don't drift into your sprint'\n• 'Win it and go — no pause after winning the ball'\n\nCoaching question: 'What's the difference between a player who wins second balls and one who doesn't?'"},
+      ],
+      main:[
+        {id:"pbp-tr-m1",name:"3v3 transition game",duration:"12",intensity:"high",notes:"Setup: 25×20. Two mini goals at each end. 3v3 + a coach/server outside each end who feeds balls when ball goes out.\n\nRules: When you lose possession, you have 5 seconds to win it back. If you win it back within 5 seconds = 2 points. If you score from open play = 1 point. If you score immediately after winning a second ball = 3 points.\n\nCoaching cues:\n• 'The transition moment is the most dangerous — press as a unit immediately'\n• 'On winning it, look forward first before going sideways'\n• 'Second ball: arrive before the bounce — don't wait for it to settle'\n\nCoaching question: 'What do the best teams do in the 3 seconds after losing the ball?'"},
+        {id:"pbp-tr-m2",name:"Counter-attack patterns",duration:"15",intensity:"high",notes:"Setup: Full pitch, two GKs. Attacking team of 5 starts at halfway. Defending team of 5 starts in their defensive third. Coach plays a ball into the attacking team.\n\nDrill: Attacking team has 8 seconds to get a shot on goal. If defenders win the ball, they counter-attack to the other goal.\n\nTwo patterns to rehearse:\n• Wide and early: first pass wide immediately, cross or cut back before defense recovers\n• Central overload: ball to feet of striker, two runners in support, shoot early\n\nCoaching cues:\n• 'Decision in transition: go wide or go central? Decide in ONE second'\n• 'First pass = vertical. Not sideways.'\n• 'Runners: go before the passer has received — arrive as it's played'"},
+        {id:"pbp-tr-m3",name:"Phase of play — transitions",duration:"18",intensity:"high",notes:"Setup: Full pitch, 9v9 + GKs. Normal play.\n\nScoring overlay:\n• All goals = 1 point\n• Goal scored within 8 seconds of winning the ball = 3 points\n• Goal after a press win in the opposition half = 3 points\n• Team concedes 1 point if they don't press within 3 seconds of losing possession\n\nCoach tracks time from turnover to shot.\n\nCoaching question after each transition goal: 'How many passes was that? How long did it take? Could we have been faster?'"},
+      ],
+      cooldown:[
+        {id:"pbp-tr-c1",name:"Debrief — transition principles",duration:"7",intensity:"low",notes:"Bring players in. Ask these questions — player answers only, no coaching:\n\n1. 'What makes a good transition? Tell me in one sentence.'\n2. 'Who on our team wins second balls most consistently? What do they do differently?'\n3. 'If the opposition scores a goal against us in transition, what probably went wrong?'\n\nWrite the best answers on a whiteboard if possible. Let the group hear their own coaching."},
+      ]
+    }
+  },
+  {
+    id:"pbp-setpieces",
+    name:"Set Piece Clinic — Corners",
+    type:"plan", focus:"Set Pieces", duration:"60",
+    objectives:"Establish 3 corner routines (near post flick, far post arrival, short corner to cutback). Practice defensive corners. Score at least one in the session.",
+    blocks:{
+      warmup:[
+        {id:"pbp-sp-w1",name:"Aerial duel + heading warm-up",duration:"8",intensity:"medium",notes:"Setup: Pairs, 5 yards apart. Server tosses balls at various heights.\n\nDrill: Receiver heads back accurately to server's hands. Progress to 1v1 aerial duels: both players jump for the same tossed ball.\n\nCoaching cues:\n• Attack the ball — don't wait for it\n• Eyes open through contact, snap neck into ball\n• In duels: time your jump so you peak as the ball arrives\n\nCoaching question: 'What's the most important physical technique for winning aerial balls?'"},
+      ],
+      main:[
+        {id:"pbp-sp-m1",name:"Routine A — near post flick",duration:"10",intensity:"medium",notes:"Setup: Full-size goal + GK, corner flag. Full squad.\n\nRoutine: Delivery to the near post (6-yard line, edge of GK box). One designated flick player attacks that spot. Remaining 3 attackers: one at penalty spot, one far post, one edge of box. Flick player redirects toward goal.\n\nRun 8 times from each side. No defenders first 4, then add 2 passive defenders.\n\nCoaching cues:\n• Delivery: driven and low to near post, not floated\n• Flick player: run across the ball, redirect with the back of the head or glancing header\n• Runs: time to arrive as the ball does — not before\n\nCoaching question: 'What type of delivery makes the near-post routine work?'"},
+        {id:"pbp-sp-m2",name:"Routine B — far post arrival",duration:"10",intensity:"medium",notes:"Setup: Same. Inswinging corner to far post.\n\nRoutine: Corner delivered to far post (6 yards out from far post). Target player makes a late run from the edge of the penalty area, attacking the far post. Two blockers create screens at the near post and penalty spot to disrupt tracking defenders.\n\nRun 8 times per side. Add 4 defenders in second set.\n\nCoaching cues:\n• Blocker's job: don't move until ball is played. Take up space, not energy\n• Runner: start OUTSIDE the box — come in late so you arrive at pace\n• Contact: head across body, aim for the far corner\n\nCoaching question: 'When should the far-post runner start their run?'"},
+        {id:"pbp-sp-m3",name:"Routine C — short corner cutback",duration:"10",intensity:"medium",notes:"Setup: Same. Short corner option.\n\nRoutine: Corner taker plays short to a supporting player. Support draws a defender. Ball played early into the cutback zone (edge of penalty box, angle of six-yard box). Third player arrives late to shoot.\n\nRun 8 times per side with passive defenders.\n\nCoaching cues:\n• Short player: receive, draw a defender, play early — don't dribble\n• Cutback ball: rolled firmly, not hit hard — let the shooter attack it\n• Shooter: arrive at pace, strike first time\n\nCoaching question: 'When is the short corner the better option than delivering directly?'"},
+        {id:"pbp-sp-m4",name:"Defensive corners",duration:"12",intensity:"medium",notes:"Setup: Full squad. 7 attackers taking corners against defending team + GK.\n\nDefensive shape: Zonal or man-to-man (coach decides which your team uses). 2 players at near post, 2 central, 2 far post, 1 on edge.\n\nRun each corner twice: zonal defending first, then with a man-to-man tweak.\n\nCoaching cues:\n• Near post blockers: take contact, don't just observe it\n• GK: claim crosses up to 6 yards — communicate clearly\n• On clearance: clear with purpose — direction and distance\n\nCoaching question: 'What makes a corner most dangerous against our setup?'"},
+      ],
+      cooldown:[
+        {id:"pbp-sp-c1",name:"Live set pieces + debrief",duration:"10",intensity:"medium",notes:"Live game scenario: 10 corner situations, alternating attack and defend. Teams compete — 1 point per goal, 1 point per clean defensive clearance.\n\nDebrief:\n1. 'Which routine worked best today? Why?'\n2. 'What does the GK need from the team on defensive corners?'\n3. 'Which routine do we use when we need a goal in the last 5 minutes?'\n\nPick one offensive routine as the primary and one defensive trigger as the default. Write it on a training board."},
+      ]
+    }
+  },
+];
+
 function DrillDiagramEditor({initialData, onSave, onClose}){
   const DW=900, DH=600;
   const cvRef=useRef(null);
@@ -9618,6 +9723,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [tplName,setTplName]       = useState("");
   const [practTab,   setPractTab]  = useState("sessions");
   const [editPlanId,  setEditPlanId] = useState(null);
+  const [showPresets,  setShowPresets] = useState(false);
   const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
   const [creatingDrill,setCreatingDrill] = useState(false);
   const [usingPlan,  setUsingPlan] = useState(null);
@@ -10907,8 +11013,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
                 <div style={{fontSize:40,marginBottom:12}}>📋</div>
                 <div style={{color:C.text,fontSize:15,fontWeight:600}}>No practice plans yet</div>
-                <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create a reusable plan — schedule it as a session when needed</div>
-                <button onClick={()=>setCreating(true)}
+                <div style={{color:C.muted,fontSize:13,marginTop:6}}>Create your own or load one from the preset library below</div>
+                <button onClick={()=>setCreating("plan")}
                   style={{marginTop:16,padding:"10px 20px",background:C.accent,border:"none",borderRadius:9,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
                   New Plan
                 </button>
@@ -10952,6 +11058,74 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                 })}
               </div>
           }
+
+          {/* ── Preset Plans ── */}
+          <div style={{marginTop:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,cursor:"pointer"}}
+              onClick={()=>setShowPresets(p=>!p)}>
+              <div style={{flex:1,height:1,background:C.border}}/>
+              <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",
+                background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,
+                color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,whiteSpace:"nowrap"}}>
+                {showPresets?"▲":"▼"} PRESET PLANS ({PREBUILT_PLANS.length})
+              </div>
+              <div style={{flex:1,height:1,background:C.border}}/>
+            </div>
+            {showPresets&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+                {PREBUILT_PLANS.map(function(preset){
+                  const alreadyAdded=(templates||[]).some(t=>t.id===preset.id);
+                  const col=FOCUS_COLORS[preset.focus]||C.accent;
+                  const totalDrills=Object.values(preset.blocks).flat().length;
+                  const totalMin=Object.values(preset.blocks).flat()
+                    .reduce(function(a,d){return a+(parseInt(d.duration)||0);},0);
+                  return(
+                    <div key={preset.id} style={{background:C.card,border:`1px solid ${alreadyAdded?C.accent+"44":C.border}`,borderRadius:14,padding:18,display:"flex",flexDirection:"column",gap:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontWeight:700,fontSize:14,marginBottom:4}}>{preset.name}</div>
+                          <span style={{display:"inline-block",padding:"2px 8px",background:col+"22",color:col,
+                            border:`1px solid ${col}44`,borderRadius:5,fontSize:10,fontWeight:700}}>{preset.focus}</span>
+                        </div>
+                        {alreadyAdded&&(
+                          <span style={{color:C.accent,fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>✓ Added</span>
+                        )}
+                      </div>
+                      <div style={{color:C.muted,fontSize:12,lineHeight:1.5}}>{preset.objectives}</div>
+                      <div style={{display:"flex",gap:12}}>
+                        <div style={{color:C.muted,fontSize:12}}><span style={{color:C.text,fontWeight:700}}>{totalDrills}</span> drills</div>
+                        <div style={{color:C.muted,fontSize:12}}><span style={{color:C.text,fontWeight:700}}>{preset.duration}</span> min</div>
+                        <div style={{color:C.muted,fontSize:12}}>
+                          {Object.entries({warmup:preset.blocks.warmup,main:preset.blocks.main,cooldown:preset.blocks.cooldown})
+                            .map(([k,v])=>v.length>0?`${v.length} ${k.slice(0,1).toUpperCase()}`:null).filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <button
+                        disabled={alreadyAdded}
+                        onClick={()=>{
+                          if(alreadyAdded) return;
+                          const plan={
+                            id:preset.id, name:preset.name, type:"plan",
+                            focus:preset.focus, duration:preset.duration,
+                            objectives:preset.objectives,
+                            blocks:JSON.parse(JSON.stringify(preset.blocks))
+                          };
+                          setTemplates(prev=>[plan,...prev]);
+                        }}
+                        style={{width:"100%",padding:"9px",
+                          background:alreadyAdded?C.surface:C.accent,
+                          border:`1px solid ${alreadyAdded?C.border:C.accent}`,
+                          borderRadius:8,color:alreadyAdded?C.muted:"#000",
+                          fontWeight:700,fontSize:12,cursor:alreadyAdded?"default":"pointer"}}>
+                        {alreadyAdded?"Added to My Plans":"+ Add to My Plans"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
