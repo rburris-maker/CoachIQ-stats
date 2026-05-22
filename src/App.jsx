@@ -10962,11 +10962,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
               {/* Diagram thumbnail + draw button */}
               <div style={{marginBottom:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                  <label style={{color:C.muted,fontSize:10,fontWeight:700}}>DIAGRAM</label>
-                  <button onClick={()=>setShowDiagramFor(editingDrill||'new')}
-                    style={{padding:"4px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                    {drillForm.diagram?"✏ Edit Diagram":"+ Draw Diagram"}
-                  </button>
                 </div>
                 {drillForm.diagram?.diagramPNG&&(
                   <img src={drillForm.diagram.diagramPNG} alt="drill diagram"
@@ -11008,20 +11003,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           )}
 
           {/* Diagram editor modal */}
-          {showDiagramFor&&(
-            <DrillDiagramEditor
-              initialData={showDiagramFor!=='new'?(drills||[]).find(d=>d.id===showDiagramFor)?.diagram:drillForm.diagram}
-              onSave={function(diagramData){
-                if(showDiagramFor==='new'){
-                  setDrillForm(f=>({...f,diagram:diagramData}));
-                } else {
-                  setDrills(prev=>prev.map(d=>d.id===showDiagramFor?{...d,diagram:diagramData}:d));
-                }
-                setShowDiagramFor(null);
-              }}
-              onClose={()=>setShowDiagramFor(null)}
-            />
-          )}
 
           {(drills||[]).length===0&&!creatingDrill
             ?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"48px 24px",textAlign:"center"}}>
