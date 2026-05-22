@@ -9725,6 +9725,9 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [editPlanId,  setEditPlanId] = useState(null);
   const [showPresets,  setShowPresets] = useState(false);
   const [presetIdForNew,setPresetIdForNew] = useState(null);
+  const [planSel,      setPlanSel]     = useState(null);
+  const [planDiagCard, setPlanDiagCard]= useState(null);
+  const [planAddDrill, setPlanAddDrill]= useState({});
   const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
   const [creatingDrill,setCreatingDrill] = useState(false);
   const [usingPlan,  setUsingPlan] = useState(null);
@@ -10009,6 +10012,259 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
       blocks:JSON.parse(JSON.stringify(form.blocks||EMPTY_BLOCKS()))};
     setTemplates(prev=>[plan,...prev]);
     setTplName(""); setSavingTpl(false);
+  }
+
+
+  // ─── PLAN DETAIL VIEW ──────────────────────────────────────────────────────
+  if(planSel){
+    const plan=(templates||[]).find(t=>t.id===planSel);
+    if(!plan){ setPlanSel(null); return null; }
+    const pBlocks={
+      warmup:  plan.blocks?.warmup   ||[],
+      main:    plan.blocks?.main     ||[],
+      cooldown:plan.blocks?.cooldown ||[],
+    };
+    const focusCol=FOCUS_COLORS[plan.focus]||C.accent;
+    const totalMins=Object.values(pBlocks).flat().reduce(function(a,c){return a+(parseInt(c.duration)||0);},0);
+
+    function pUpd(fn){setTemplates(prev=>prev.map(t=>t.id===planSel?{...t,...fn(t)}:t));}
+    function pUpdateCard(block,cardId,key,val){pUpd(p=>({blocks:{...p.blocks,[block]:(p.blocks?.[block]||[]).map(c=>c.id===cardId?{...c,[key]:val}:c)}}));}
+    function pRemoveCard(block,cardId){pUpd(p=>({blocks:{...p.blocks,[block]:(p.blocks?.[block]||[]).filter(c=>c.id!==cardId)}}));}
+    function pMoveCard(block,cardId,dir){
+      pUpd(p=>{
+        const arr=[...(p.blocks?.[block]||[])];
+        const i=arr.findIndex(c=>c.id===cardId);if(i<0)return p;
+        if(i+dir<0||i+dir>=arr.length)return p;
+        [arr[i],arr[i+dir]]=[arr[i+dir],arr[i]];
+        return {...p,blocks:{...p.blocks,[block]:arr}};
+      });
+    }
+    function pAddCard(block,name){pUpd(p=>({blocks:{...p.blocks,[block]:[...(p.blocks?.[block]||[]),makeCard(name)]}}));}
+    function pSaveToDrillLib(card){
+      if(!(drills||[]).find(d=>d.name.toLowerCase()===card.name.trim().toLowerCase())){
+        setDrills(prev=>[...prev,{id:`d${Date.now()}`,name:card.name.trim(),duration:card.duration||"",intensity:card.intensity||"medium",focus:plan.focus||"Mixed",notes:card.notes||"",diagram:card.diagram||null}]);
+      }
+    }
+
+    const PLAN_SECTIONS=[
+      {key:"warmup",   label:"Warmup",   color:"#66bb6a",desc:"Activation, mobility, rondos"},
+      {key:"main",     label:"Main Work",color:C.accent, desc:"Core drills and tactical work"},
+      {key:"cooldown", label:"Cooldown", color:"#42a5f5",desc:"Possession, stretching, debrief"},
+    ];
+
+    return(
+      <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
+
+        {/* Diagram modal */}
+        {planDiagCard&&(()=>{
+          const card=(pBlocks[planDiagCard.sec]||[]).find(c=>c.id===planDiagCard.cardId);
+          if(!card) return null;
+          const initDiagram=card.diagram?.objects||card.diagram?.diagramPNG?card.diagram:null;
+          return(
+            <DrillDiagramEditor
+              initialData={initDiagram}
+              onSave={data=>{pUpdateCard(planDiagCard.sec,planDiagCard.cardId,"diagram",data);setPlanDiagCard(null);}}
+              onClose={()=>setPlanDiagCard(null)}
+            />
+          );
+        })()}
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:10}}>
+          <div>
+            <button onClick={()=>setPlanSel(null)}
+              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 13px",
+                color:C.muted,cursor:"pointer",marginBottom:12,fontSize:13}}>← Back to Plans</button>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:2}}>PRACTICE PLAN</div>
+            <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:800,marginBottom:4}}>{plan.name}</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{background:focusCol+"22",color:focusCol,border:`1px solid ${focusCol}44`,
+                borderRadius:5,padding:"2px 9px",fontSize:11,fontWeight:700}}>{plan.focus||"Mixed"}</span>
+              <span style={{color:C.muted,fontSize:12}}>{plan.duration} min</span>
+              {totalMins>0&&<span style={{color:C.muted,fontSize:12}}>~{totalMins} min drills</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button onClick={()=>{
+                setUsingPlan(plan.id);
+                setPlanDate(new Date().toISOString().split("T")[0]);
+                setPlanSel(null);
+              }}
+              style={{padding:"10px 18px",background:C.accent,border:"none",borderRadius:9,
+                color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              Use → Schedule
+            </button>
+          </div>
+        </div>
+
+        {/* Objectives */}
+        {plan.objectives&&(
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
+            padding:"10px 14px",marginBottom:18,color:C.muted,fontSize:13,lineHeight:1.5}}>
+            🎯 {plan.objectives}
+          </div>
+        )}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 230px",gap:14}}>
+
+          {/* Left: Sections */}
+          <div>
+            {PLAN_SECTIONS.map(function(sec){
+              const cards=pBlocks[sec.key]||[];
+              const secMins=cards.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0);
+              const addName=planAddDrill[sec.key]||"";
+              return(
+                <div key={sec.key} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14}}>
+                  {/* Section header */}
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <div style={{width:10,height:10,borderRadius:"50%",background:sec.color,flexShrink:0}}/>
+                    <div style={{color:sec.color,fontWeight:700,fontSize:13,flex:1}}>{sec.label}</div>
+                    {secMins>0&&<div style={{color:C.muted,fontSize:11}}>{secMins} min</div>}
+                  </div>
+
+                  {/* Drill cards */}
+                  {cards.length===0&&(
+                    <div style={{color:C.muted,fontSize:12,fontStyle:"italic",padding:"8px 0",textAlign:"center"}}>
+                      No drills yet — add below
+                    </div>
+                  )}
+                  {cards.map(function(card,idx){
+                    const intCol={low:"#66bb6a",medium:"#ffb300",high:"#ef5350"}[card.intensity]||C.muted;
+                    return(
+                      <div key={card.id} style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,
+                        padding:12,marginBottom:8}}>
+                        {/* Card top row */}
+                        <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <input value={card.name} onChange={e=>pUpdateCard(sec.key,card.id,"name",e.target.value)}
+                              style={{width:"100%",background:"transparent",border:"none",borderBottom:`1px solid ${C.border}`,
+                                color:C.text,fontWeight:700,fontSize:14,padding:"2px 0",outline:"none",
+                                fontFamily:"'Outfit',sans-serif",marginBottom:6}}/>
+                            <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                              <input value={card.duration} onChange={e=>pUpdateCard(sec.key,card.id,"duration",e.target.value)}
+                                placeholder="min" type="number" min="1" max="90"
+                                style={{width:52,padding:"4px 6px",background:C.bg,border:`1px solid ${C.border}`,
+                                  borderRadius:6,color:C.text,fontSize:11,outline:"none"}}/>
+                              <span style={{color:C.muted,fontSize:10}}>min</span>
+                              {["low","medium","high"].map(function(k){
+                                const kCol={low:"#66bb6a",medium:"#ffb300",high:"#ef5350"}[k];
+                                return(
+                                  <button key={k} onClick={()=>pUpdateCard(sec.key,card.id,"intensity",k)}
+                                    style={{padding:"3px 8px",border:`1px solid ${card.intensity===k?kCol:C.border}`,
+                                      borderRadius:5,background:card.intensity===k?kCol+"22":"transparent",
+                                      color:card.intensity===k?kCol:C.muted,cursor:"pointer",fontSize:10,fontWeight:700}}>
+                                    {k[0].toUpperCase()+k.slice(1)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {/* Reorder + actions */}
+                          <div style={{display:"flex",flexDirection:"column",gap:3,flexShrink:0}}>
+                            <button onClick={()=>pMoveCard(sec.key,card.id,-1)} disabled={idx===0}
+                              style={{background:"none",border:"none",color:idx===0?C.border:C.muted,cursor:"pointer",fontSize:12,padding:2}}>▲</button>
+                            <button onClick={()=>pMoveCard(sec.key,card.id,1)} disabled={idx===cards.length-1}
+                              style={{background:"none",border:"none",color:idx===cards.length-1?C.border:C.muted,cursor:"pointer",fontSize:12,padding:2}}>▼</button>
+                            <button onClick={()=>pRemoveCard(sec.key,card.id)}
+                              style={{background:"none",border:"none",color:C.danger,cursor:"pointer",fontSize:12,padding:2}}>✕</button>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        <textarea value={card.notes||""} onChange={e=>pUpdateCard(sec.key,card.id,"notes",e.target.value)}
+                          rows={2} placeholder="Instructions, coaching points, setup..."
+                          style={{width:"100%",marginTop:8,padding:"7px 9px",background:C.bg,
+                            border:`1px solid ${C.border}`,borderRadius:7,color:C.text,fontSize:12,
+                            outline:"none",fontFamily:"'Outfit',sans-serif",resize:"vertical",
+                            lineHeight:1.5,boxSizing:"border-box"}}/>
+
+                        {/* Diagram thumbnail + button */}
+                        <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+                          {card.diagram?.diagramPNG&&(
+                            <img src={card.diagram.diagramPNG} alt="diagram"
+                              style={{height:50,width:80,objectFit:"cover",borderRadius:6,
+                                border:`1px solid ${C.border}`,cursor:"pointer"}}
+                              onClick={()=>setPlanDiagCard({sec:sec.key,cardId:card.id})}/>
+                          )}
+                          <button onClick={()=>setPlanDiagCard({sec:sec.key,cardId:card.id})}
+                            style={{padding:"5px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                              borderRadius:6,color:card.diagram?C.accent:C.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                            {card.diagram?"✏ Edit Diagram":"+ Draw Diagram"}
+                          </button>
+                          <button onClick={()=>pSaveToDrillLib(card)}
+                            style={{padding:"5px 10px",background:C.surface,border:`1px solid ${C.border}`,
+                              borderRadius:6,color:C.muted,fontSize:11,fontWeight:600,cursor:"pointer"}}
+                            title="Save to Drill Library">
+                            ⊕ Save to Library
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add drill row */}
+                  <div style={{display:"flex",gap:6,marginTop:8}}>
+                    <input value={addName}
+                      onChange={e=>setPlanAddDrill(prev=>({...prev,[sec.key]:e.target.value}))}
+                      onKeyDown={e=>{if(e.key==="Enter"&&addName.trim()){pAddCard(sec.key,addName.trim());setPlanAddDrill(prev=>({...prev,[sec.key]:""}));}}}
+                      placeholder="Add drill name..."
+                      style={{flex:1,padding:"7px 10px",background:C.bg,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
+                    <button onClick={()=>{if(addName.trim()){pAddCard(sec.key,addName.trim());setPlanAddDrill(prev=>({...prev,[sec.key]:""}));}}}
+                      disabled={!addName.trim()}
+                      style={{padding:"7px 12px",background:addName.trim()?sec.color+"22":C.surface,
+                        border:`1px solid ${addName.trim()?sec.color:C.border}`,borderRadius:7,
+                        color:addName.trim()?sec.color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                      + Add
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right: Drill Library sidebar */}
+          <div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:14}}>
+              <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:10}}>DRILL LIBRARY</div>
+              {(drills||[]).length===0
+                ?<div style={{color:C.muted,fontSize:11,fontStyle:"italic"}}>No drills saved yet</div>
+                :(drills||[]).map(function(d){
+                  const col=FOCUS_COLORS[d.focus]||C.muted;
+                  return(
+                    <div key={d.id} style={{marginBottom:6}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",
+                        background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:C.text,fontSize:11,fontWeight:600,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</div>
+                          {d.duration&&<div style={{color:C.muted,fontSize:10}}>{d.duration} min</div>}
+                        </div>
+                        <div style={{display:"flex",gap:3,flexShrink:0}}>
+                          {["warmup","main","cooldown"].map(function(block){
+                            const lbl={warmup:"W",main:"M",cooldown:"C"}[block];
+                            const blkCol={warmup:"#66bb6a",main:C.accent,cooldown:"#42a5f5"}[block];
+                            return(
+                              <button key={block} title={`Add to ${block}`}
+                                onClick={()=>pUpd(p=>({blocks:{...p.blocks,[block]:[...(p.blocks?.[block]||[]),{id:`dc${Date.now()}`,name:d.name,duration:d.duration||"",notes:d.notes||"",intensity:d.intensity||"medium",diagram:d.diagram||null}]}}))}
+                                style={{width:20,height:20,background:blkCol+"22",border:`1px solid ${blkCol}44`,
+                                  borderRadius:4,color:blkCol,fontWeight:700,fontSize:9,cursor:"pointer"}}>
+                                {lbl}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
   }
 
   if(sel){
@@ -11115,7 +11371,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                           style={{flex:1,padding:"9px",background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,color:C.accent,fontWeight:700,fontSize:13,cursor:"pointer"}}>
                           Use → Schedule
                         </button>
-                        <button onClick={()=>{setForm({title:plan.name,date:"",duration:plan.duration||"60",focus:plan.focus||"Mixed",objectives:plan.objectives||"",linkedGame:"",blocks:JSON.parse(JSON.stringify(plan.blocks||EMPTY_BLOCKS()))});setEditPlanId(plan.id);setCreating("plan");}}
+                        <button onClick={()=>{setPlanSel(plan.id);}}
                           style={{padding:"9px 12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontWeight:600,fontSize:12,cursor:"pointer"}}>
                           Edit
                         </button>
@@ -11169,15 +11425,17 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
                       </div>
                       <button
                         onClick={()=>{
-                          setForm({
-                            title:preset.name,date:"",
-                            duration:preset.duration,focus:preset.focus,
-                            objectives:preset.objectives,linkedGame:"",
-                            blocks:JSON.parse(JSON.stringify(preset.blocks))
-                          });
-                          setEditPlanId(alreadyAdded?preset.id:null);
-                          setPresetIdForNew(alreadyAdded?null:preset.id);
-                          setCreating("plan");
+                          if(alreadyAdded){
+                            setPlanSel(preset.id);
+                          } else {
+                            // Add then open
+                            const plan={id:preset.id,name:preset.name,type:"plan",
+                              focus:preset.focus,duration:preset.duration,
+                              objectives:preset.objectives,
+                              blocks:JSON.parse(JSON.stringify(preset.blocks))};
+                            setTemplates(prev=>[plan,...prev]);
+                            setPlanSel(preset.id);
+                          }
                         }}
                         style={{width:"100%",padding:"9px",
                           background:C.accent,border:"none",
