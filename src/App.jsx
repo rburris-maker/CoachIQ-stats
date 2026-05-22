@@ -9398,7 +9398,7 @@ function GamePlanView({gamePlans, setGamePlans, games, roster, opponents, setOpp
 // ─── PRACTICE VIEW ────────────────────────────────────────────────────────────
 
 function DrillDiagramEditor({initialData, onSave, onClose}){
-  const DW=780, DH=520;
+  const DW=900, DH=600;
   const cvRef=useRef(null);
   const D=useRef({
     objects:(initialData?.objects||[]).map(o=>({...o})),
@@ -9409,15 +9409,16 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
     drag:null, dragOx:0, dragOy:0,
     lineStart:null, zoneStart:null, mx:0, my:0
   });
-  const [ui,setUi]=useState({tool:'select',half:false,size:14,histLen:0,selected:null});
-  const sync=()=>setUi({tool:D.current.tool,half:D.current.half,size:D.current.size,histLen:D.current.history.length,selected:D.current.selected});
+  const [ui,setUi]=useState({tool:'select',half:false,blank:false,size:14,histLen:0,selected:null});
+  const sync=()=>setUi({tool:D.current.tool,half:D.current.half,blank:D.current.blank||false,size:D.current.size,histLen:D.current.history.length,selected:D.current.selected});
   const PC={red:{fill:'#e53935',text:'#fff'},blue:{fill:'#1565C0',text:'#fff'},yellow:{fill:'#f9a825',text:'#111'}};
   const LS={pass:{d:false,w:false,c:'#fff',lw:2},run:{d:true,w:false,c:'#ffd600',lw:2},dribble:{d:false,w:true,c:'#69f0ae',lw:2.5},shot:{d:false,w:false,c:'#ff5252',lw:2.5}};
 
   function pushH(){D.current.history=[...D.current.history.slice(-19),{objects:JSON.parse(JSON.stringify(D.current.objects)),lines:JSON.parse(JSON.stringify(D.current.lines)),zones:JSON.parse(JSON.stringify(D.current.zones))}];}
   function undo(){if(!D.current.history.length)return;const p=D.current.history.pop();D.current.objects=p.objects;D.current.lines=p.lines;D.current.zones=p.zones;D.current.selected=null;draw();sync();}
   function setDTool(t){D.current.tool=t;D.current.lineStart=null;D.current.zoneStart=null;sync();}
-  function setHalf(v){D.current.half=v;draw();sync();}
+  function setHalf(v){D.current.half=v;D.current.blank=false;draw();sync();}
+  function setBlank(){D.current.blank=!D.current.blank;D.current.half=false;draw();sync();}
   function changeSize(d){D.current.size=Math.max(8,Math.min(22,D.current.size+d));sync();}
   function clearAll(){pushH();D.current.objects=[];D.current.lines=[];D.current.zones=[];D.current.selected=null;D.current.counters={red:1,blue:1,yellow:1};draw();sync();}
 
@@ -9452,8 +9453,19 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
 
   function draw(){
     const canvas=cvRef.current;if(!canvas)return;
+    const dpr=window.devicePixelRatio||1;
+    // Set physical resolution for crispness
+    if(canvas.width!==DW*dpr||canvas.height!==DH*dpr){
+      canvas.width=DW*dpr; canvas.height=DH*dpr;
+    }
     const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,DW,DH);
+    if(D.current.blank){
+      // Blank field — just green with subtle border
+      ctx.fillStyle='#1d6e2a';ctx.fillRect(0,0,DW,DH);
+      ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1.5;ctx.strokeRect(20,16,DW-40,DH-32);
+    } else {
     // Pitch
     ctx.fillStyle='#1d6e2a';ctx.fillRect(0,0,DW,DH);
     for(let i=0;i<8;i++){ctx.fillStyle=i%2===0?'rgba(255,255,255,.022)':'rgba(0,0,0,.03)';ctx.fillRect(i*(DW/8),0,DW/8,DH);}
@@ -9480,6 +9492,7 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
       ctx.save();ctx.beginPath();ctx.rect(0,0,DW-ml-pw,DH);ctx.clip();
       ctx.beginPath();ctx.arc(rSpotX,cy,fh*.17,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
+    } // end pitch drawing (closes blank else)
     // Zones
     D.current.zones.forEach(z=>{
       ctx.save();ctx.globalAlpha=z.id===D.current.selected?.35:.18;ctx.fillStyle=z.color;ctx.strokeStyle=z.color;ctx.lineWidth=2;ctx.setLineDash([4,3]);
@@ -9540,9 +9553,9 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
       <div style={{background:'#1e1e1e',borderBottom:'1px solid #2a2a2a',padding:'7px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
         <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:15,letterSpacing:1,marginRight:4}}>⚽ DRILL DIAGRAM</div>
         <div style={{display:'flex',gap:3,background:'#252525',borderRadius:7,padding:3}}>
-          {[['Full',false],['Half',true]].map(([l,v])=>(
-            <button key={l} onClick={()=>setHalf(v)} style={{padding:'4px 9px',borderRadius:5,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:"'Outfit',sans-serif",background:ui.half===v?C.accent:'transparent',color:ui.half===v?'#000':'#666'}}>{l}</button>
-          ))}
+          <button onClick={()=>setHalf(false)} style={{padding:'4px 9px',borderRadius:5,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:"'Outfit',sans-serif",background:!ui.half&&!ui.blank?C.accent:'transparent',color:!ui.half&&!ui.blank?'#000':'#666'}}>Full</button>
+          <button onClick={()=>setHalf(true)}  style={{padding:'4px 9px',borderRadius:5,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:"'Outfit',sans-serif",background:ui.half&&!ui.blank?C.accent:'transparent',color:ui.half&&!ui.blank?'#000':'#666'}}>Half</button>
+          <button onClick={()=>setBlank()}     style={{padding:'4px 9px',borderRadius:5,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:"'Outfit',sans-serif",background:ui.blank?C.accent:'transparent',color:ui.blank?'#000':'#666'}}>Blank</button>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           <span style={{color:'#444',fontSize:10}}>SIZE</span>
@@ -9576,7 +9589,7 @@ function DrillDiagramEditor({initialData, onSave, onClose}){
         {/* Canvas */}
         <div style={{flex:1,display:'flex',alignItems:'stretch',padding:8,background:'#141414'}}>
           <canvas ref={cvRef} width={DW} height={DH}
-            style={{width:'100%',height:'100%',minHeight:360,borderRadius:10,boxShadow:'0 8px 40px rgba(0,0,0,.8)',cursor:ui.tool==='select'?'default':'crosshair'}}
+            style={{width:'100%',height:'100%',objectFit:'contain',borderRadius:10,boxShadow:'0 8px 40px rgba(0,0,0,.8)',cursor:ui.tool==='select'?'default':'crosshair',background:'#141414'}}
             onMouseDown={dn} onMouseMove={mv} onMouseUp={up}
             onTouchStart={dn} onTouchMove={mv} onTouchEnd={up}/>
         </div>
