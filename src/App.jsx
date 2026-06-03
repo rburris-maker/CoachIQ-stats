@@ -4249,13 +4249,16 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
           </button>
-          {(game.stats||[]).length>0&&(
-            <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(game.stats))})}
+          {(()=>{
+            const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
+            const statsToEdit=(game.stats||[]).length>0?game.stats:blank;
+            return(
+            <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(statsToEdit))})}
               style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
                 padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
-              <Pencil size={13}/> Edit Stats
+              <Pencil size={13}/> {(game.stats||[]).length>0?"Edit Stats":"Add Stats"}
             </button>
-          )}
+            );})()}
           <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
