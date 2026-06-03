@@ -18222,7 +18222,15 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
   const game = games.find(function(g){ return g.id===editStats.gameId; });
   if(!game) return null;
 
-  var stats = editStats.stats;
+  // If no stats yet, build blank rows from roster
+  var stats = (editStats.stats&&editStats.stats.length>0)
+    ? editStats.stats
+    : (roster||[]).map(function(p){
+        return {playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
+          keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,
+          interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,
+          saves:0,goalsConceded:0,minutesPlayed:0};
+      });
 
   var STAT_FIELDS = [
     {k:"goals",        label:"Goals"},
