@@ -2857,8 +2857,8 @@ function RosterView({players, setPlayers, teamName, teams, activeTeamId, onSwitc
                 {group.players.map(player=>{
                   const pc = posColor(primaryPos(player));
                   const playerGames = (games||[]).filter(g=>(g.stats||[]).some(s=>s.playerId===player.id));
-                  const avg = playerGames.length>0
-                    ? (playerGames.map(g=>{
+                  const avg = playerGames.filter(g=>!g.excludeFromRating).length>0
+                    ? (playerGames.filter(g=>!g.excludeFromRating).map(g=>{
                         const s=(g.stats||[]).find(x=>x.playerId===player.id);
                         if(!s) return null;
                         return calcRating(s,primaryPos(player),g.theirScore===0).rating;
@@ -3588,7 +3588,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
     : null;
 
   const topPlayers = (roster||[]).map(p=>{
-    const pg = done.filter(g=>(g.stats||[]).some(s=>s.playerId===p.id));
+    const pg = done.filter(g=>!g.excludeFromRating&&(g.stats||[]).some(s=>s.playerId===p.id));
     if(!pg.length) return null;
     const ratings = pg.map(g=>{
       const s=(g.stats||[]).find(x=>x.playerId===p.id);
