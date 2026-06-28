@@ -881,7 +881,7 @@ const rColor    = r => r>=8.5?"#ff6b00":r>=7.5?"#ff8c00":r>=6.5?"#ffb300":r>=5.5
 
 function getHistory(pid, games) {
   const player = PLAYERS.find(p=>p.id===pid);
-  return games.filter(g=>g.status==="completed").map(g=>{
+  return games.filter(g=>g.status==="completed"&&!g.excludeFromRating).map(g=>{
     const st = g.stats.find(s=>s.playerId===pid); if (!st) return null;
     const res = calcRating(st, primaryPos(player), isCS(g,pid));
     return {...st,...res,date:g.date,opponent:g.opponent,gameId:g.id};
