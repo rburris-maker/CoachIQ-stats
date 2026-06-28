@@ -4493,6 +4493,22 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               </div>
             </div>
 
+            <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <button onClick={()=>setEditGame(g=>({...g,isScrimmage:!g.isScrimmage}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.isScrimmage?"#f59e0b22":C.surface,
+                  border:`1px solid ${editGame.isScrimmage?"#f59e0b":C.border}`,
+                  color:editGame.isScrimmage?"#f59e0b":C.muted}}>
+                {editGame.isScrimmage?"⚽ Scrimmage ✓":"⚽ Mark as Scrimmage"}
+              </button>
+              <button onClick={()=>setEditGame(g=>({...g,excludeFromRating:!g.excludeFromRating}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.excludeFromRating?"#ef535022":C.surface,
+                  border:`1px solid ${editGame.excludeFromRating?"#ef5350":C.border}`,
+                  color:editGame.excludeFromRating?"#ef5350":C.muted}}>
+                {editGame.excludeFromRating?"⭐ Ratings OFF ✓":"⭐ Include in Ratings"}
+              </button>
+            </div>
             <div style={{marginBottom:20}}>
               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
               <textarea value={editGame.coachNotes||""} onChange={e=>setEditGame(g=>({...g,coachNotes:e.target.value}))}
