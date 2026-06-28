@@ -909,7 +909,7 @@ function avgRating(pid, games) {
 }
 
 function teamSum(games) {
-  const d=games.filter(g=>g.status==="completed");
+  const d=games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
   const w=d.filter(g=>g.ourScore>g.theirScore).length;
   const dr=d.filter(g=>g.ourScore===g.theirScore).length;
   const l=d.filter(g=>g.ourScore<g.theirScore).length;
@@ -976,7 +976,7 @@ function BreakdownBars({breakdown}){
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function DashboardView({games,setView,teamName}){
   const ts=teamSum(games);
-  const done=games.filter(g=>g.status==="completed");
+  const done=games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
 
   const top=useMemo(()=>
     PLAYERS.map(p=>({...p,avg:avgRating(p.id,games)})).sort((a,b)=>b.avg-a.avg).slice(0,5)
@@ -4817,7 +4817,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       </div>
 
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {games.filter(g=>g.status==="completed").map(game=>{
+        {games.filter(g=>g.status==="completed"&&!g.excludeFromRating).map(game=>{
           const r=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
           const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
           return(
@@ -8044,7 +8044,7 @@ export default function CoachIQStats(){
 // ─── HOME VIEW ────────────────────────────────────────────────────────────────
 function HomeView({games, gamePlans, practices, roster, setView, teamName, schedule}){
   const ts   = teamSum(games);
-  const done = games.filter(g=>g.status==="completed");
+  const done = games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
   const today = new Date().toISOString().split("T")[0];
   const upcoming = [...gamePlans].sort((a,b)=>a.date.localeCompare(b.date)).find(gp=>gp.date>=today);
   const recent = done.slice(0,3);
