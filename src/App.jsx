@@ -14701,7 +14701,7 @@ function PlayerProfilePage(){
     const {player:p, games} = profile;
     const pos = (Array.isArray(p.position)?p.position:[p.position||"CM"]);
     const pc  = posColor(pos[0]);
-    const completedGames = games.filter(g=>g.status==="completed");
+    const completedGames = games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
     const hist = completedGames.map(g=>{
       const st=g.stats?.find(s=>s.playerId===p.id);
       if(!st) return null;
