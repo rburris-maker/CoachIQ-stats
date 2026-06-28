@@ -881,7 +881,7 @@ const rColor    = r => r>=8.5?"#ff6b00":r>=7.5?"#ff8c00":r>=6.5?"#ffb300":r>=5.5
 
 function getHistory(pid, games) {
   const player = PLAYERS.find(p=>p.id===pid);
-  return games.filter(g=>g.status==="completed"&&!g.excludeFromRating).map(g=>{
+  return games.filter(g=>g.status==="completed").map(g=>{
     const st = g.stats.find(s=>s.playerId===pid); if (!st) return null;
     const res = calcRating(st, primaryPos(player), isCS(g,pid));
     return {...st,...res,date:g.date,opponent:g.opponent,gameId:g.id};
@@ -4249,18 +4249,16 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
           </button>
-          <button onClick={()=>{
-              const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
-                keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
-                tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
-                dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90}));
-              const existing=(game.stats||[]).length>0?JSON.parse(JSON.stringify(game.stats)):blank;
-              setEditStats({gameId:game.id,stats:existing});
-            }}
-            style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
-              padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
-            <Pencil size={13}/> {(game.stats||[]).length>0?"Edit Stats":"Add Stats"}
-          </button>
+          {(()=>{
+            const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
+            const statsToEdit=(game.stats||[]).length>0?game.stats:blank;
+            return(
+            <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(statsToEdit))})}
+              style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+              <Pencil size={13}/> {(game.stats||[]).length>0?"Edit Stats":"Add Stats"}
+            </button>
+            );})()}
           <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -4303,11 +4301,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
             <div>
-              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:2}}>
-                <span style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{fmtDate(game.date)} · {game.location} · {game.formation}</span>
-                {game.isScrimmage&&<span style={{background:"#f59e0b22",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>SCRIMMAGE</span>}
-                {game.excludeFromRating&&<span style={{background:"#ef535022",color:"#ef5350",border:"1px solid #ef535044",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>RATINGS OFF</span>}
-              </div>
+              <div style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{fmtDate(game.date)} · {game.location} · {game.formation}</div>
               <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,margin:"6px 0"}}>vs {game.opponent}</h2>
               <Tag color={rc}>{res==="W"?"VICTORY":res==="L"?"DEFEAT":"DRAW"}</Tag>
             </div>
@@ -4499,22 +4493,6 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               </div>
             </div>
 
-            <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-              <button onClick={()=>setEditGame(g=>({...g,isScrimmage:!g.isScrimmage}))}
-                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
-                  background:editGame.isScrimmage?"#f59e0b22":C.surface,
-                  border:`1px solid ${editGame.isScrimmage?"#f59e0b":C.border}`,
-                  color:editGame.isScrimmage?"#f59e0b":C.muted}}>
-                {editGame.isScrimmage?"⚽ Scrimmage ✓":"⚽ Mark as Scrimmage"}
-              </button>
-              <button onClick={()=>setEditGame(g=>({...g,excludeFromRating:!g.excludeFromRating}))}
-                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
-                  background:editGame.excludeFromRating?"#ef535022":C.surface,
-                  border:`1px solid ${editGame.excludeFromRating?"#ef5350":C.border}`,
-                  color:editGame.excludeFromRating?"#ef5350":C.muted}}>
-                {editGame.excludeFromRating?"⭐ Ratings OFF ✓":"⭐ Include in Ratings"}
-              </button>
-            </div>
             <div style={{marginBottom:20}}>
               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
               <textarea value={editGame.coachNotes||""} onChange={e=>setEditGame(g=>({...g,coachNotes:e.target.value}))}
@@ -4731,12 +4709,10 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                     </button>
                   )}
                 </div>
-                <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+                <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{fmtDate(game.date)}</span>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={11}/>{game.location}</span>
                   <span>{game.formation}</span>
-                  {game.isScrimmage&&<span style={{background:"#f59e0b22",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>SCRIMMAGE</span>}
-                  {game.excludeFromRating&&<span style={{background:"#ef535022",color:"#ef5350",border:"1px solid #ef535044",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>RATINGS OFF</span>}
                 </div>
               {game.coachNotes&&(
                 <div style={{color:C.muted,fontSize:11,marginTop:3,
@@ -9755,7 +9731,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
   const [planSel,      setPlanSel]     = useState(null);
   const [planDiagCard, setPlanDiagCard]= useState(null);
   const [planAddDrill, setPlanAddDrill]= useState({});
-  const [planPrintMode,setPlanPrintMode]= useState(false);
   const [drillForm,  setDrillForm] = useState({name:"",duration:"",intensity:"medium",focus:"Mixed",notes:""});
   const [creatingDrill,setCreatingDrill] = useState(false);
   const [usingPlan,  setUsingPlan] = useState(null);
@@ -10097,122 +10072,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           );
         })()}
 
-        {/* Plan print mode */}
-        {planPrintMode&&(()=>{
-          function exportPlanPDF(){
-            const styleEl=document.createElement("style");
-            styleEl.id="coachiq-print-style";
-            styleEl.innerHTML=`@media print{body>*{display:none!important;}#coachiq-print-portal{display:block!important;position:static!important;}#coachiq-print-portal *{visibility:visible;}@page{margin:18mm 14mm;size:A4 portrait;}}`;
-            document.head.appendChild(styleEl);
-            let existing=document.getElementById("coachiq-print-portal");
-            if(existing)existing.remove();
-            const portal=document.createElement("div");
-            portal.id="coachiq-print-portal";
-            portal.style.cssText="display:none;position:absolute;top:0;left:0;width:100%;background:#fff;font-family:'Helvetica Neue',Arial,sans-serif;padding:32px;box-sizing:border-box;";
-            const focusCol2={Attacking:"#cc4400",Defending:"#1a5fa8",Technical:"#2d7a3a",Transition:"#6633cc","Set Pieces":"#996600",Fitness:"#cc2200",Mixed:"#cc4400"}[plan.focus]||"#cc4400";
-            const hdr=document.createElement("div");
-            hdr.style.cssText="margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid "+focusCol2+";";
-            hdr.innerHTML=`<div style="font-size:11px;font-weight:700;letter-spacing:2px;color:${focusCol2};text-transform:uppercase;margin-bottom:6px;">Practice Plan &nbsp;·&nbsp; ${plan.focus||"Mixed"} &nbsp;·&nbsp; ${plan.duration} mins</div><div style="font-size:28px;font-weight:900;color:#1a0d00;font-family:'Arial Black',Arial,sans-serif;margin-bottom:${plan.objectives?"6px":"0"};">${plan.name}</div>${plan.objectives?`<div style="font-size:14px;color:#6b3d1e;">🎯 ${plan.objectives}</div>`:""}`;
-            portal.appendChild(hdr);
-            const SPRINT=[{key:"warmup",label:"Warmup",color:"#2d7a3a"},{key:"main",label:"Main Work",color:focusCol2},{key:"cooldown",label:"Cooldown",color:"#1a5fa8"}];
-            const ICOLS={low:"#2d7a3a",medium:"#cc8800",high:"#cc2200"};
-            let totalPrint=0;
-            SPRINT.forEach(function(sec){
-              const cards=pBlocks[sec.key]||[];
-              if(!cards.length)return;
-              const secMins=cards.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0);
-              totalPrint+=secMins;
-              const secDiv=document.createElement("div");
-              secDiv.style.cssText="margin-bottom:22px;";
-              const secHdr=document.createElement("div");
-              secHdr.style.cssText=`display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ${sec.color}33;`;
-              secHdr.innerHTML=`<div style="font-size:15px;font-weight:900;color:${sec.color};letter-spacing:1px;text-transform:uppercase;flex:1;">${sec.label}</div>${secMins>0?`<div style="font-size:12px;color:#8a6040;font-weight:600;">${secMins} mins</div>`:""}`;
-              secDiv.appendChild(secHdr);
-              cards.forEach(function(card,idx){
-                const intColor=ICOLS[card.intensity]||"#cc8800";
-                const cardDiv=document.createElement("div");
-                const diagHTML=(card.diagram?.diagramPNG)
-                  ? `<div style="flex-shrink:0;"><img src="${card.diagram.diagramPNG}" width="200" style="border-radius:6px;border:1px solid #ddd;display:block;margin-bottom:6px;"></div>`
-                  : "";
-                cardDiv.style.cssText="display:flex;gap:12px;margin-bottom:8px;padding:10px 14px;background:#fdf8f4;border-radius:8px;border:1px solid #e8d5c0;page-break-inside:avoid;align-items:flex-start;";
-                cardDiv.innerHTML=`<div style="min-width:24px;font-size:16px;font-weight:900;color:#cc8800;font-family:'Arial Black',Arial,sans-serif;">${idx+1}</div>${diagHTML}<div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#1a0d00;margin-bottom:${card.notes?"3px":"0"};">${card.name||"Unnamed drill"}</div>${card.notes?`<div style="font-size:12px;color:#6b3d1e;line-height:1.6;white-space:pre-wrap;">${card.notes}</div>`:""}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">${card.duration?`<div style="font-size:13px;font-weight:700;color:#1a0d00;">${card.duration} min</div>`:""}${card.intensity?`<div style="font-size:10px;font-weight:700;color:${intColor};letter-spacing:1px;text-transform:uppercase;">${card.intensity}</div>`:""}</div>`;
-                secDiv.appendChild(cardDiv);
-              });
-              portal.appendChild(secDiv);
-            });
-            if(totalPrint>0){
-              const ftr=document.createElement("div");
-              ftr.style.cssText="margin-top:20px;padding-top:12px;border-top:1px solid #e8d5c0;text-align:right;font-size:12px;color:#8a6040;";
-              ftr.innerHTML=`Total drill time: <strong style="color:#1a0d00;">${totalPrint} mins</strong> / ${plan.duration} min plan`;
-              portal.appendChild(ftr);
-            }
-            document.body.appendChild(portal);
-            setTimeout(()=>{window.print();setTimeout(()=>{portal.remove();styleEl.remove();},1000);},100);
-          }
-          const SPRINT2=[{key:"warmup",label:"Warmup",color:"#66bb6a"},{key:"main",label:"Main Work",color:C.accent},{key:"cooldown",label:"Cooldown",color:"#42a5f5"}];
-          return(
-            <div style={{padding:32,maxWidth:720,margin:"0 auto",background:C.bg}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:10}}>
-                <div>
-                  <div style={{color:C.accent,fontSize:12,fontWeight:700,letterSpacing:2}}>{plan.focus} · {plan.duration} MINS</div>
-                  <h1 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:30,fontWeight:900,marginTop:4}}>{plan.name}</h1>
-                  {plan.objectives&&<div style={{color:C.muted,fontSize:14,marginTop:4}}>🎯 {plan.objectives}</div>}
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={exportPlanPDF}
-                    style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",
-                      background:C.accent,border:"none",borderRadius:9,
-                      color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-                    ⬇ Export PDF
-                  </button>
-                  <button onClick={()=>setPlanPrintMode(false)}
-                    style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,
-                      padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>
-                    ← Back
-                  </button>
-                </div>
-              </div>
-              {SPRINT2.map(function(sec){
-                const cards=pBlocks[sec.key]||[];
-                if(!cards.length)return null;
-                const secMins=cards.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0);
-                return(
-                  <div key={sec.key} style={{marginBottom:24}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,
-                      borderBottom:`2px solid ${sec.color}44`,paddingBottom:8}}>
-                      <div style={{color:sec.color,fontWeight:900,fontSize:15,letterSpacing:1,flex:1,textTransform:"uppercase"}}>{sec.label}</div>
-                      {secMins>0&&<div style={{color:C.muted,fontSize:12,fontWeight:600}}>{secMins} mins</div>}
-                    </div>
-                    {cards.map(function(card,idx){
-                      const intCol2={low:"#66bb6a",medium:"#ffb300",high:"#ef5350"}[card.intensity]||C.muted;
-                      return(
-                        <div key={card.id} style={{display:"flex",gap:12,marginBottom:10,padding:"12px 14px",
-                          background:C.card,borderRadius:10,border:`1px solid ${C.border}`,alignItems:"flex-start"}}>
-                          <div style={{minWidth:24,fontSize:16,fontWeight:900,color:sec.color,fontFamily:"'Oswald',sans-serif"}}>{idx+1}</div>
-                          {card.diagram?.diagramPNG&&(
-                            <img src={card.diagram.diagramPNG} alt="diagram"
-                              style={{width:120,height:80,objectFit:"cover",borderRadius:7,
-                                border:`1px solid ${C.border}`,flexShrink:0}}/>
-                          )}
-                          <div style={{flex:1}}>
-                            <div style={{color:C.text,fontWeight:700,fontSize:14,marginBottom:card.notes?4:0}}>{card.name||"Unnamed drill"}</div>
-                            {card.notes&&<div style={{color:C.muted,fontSize:12,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{card.notes}</div>}
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
-                            {card.duration&&<div style={{color:C.text,fontSize:13,fontWeight:700}}>{card.duration} min</div>}
-                            {card.intensity&&<div style={{color:intCol2,fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{card.intensity}</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-
-        {!planPrintMode&&<>
         {/* Header */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:10}}>
           <div>
@@ -10229,12 +10088,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
             </div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={()=>setPlanPrintMode(true)}
-              style={{display:"flex",alignItems:"center",gap:6,padding:"10px 16px",
-                background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,
-                color:C.text,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-              🖨 Print / PDF
-            </button>
             <button onClick={()=>{
                 setUsingPlan(plan.id);
                 setPlanDate(new Date().toISOString().split("T")[0]);
@@ -10413,8 +10266,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
 
         </div>
-      </>}
-    </div>
+      </div>
     );
   }
 
@@ -11231,7 +11083,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
         );
       })()}
-    </div>
+
+      </div>
     );
   }
 
@@ -18369,13 +18222,14 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
   const game = games.find(function(g){ return g.id===editStats.gameId; });
   if(!game) return null;
 
+  // If no stats yet, build blank rows from roster
   var stats = (editStats.stats&&editStats.stats.length>0)
     ? editStats.stats
     : (roster||[]).map(function(p){
         return {playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
-          keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
-          tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
-          dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90};
+          keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,
+          interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,
+          saves:0,goalsConceded:0,minutesPlayed:0};
       });
 
   var STAT_FIELDS = [
