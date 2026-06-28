@@ -16576,7 +16576,7 @@ function PlayerPortalPage(){
   var isCB    = ["CB","LB","RB"].some(function(p){return allPos(player).includes(p);});
 
   var playerGames = (games||[]).filter(function(g){
-    return (g.stats||[]).some(function(s){return s.playerId===playerId;});
+    return !g.excludeFromRating&&(g.stats||[]).some(function(s){return s.playerId===playerId;});
   });
   var allStats = playerGames.flatMap(function(g){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
@@ -19412,7 +19412,7 @@ function RecruitProfilePage(){
 
   var pos=primaryPos(player);
   var posCol=posColor(pos);
-  var playerGames=(games||[]).filter(function(g){return (g.stats||[]).some(function(s){return s.playerId===playerId;});});
+  var playerGames=(games||[]).filter(function(g){return !g.excludeFromRating&&(g.stats||[]).some(function(s){return s.playerId===playerId;});});
   var gp=playerGames.length||1;
   var allStats=playerGames.flatMap(function(g){return (g.stats||[]).filter(function(s){return s.playerId===playerId;});});
   var tots=allStats.reduce(function(acc,s){
