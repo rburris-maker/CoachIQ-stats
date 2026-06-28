@@ -4225,14 +4225,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const rows=game.stats.map(s=>{
       const p=PLAYERS.find(x=>x.id===s.playerId);
       const cs=isCS(game,s.playerId);
-      return {...s,player:p,...calcRating(s,primaryPos(p),cs)};
-    }).sort((a,b)=>b.rating-a.rating);
+      const ratingData=game.excludeFromRating?{rating:null,label:"",breakdown:{}}:calcRating(s,primaryPos(p),cs);
+      return {...s,player:p,...ratingData};
+    }).sort((a,b)=>(b.rating||0)-(a.rating||0));
     const tSh=game.stats.reduce((a,s)=>a+s.shots,0);
     const tSoT=game.stats.reduce((a,s)=>a+s.shotsOnTarget,0);
     const tPC=game.stats.reduce((a,s)=>a+s.passesCompleted,0);
     const tPA=game.stats.reduce((a,s)=>a+s.passesAttempted,0);
     const pacc=tPA>0?Math.round((tPC/tPA)*100):0;
-    const squadAvg=Math.round((rows.reduce((a,r)=>a+r.rating,0)/rows.length)*10)/10;
+    const squadAvg=game.excludeFromRating?null:Math.round((rows.reduce((a,r)=>a+(r.rating||0),0)/rows.length)*10)/10;
 
     return(
       <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
@@ -4307,7 +4308,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:52,fontWeight:900,lineHeight:1}}>{game.ourScore} <span style={{color:C.muted,fontSize:32}}>–</span> {game.theirScore}</div>
-              <div style={{color:C.muted,fontSize:12,marginTop:4}}>Squad avg: <span style={{color:rColor(squadAvg),fontWeight:700}}>{squadAvg}</span></div>
+              {!game.excludeFromRating&&<div style={{color:C.muted,fontSize:12,marginTop:4}}>Squad avg: <span style={{color:rColor(squadAvg),fontWeight:700}}>{squadAvg}</span></div>}
+              {game.excludeFromRating&&<div style={{color:"#f59e0b",fontSize:11,fontWeight:700,marginTop:4}}>⭐ Ratings not recorded for this game</div>}
             </div>
           </div>
           {game.coachNotes&&(
@@ -4364,22 +4366,23 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                           <span style={{color:C.muted,fontSize:11}}>{row.goals}G {row.assists}A {row.tackles}T {row.keyPasses||0}KP</span>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-                          <span style={{color:rColor(row.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{row.rating.toFixed(1)}</span>
-                          <span style={{color:rColor(row.rating),fontSize:11,fontWeight:700}}>{row.label}</span>
+                          {row.rating!=null&&<><span style={{color:rColor(row.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{row.rating.toFixed(1)}</span>
+                          <span style={{color:rColor(row.rating),fontSize:11,fontWeight:700}}>{row.label}</span></>}
                           <span style={{color:C.muted,fontSize:11}}>{open?"▲":"▼"}</span>
                         </div>
                       </div>
-                      <RBar value={row.rating}/>
+                      {row.rating!=null&&<RBar value={row.rating}/>}
                     </div>
                   </div>
                   {open&&(
                     <div style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:"none",borderRadius:"0 0 10px 10px",padding:"14px 16px 14px 60px"}}>
                       <div className="resp-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                         <div>
-                          <div style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,marginBottom:10}}>SCORE BREAKDOWN (base 6.0)</div>
-                          <BreakdownBars breakdown={row.breakdown}/>
+                          {row.rating!=null&&<><div style={{color:C.muted,fontSize:10,fontWeight:600,letterSpacing:1,marginBottom:10}}>SCORE BREAKDOWN (base 6.0)</div>
+                          <BreakdownBars breakdown={row.breakdown}/></>}
+                          {row.rating==null&&<div style={{color:"#f59e0b",fontSize:12,fontStyle:"italic"}}>No rating recorded — game marked as stats-only</div>}
                           <div style={{color:C.muted,fontSize:10,marginTop:8}}>
-                            Total: 6.0 + {row.breakdown.attack>0?`+${row.breakdown.attack}`:row.breakdown.attack} + {row.breakdown.possession>0?`+${row.breakdown.possession}`:row.breakdown.possession} + {row.breakdown.defensive>0?`+${row.breakdown.defensive}`:row.breakdown.defensive} + {row.breakdown.bonus>0?`+${row.breakdown.bonus}`:row.breakdown.bonus} {row.breakdown.errors} = <strong style={{color:rColor(row.rating)}}>{row.rating.toFixed(1)}</strong>
+                            {row.rating!=null&&<>Total: 6.0 + {row.breakdown.attack>0?`+${row.breakdown.attack}`:row.breakdown.attack}</>} + {row.breakdown.possession>0?`+${row.breakdown.possession}`:row.breakdown.possession} + {row.breakdown.defensive>0?`+${row.breakdown.defensive}`:row.breakdown.defensive} + {row.breakdown.bonus>0?`+${row.breakdown.bonus}`:row.breakdown.bonus} {row.breakdown.errors} = <strong style={{color:rColor(row.rating)}}>{row.rating.toFixed(1)}</strong>
                           </div>
                         </div>
                         <div>
