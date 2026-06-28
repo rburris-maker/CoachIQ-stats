@@ -3674,6 +3674,262 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
         </div>
       )}
 
+
+      {/* ── HOME / AWAY BREAKDOWN ── */}
+      {done.length>0&&(()=>{
+        const home=done.filter(g=>g.location==="Home");
+        const away=done.filter(g=>g.location!=="Home");
+        const rec=arr=>({
+          w:arr.filter(g=>g.ourScore>g.theirScore).length,
+          d:arr.filter(g=>g.ourScore===g.theirScore).length,
+          l:arr.filter(g=>g.ourScore<g.theirScore).length,
+          gf:arr.reduce((a,g)=>a+g.ourScore,0),
+          ga:arr.reduce((a,g)=>a+g.theirScore,0),
+          n:arr.length,
+        });
+        const hr=rec(home); const ar=rec(away);
+        const col=(w,l)=>w>l?C.accent:l>w?C.danger:C.warning;
+        return(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>HOME vs AWAY</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[{label:"Home",r:hr,emoji:"🏠"},{label:"Away",r:ar,emoji:"✈️"}].map(({label,r,emoji})=>(
+                <div key={label} style={{background:C.surface,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{color:C.muted,fontSize:11,fontWeight:700,marginBottom:10}}>{emoji} {label.toUpperCase()} ({r.n} games)</div>
+                  <div style={{display:"flex",gap:8,marginBottom:10}}>
+                    {[{l:"W",v:r.w,c:C.accent},{l:"D",v:r.d,c:C.warning},{l:"L",v:r.l,c:C.danger}].map(x=>(
+                      <div key={x.l} style={{flex:1,textAlign:"center",background:x.c+"18",borderRadius:8,padding:"8px 4px"}}>
+                        <div style={{color:x.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{x.v}</div>
+                        <div style={{color:C.muted,fontSize:10,fontWeight:600}}>{x.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between"}}>
+                    <span style={{color:C.muted,fontSize:12}}>Goals For: <span style={{color:C.accent,fontWeight:700}}>{r.gf}</span></span>
+                    <span style={{color:C.muted,fontSize:12}}>Against: <span style={{color:C.danger,fontWeight:700}}>{r.ga}</span></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── SHOT EFFICIENCY ── */}
+      {(()=>{
+        const ratedGames=done.filter(g=>(g.stats||[]).length>0);
+        if(!ratedGames.length) return null;
+        const totShots=ratedGames.reduce((a,g)=>a+(g.stats||[]).reduce((b,s)=>b+(s.shots||0),0),0);
+        const totSoT  =ratedGames.reduce((a,g)=>a+(g.stats||[]).reduce((b,s)=>b+(s.shotsOnTarget||0),0),0);
+        const totGoals=ratedGames.reduce((a,g)=>a+g.ourScore,0);
+        const accuracy=totShots>0?Math.round(totSoT/totShots*100):0;
+        const conversion=totSoT>0?Math.round(totGoals/totSoT*100):0;
+        const convAll=totShots>0?Math.round(totGoals/totShots*100):0;
+        return(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>SHOT EFFICIENCY</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:12,marginBottom:16}}>
+              {[
+                {l:"Total Shots",v:totShots,c:C.muted},
+                {l:"On Target",v:totSoT,c:C.warning},
+                {l:"Accuracy",v:accuracy+"%",c:C.warning},
+                {l:"Goals",v:totGoals,c:C.accent},
+                {l:"Shot Conversion",v:convAll+"%",c:C.accent},
+                {l:"SoT Conversion",v:conversion+"%",c:C.accent},
+              ].map(item=>(
+                <div key={item.l} style={{background:C.surface,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+                  <div style={{color:item.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{item.v}</div>
+                  <div style={{color:C.muted,fontSize:10,marginTop:4,fontWeight:600}}>{item.l}</div>
+                </div>
+              ))}
+            </div>
+            {/* Shot funnel bar */}
+            {totShots>0&&(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <div style={{flex:totShots,height:8,background:C.muted+"44",borderRadius:4,position:"relative",overflow:"hidden"}}>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${accuracy}%`,background:C.warning,borderRadius:4,transition:"width .4s"}}/>
+                  </div>
+                  <div style={{color:C.muted,fontSize:10,whiteSpace:"nowrap",minWidth:60}}>SoT {accuracy}%</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{flex:totShots,height:8,background:C.muted+"44",borderRadius:4,position:"relative",overflow:"hidden"}}>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${convAll}%`,background:C.accent,borderRadius:4,transition:"width .4s"}}/>
+                  </div>
+                  <div style={{color:C.muted,fontSize:10,whiteSpace:"nowrap",minWidth:60}}>Goals {convAll}%</div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── DEFENSIVE STATS ── */}
+      {(()=>{
+        const ratedGames=done.filter(g=>(g.stats||[]).length>0);
+        if(!ratedGames.length) return null;
+        const cleanSheets=done.filter(g=>g.theirScore===0).length;
+        const totGA=done.reduce((a,g)=>a+g.theirScore,0);
+        const avgGA=done.length?Math.round(totGA/done.length*10)/10:0;
+        const totTackles=ratedGames.reduce((a,g)=>a+(g.stats||[]).reduce((b,s)=>b+(s.tackles||0),0),0);
+        const totInter  =ratedGames.reduce((a,g)=>a+(g.stats||[]).reduce((b,s)=>b+(s.interceptions||0),0),0);
+        const totFouls  =ratedGames.reduce((a,g)=>a+(g.stats||[]).reduce((b,s)=>b+(s.fouls||0),0),0);
+        const topDef=(roster||[]).map(p=>{
+          const pg=ratedGames.filter(g=>(g.stats||[]).some(s=>s.playerId===p.id));
+          const t=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?((s.tackles||0)+(s.interceptions||0)):0);},0);
+          return{name:p.name,pos:primaryPos(p),val:t,gp:pg.length};
+        }).filter(x=>x.val>0).sort((a,b)=>b.val-a.val).slice(0,5);
+        return(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>DEFENSIVE STATS</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:12,marginBottom:16}}>
+              {[
+                {l:"Clean Sheets",v:cleanSheets,c:C.accent},
+                {l:"Goals Conceded",v:totGA,c:C.danger},
+                {l:"Avg Goals Against",v:avgGA,c:C.danger},
+                {l:"Total Tackles",v:totTackles,c:C.warning},
+                {l:"Interceptions",v:totInter,c:C.warning},
+                {l:"Fouls Committed",v:totFouls,c:C.muted},
+              ].map(item=>(
+                <div key={item.l} style={{background:C.surface,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+                  <div style={{color:item.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{item.v}</div>
+                  <div style={{color:C.muted,fontSize:10,marginTop:4,fontWeight:600}}>{item.l}</div>
+                </div>
+              ))}
+            </div>
+            {topDef.length>0&&(
+              <>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>TOP DEFENDERS (tackles + interceptions)</div>
+                {topDef.map((p,i)=>(
+                  <div key={p.name} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<topDef.length-1?`1px solid ${C.border}`:"none"}}>
+                    <div style={{color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:13,width:18,textAlign:"right"}}>{i+1}</div>
+                    <div style={{flex:1}}>
+                      <span style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</span>
+                      <span style={{color:C.muted,fontSize:11,marginLeft:6}}>{p.pos} · {p.gp}gp</span>
+                    </div>
+                    <div style={{color:C.warning,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{p.val}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── TOP SCORERS & ASSISTERS ── */}
+      {(()=>{
+        const ratedGames=done.filter(g=>(g.stats||[]).length>0);
+        if(!ratedGames.length) return null;
+        const playerStats=(roster||[]).map(p=>{
+          const pg=ratedGames.filter(g=>(g.stats||[]).some(s=>s.playerId===p.id));
+          const goals=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?s.goals||0:0);},0);
+          const assists=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?s.assists||0:0);},0);
+          const shots=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?s.shots||0:0);},0);
+          return{name:p.name,pos:primaryPos(p),goals,assists,shots,gp:pg.length};
+        }).filter(p=>p.goals>0||p.assists>0);
+        const topScorers=[...playerStats].sort((a,b)=>b.goals-a.goals||b.assists-a.assists).slice(0,8);
+        const topAssist=[...playerStats].sort((a,b)=>b.assists-a.assists||b.goals-a.goals).slice(0,5);
+        if(!topScorers.length) return null;
+        return(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>SCORING LEADERS</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>⚽ TOP SCORERS</div>
+                {topScorers.map((p,i)=>(
+                  <div key={p.name+i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:i<topScorers.length-1?`1px solid ${C.border}`:"none"}}>
+                    <div style={{color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:12,width:16,textAlign:"right"}}>{i+1}</div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
+                      <div style={{color:C.muted,fontSize:10}}>{p.pos} · {p.shots} shots</div>
+                    </div>
+                    <div style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,minWidth:24,textAlign:"right"}}>{p.goals}</div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>🎯 TOP ASSISTERS</div>
+                {topAssist.map((p,i)=>(
+                  <div key={p.name+i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:i<topAssist.length-1?`1px solid ${C.border}`:"none"}}>
+                    <div style={{color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:12,width:16,textAlign:"right"}}>{i+1}</div>
+                    <div style={{flex:1}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:13}}>{p.name}</div>
+                      <div style={{color:C.muted,fontSize:10}}>{p.pos} · {p.gp} games</div>
+                    </div>
+                    <div style={{color:"#42a5f5",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,minWidth:24,textAlign:"right"}}>{p.assists}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── PLAYER FORM TABLE ── */}
+      {(()=>{
+        const ratedGames=done.filter(g=>!g.excludeFromRating&&(g.stats||[]).length>0);
+        if(!ratedGames.length) return null;
+        const [sortKey,setSortKey]=React.useState("avg");
+        const playerRows=(roster||[]).map(p=>{
+          const pg=ratedGames.filter(g=>(g.stats||[]).some(s=>s.playerId===p.id));
+          if(!pg.length) return null;
+          const ratings=pg.map(g=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return s?calcRating(s,primaryPos(p),g.theirScore===0).rating:null;}).filter(r=>r!==null);
+          const goals=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?s.goals||0:0);},0);
+          const assists=pg.reduce((a,g)=>{const s=(g.stats||[]).find(x=>x.playerId===p.id);return a+(s?s.assists||0:0);},0);
+          const avg=ratings.length?Math.round(ratings.reduce((a,b)=>a+b,0)/ratings.length*10)/10:0;
+          const last=ratings[ratings.length-1]||null;
+          const trend=ratings.length>=2?(ratings[ratings.length-1]-ratings[ratings.length-2]>0.2?"↑":ratings[ratings.length-1]-ratings[ratings.length-2]<-0.2?"↓":"→"):null;
+          return{player:p,avg,goals,assists,gp:pg.length,last,trend};
+        }).filter(Boolean);
+        const sorted=[...playerRows].sort((a,b)=>{
+          if(sortKey==="avg") return b.avg-a.avg;
+          if(sortKey==="goals") return b.goals-a.goals||b.avg-a.avg;
+          if(sortKey==="assists") return b.assists-a.assists||b.avg-a.avg;
+          if(sortKey==="gp") return b.gp-a.gp;
+          return 0;
+        });
+        const hdStyle={color:C.muted,fontSize:10,fontWeight:700,cursor:"pointer",padding:"0 4px",userSelect:"none"};
+        const activeHd={...hdStyle,color:C.accent};
+        return(
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20,overflowX:"auto"}}>
+            <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>PLAYER FORM TABLE</div>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:400}}>
+              <thead>
+                <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                  <th style={{...hdStyle,textAlign:"left",paddingBottom:8}}>PLAYER</th>
+                  <th style={sortKey==="gp"?{...activeHd,paddingBottom:8}:{...hdStyle,paddingBottom:8}} onClick={()=>setSortKey("gp")}>GP {sortKey==="gp"&&"▼"}</th>
+                  <th style={sortKey==="goals"?{...activeHd,paddingBottom:8}:{...hdStyle,paddingBottom:8}} onClick={()=>setSortKey("goals")}>G {sortKey==="goals"&&"▼"}</th>
+                  <th style={sortKey==="assists"?{...activeHd,paddingBottom:8}:{...hdStyle,paddingBottom:8}} onClick={()=>setSortKey("assists")}>A {sortKey==="assists"&&"▼"}</th>
+                  <th style={sortKey==="avg"?{...activeHd,paddingBottom:8}:{...hdStyle,paddingBottom:8}} onClick={()=>setSortKey("avg")}>AVG RTG {sortKey==="avg"&&"▼"}</th>
+                  <th style={{...hdStyle,paddingBottom:8}}>TREND</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((row,i)=>(
+                  <tr key={row.player.id} style={{borderBottom:i<sorted.length-1?`1px solid ${C.border}`:"none"}}>
+                    <td style={{padding:"9px 4px"}}>
+                      <div style={{color:C.text,fontWeight:700,fontSize:13}}>{row.player.name}</div>
+                      <div style={{color:C.muted,fontSize:10}}>{primaryPos(row.player)}</div>
+                    </td>
+                    <td style={{textAlign:"center",color:C.muted,fontSize:13,padding:"9px 4px"}}>{row.gp}</td>
+                    <td style={{textAlign:"center",color:C.accent,fontWeight:700,fontSize:14,padding:"9px 4px"}}>{row.goals}</td>
+                    <td style={{textAlign:"center",color:"#42a5f5",fontWeight:700,fontSize:14,padding:"9px 4px"}}>{row.assists}</td>
+                    <td style={{textAlign:"center",padding:"9px 4px"}}>
+                      <span style={{color:rColor(row.avg),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:16}}>{row.avg.toFixed(1)}</span>
+                    </td>
+                    <td style={{textAlign:"center",fontSize:16,padding:"9px 4px",
+                      color:row.trend==="↑"?C.accent:row.trend==="↓"?C.danger:C.muted}}>
+                      {row.trend||"—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{color:C.muted,fontSize:10,marginTop:8}}>Click column headers to sort · Trend based on last 2 rated games</div>
+          </div>
+        );
+      })()}
+
       {done.length===0&&(
         <div style={{textAlign:"center",padding:"60px 0",color:C.muted}}>
           <div style={{fontSize:36,marginBottom:12}}>📊</div>
