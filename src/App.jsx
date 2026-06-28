@@ -16576,7 +16576,7 @@ function PlayerPortalPage(){
   var isCB    = ["CB","LB","RB"].some(function(p){return allPos(player).includes(p);});
 
   var playerGames = (games||[]).filter(function(g){
-    return !g.excludeFromRating&&(g.stats||[]).some(function(s){return s.playerId===playerId;});
+    return (g.stats||[]).some(function(s){return s.playerId===playerId;});
   });
   var allStats = playerGames.flatMap(function(g){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
@@ -16593,7 +16593,7 @@ function PlayerPortalPage(){
   },{goals:0,assists:0,shots:0,tackles:0,saves:0,goalsConceded:0,
     passesCompleted:0,passesAttempted:0,interceptions:0,minutes:0});
 
-  var ratingList = playerGames.map(function(g){
+  var ratingList = playerGames.filter(function(g){return !g.excludeFromRating;}).map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
     if(!s) return null;
     return {r:calcRating(s,pos,g.theirScore===0).rating,opp:g.opponent,date:g.date};
@@ -17524,7 +17524,7 @@ function PlayerPortalPage(){
                         </div>
                         <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
                           fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
-                          {rat.rating.toFixed(1)}
+                          {g.excludeFromRating?"—":rat.rating.toFixed(1)}
                         </div>
                         <div style={{color:"#ccc",fontSize:14,transform:isExp?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
                       </div>
@@ -19412,7 +19412,7 @@ function RecruitProfilePage(){
 
   var pos=primaryPos(player);
   var posCol=posColor(pos);
-  var playerGames=(games||[]).filter(function(g){return !g.excludeFromRating&&(g.stats||[]).some(function(s){return s.playerId===playerId;});});
+  var playerGames=(games||[]).filter(function(g){return (g.stats||[]).some(function(s){return s.playerId===playerId;});});
   var gp=playerGames.length||1;
   var allStats=playerGames.flatMap(function(g){return (g.stats||[]).filter(function(s){return s.playerId===playerId;});});
   var tots=allStats.reduce(function(acc,s){
