@@ -4817,7 +4817,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       </div>
 
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {games.filter(g=>g.status==="completed"&&!g.excludeFromRating).map(game=>{
+        {games.filter(g=>g.status==="completed").map(game=>{
           const r=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
           const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
           return(
@@ -4868,6 +4868,12 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                     color:C.accent,fontWeight:700,fontSize:11,cursor:"pointer",flexShrink:0}}>
                   ✏ Add Stats
                 </button>
+              )}
+              {game.excludeFromRating&&(
+                <span style={{fontSize:10,fontWeight:700,color:"#ef5350",background:"#ef535018",
+                  border:"1px solid #ef535044",borderRadius:4,padding:"2px 6px",flexShrink:0}}>
+                  NO RTG
+                </span>
               )}
               <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
               <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
