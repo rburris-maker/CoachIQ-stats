@@ -4236,6 +4236,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const squadAvg=game.excludeFromRating?null:Math.round((rows.reduce((a,r)=>a+(r.rating||0),0)/rows.length)*10)/10;
 
     return(
+      <>
       <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
         {/* Hidden file input for stat upload in detail view */}
         <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
@@ -4398,6 +4399,115 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         </div>
       </div>
+
+      {/* ── EDIT GAME MODAL (detail view) ── */}
+      {editGame&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,width:"100%",maxWidth:420,padding:28}}>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>EDIT GAME</div>
+            <h3 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:800,marginBottom:20}}>vs {editGame.opponent}</h3>
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>OPPONENT</label>
+              <input value={editGame.opponent} onChange={e=>setEditGame(g=>({...g,opponent:e.target.value}))}
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DATE</label>
+              <input type="date" value={editGame.date} onChange={e=>setEditGame(g=>({...g,date:e.target.value}))}
+                style={{width:"100%",padding:"11px 14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:"none",fontFamily:"'Outfit',sans-serif",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>LOCATION</label>
+              <div style={{display:"flex",gap:8}}>
+                {["Home","Away"].map(l=>(
+                  <button key={l} onClick={()=>setEditGame(g=>({...g,location:l}))}
+                    style={{flex:1,padding:"10px",background:editGame.location===l?C.accent+"22":C.surface,
+                      border:`1px solid ${editGame.location===l?C.accent:C.border}`,borderRadius:9,
+                      color:editGame.location===l?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FORMATION</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {["4-3-3","4-4-2","4-2-3-1","3-5-2","5-3-2"].map(f=>(
+                  <button key={f} onClick={()=>setEditGame(g=>({...g,formation:f}))}
+                    style={{padding:"7px 12px",background:editGame.formation===f?C.accent+"22":C.surface,
+                      border:`1px solid ${editGame.formation===f?C.accent:C.border}`,borderRadius:8,
+                      color:editGame.formation===f?C.accent:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:24}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SCORE</label>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>US</div>
+                  <input type="number" min="0" max="30" value={editGame.ourScore}
+                    onChange={e=>setEditGame(g=>({...g,ourScore:parseInt(e.target.value)||0}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{color:C.muted,fontSize:24,fontWeight:900,fontFamily:"'Oswald',sans-serif",marginTop:16}}>—</div>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:4}}>THEM</div>
+                  <input type="number" min="0" max="30" value={editGame.theirScore}
+                    onChange={e=>setEditGame(g=>({...g,theirScore:parseInt(e.target.value)||0}))}
+                    style={{width:"100%",padding:"14px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,
+                      color:C.text,fontSize:28,fontWeight:900,textAlign:"center",outline:"none",
+                      fontFamily:"'Oswald',sans-serif",boxSizing:"border-box"}}/>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <button onClick={()=>setEditGame(g=>({...g,isScrimmage:!g.isScrimmage}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.isScrimmage?"#f59e0b22":C.surface,
+                  border:`1px solid ${editGame.isScrimmage?"#f59e0b":C.border}`,
+                  color:editGame.isScrimmage?"#f59e0b":C.muted}}>
+                {editGame.isScrimmage?"⚽ Scrimmage ✓":"⚽ Mark as Scrimmage"}
+              </button>
+              <button onClick={()=>setEditGame(g=>({...g,excludeFromRating:!g.excludeFromRating}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.excludeFromRating?"#ef535022":C.surface,
+                  border:`1px solid ${editGame.excludeFromRating?"#ef5350":C.border}`,
+                  color:editGame.excludeFromRating?"#ef5350":C.muted}}>
+                {editGame.excludeFromRating?"⭐ Ratings OFF ✓":"⭐ Include in Ratings"}
+              </button>
+            </div>
+            <div style={{marginBottom:20}}>
+              <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
+              <textarea value={editGame.coachNotes||""} onChange={e=>setEditGame(g=>({...g,coachNotes:e.target.value}))}
+                placeholder="Key observations, tactical notes, standout moments..."
+                rows={3}
+                style={{width:"100%",padding:"10px 14px",background:C.bg,border:`1px solid ${C.border}`,
+                  borderRadius:9,color:C.text,fontSize:13,outline:"none",
+                  fontFamily:"'Outfit',sans-serif",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setEditGame(null)}
+                style={{flex:1,padding:"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
+                Cancel
+              </button>
+              <button onClick={()=>{
+                  setGames(prev=>prev.map(g=>g.id===editGame.id?{...g,...editGame}:g));
+                  setEditGame(null);
+                }}
+                style={{flex:2,padding:"12px",background:C.accent,border:"none",borderRadius:10,
+                  color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                Save Changes →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </>
     );
   }
 
