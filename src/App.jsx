@@ -881,7 +881,7 @@ const rColor    = r => r>=8.5?"#ff6b00":r>=7.5?"#ff8c00":r>=6.5?"#ffb300":r>=5.5
 
 function getHistory(pid, games) {
   const player = PLAYERS.find(p=>p.id===pid);
-  return games.filter(g=>g.status==="completed").map(g=>{
+  return games.filter(g=>g.status==="completed"&&!g.excludeFromRating).map(g=>{
     const st = g.stats.find(s=>s.playerId===pid); if (!st) return null;
     const res = calcRating(st, primaryPos(player), isCS(g,pid));
     return {...st,...res,date:g.date,opponent:g.opponent,gameId:g.id};
@@ -4249,13 +4249,18 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
           </button>
-          {(game.stats||[]).length>0&&(
-            <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(game.stats))})}
-              style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
-                padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
-              <Pencil size={13}/> Edit Stats
-            </button>
-          )}
+          <button onClick={()=>{
+              const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
+                keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
+                tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
+                dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90}));
+              const existing=(game.stats||[]).length>0?JSON.parse(JSON.stringify(game.stats)):blank;
+              setEditStats({gameId:game.id,stats:existing});
+            }}
+            style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+              padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            <Pencil size={13}/> {(game.stats||[]).length>0?"Edit Stats":"Add Stats"}
+          </button>
           <button onClick={()=>window.open(window.location.origin+window.location.pathname+"#/report/"+game.id,"_blank")}
             style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:8,
               padding:"8px 14px",color:C.accent,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -4298,7 +4303,11 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
             <div>
-              <div style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{fmtDate(game.date)} · {game.location} · {game.formation}</div>
+              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:2}}>
+                <span style={{color:C.muted,fontSize:12,fontWeight:600,letterSpacing:1}}>{fmtDate(game.date)} · {game.location} · {game.formation}</span>
+                {game.isScrimmage&&<span style={{background:"#f59e0b22",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>SCRIMMAGE</span>}
+                {game.excludeFromRating&&<span style={{background:"#ef535022",color:"#ef5350",border:"1px solid #ef535044",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>RATINGS OFF</span>}
+              </div>
               <h2 style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:28,fontWeight:800,margin:"6px 0"}}>vs {game.opponent}</h2>
               <Tag color={rc}>{res==="W"?"VICTORY":res==="L"?"DEFEAT":"DRAW"}</Tag>
             </div>
@@ -4490,6 +4499,22 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               </div>
             </div>
 
+            <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <button onClick={()=>setEditGame(g=>({...g,isScrimmage:!g.isScrimmage}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.isScrimmage?"#f59e0b22":C.surface,
+                  border:`1px solid ${editGame.isScrimmage?"#f59e0b":C.border}`,
+                  color:editGame.isScrimmage?"#f59e0b":C.muted}}>
+                {editGame.isScrimmage?"⚽ Scrimmage ✓":"⚽ Mark as Scrimmage"}
+              </button>
+              <button onClick={()=>setEditGame(g=>({...g,excludeFromRating:!g.excludeFromRating}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:editGame.excludeFromRating?"#ef535022":C.surface,
+                  border:`1px solid ${editGame.excludeFromRating?"#ef5350":C.border}`,
+                  color:editGame.excludeFromRating?"#ef5350":C.muted}}>
+                {editGame.excludeFromRating?"⭐ Ratings OFF ✓":"⭐ Include in Ratings"}
+              </button>
+            </div>
             <div style={{marginBottom:20}}>
               <label style={{color:C.muted,fontSize:11,fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COACH NOTES <span style={{color:C.muted,fontWeight:400,fontSize:10}}>(optional)</span></label>
               <textarea value={editGame.coachNotes||""} onChange={e=>setEditGame(g=>({...g,coachNotes:e.target.value}))}
@@ -4706,10 +4731,12 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                     </button>
                   )}
                 </div>
-                <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12}}>
+                <div style={{color:C.muted,fontSize:12,marginTop:2,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><Calendar size={11}/>{fmtDate(game.date)}</span>
                   <span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={11}/>{game.location}</span>
                   <span>{game.formation}</span>
+                  {game.isScrimmage&&<span style={{background:"#f59e0b22",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>SCRIMMAGE</span>}
+                  {game.excludeFromRating&&<span style={{background:"#ef535022",color:"#ef5350",border:"1px solid #ef535044",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>RATINGS OFF</span>}
                 </div>
               {game.coachNotes&&(
                 <div style={{color:C.muted,fontSize:11,marginTop:3,
@@ -10386,7 +10413,8 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
           </div>
 
         </div>
-      </div>
+      </>}
+    </div>
     );
   }
 
@@ -18344,7 +18372,14 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
   const game = games.find(function(g){ return g.id===editStats.gameId; });
   if(!game) return null;
 
-  var stats = editStats.stats;
+  var stats = (editStats.stats&&editStats.stats.length>0)
+    ? editStats.stats
+    : (roster||[]).map(function(p){
+        return {playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
+          keyPasses:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,
+          tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,
+          dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:90};
+      });
 
   var STAT_FIELDS = [
     {k:"goals",        label:"Goals"},
