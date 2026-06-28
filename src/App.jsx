@@ -11232,7 +11232,6 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         );
       })()}
 
-      </div>
       </>}
     </div>
     );
