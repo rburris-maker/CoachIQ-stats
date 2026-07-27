@@ -4525,7 +4525,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         </div>
 
         {/* Quick score banner — prompt to add stats */}
-        {game.entryType==="quick"&&(
+        {(game.entryType==="quick"||(game.stats||[]).length===0)&&(
           <div style={{background:C.accent+"15",border:`1px solid ${C.accent}44`,borderRadius:12,
             padding:"14px 18px",marginBottom:16}}>
             <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:2}}>No Stats Recorded</div>
@@ -4762,6 +4762,15 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         </div>
       )}
+
+      {/* ── EDIT STATS MODAL (detail view) ── */}
+      {editStats&&<EditStatsModal
+        editStats={editStats}
+        setEditStats={setEditStats}
+        games={games}
+        setGames={setGames}
+        roster={activeRoster||[]}
+      />}
 
     </>
     );
