@@ -4307,7 +4307,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       formation:"",
       ourScore:parseInt(quickForm.ourScore)||0,
       theirScore:parseInt(quickForm.theirScore)||0,
-      status:"completed",
+      status:quickForm.date>new Date().toISOString().split("T")[0]?"scheduled":"completed",
       entryType:"quick",
       coachNotes:quickForm.coachNotes||"",
       stats:[],
@@ -12412,7 +12412,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
           id:"g"+(now+idx), opponent:row.opponent, date:row.date,
           time:row.time||"", location:row.location||"Home",
           formation:"4-3-3", ourScore:0, theirScore:0,
-          status:"completed", stats:[], coachNotes:"",
+          status:row.date>new Date().toISOString().split("T")[0]?"scheduled":"completed", stats:[], coachNotes:"",
           scrimmage:row.type==="scrimmage", fromCalendar:true
         });
       }
