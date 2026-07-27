@@ -4282,7 +4282,7 @@ function parseScheduleSpreadsheet(file){
   });
 }
 
-function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam,opponents,onViewOpponent,setOpponents}){
+function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,teams,activeTeamId,onSwitchTeam,opponents,onViewOpponent,setOpponents,setLivePreload,setView}){
   const [sel,setSel]=useState(null);
   const [expanded,setExpanded]=useState(null);
   const [importing,setImporting]=useState(false);
@@ -5116,7 +5116,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                 </div>
               )}
               </div>
-              {game.entryType==="quick"&&(
+              {!isUpcoming&&game.entryType==="quick"&&(
                 <button onClick={e=>{
                     e.stopPropagation();
                     const blank=(activeRoster||[]).map(p=>({
@@ -5134,15 +5134,25 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                   ✏ Add Stats
                 </button>
               )}
-              {game.excludeFromRating&&(
+              {!isUpcoming&&game.excludeFromRating&&(
                 <span style={{fontSize:10,fontWeight:700,color:"#ef5350",background:"#ef535018",
                   border:"1px solid #ef535044",borderRadius:4,padding:"2px 6px",flexShrink:0}}>
                   NO RTG
                 </span>
               )}
-              <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
+              {isUpcoming
+                ? <button
+                    onClick={e=>{e.stopPropagation();setLivePreload&&setLivePreload({opponent:game.opponent,location:game.location,formation:game.formation,date:game.date,gameId:game.id});setView&&setView("live");}}
+                    style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",
+                      background:isToday?"#f59e0b":C.accent,border:"none",borderRadius:8,
+                      color:"#000",fontWeight:800,fontSize:12,cursor:"pointer",flexShrink:0,
+                      fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+                    ▶ Live
+                  </button>
+                : <div onClick={()=>setSel(game.id)} style={{color:C.text,fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",cursor:"pointer"}}>{game.ourScore} – {game.theirScore}</div>
+              }
               <ChevronRight onClick={()=>setSel(game.id)} size={16} color={C.muted} style={{cursor:"pointer"}}/>
-              {(game.stats||[]).length>0&&(
+              {!isUpcoming&&(game.stats||[]).length>0&&(
                 <button
                   onClick={e=>{e.stopPropagation();setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(game.stats))});}}
                   style={{padding:"6px 8px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
@@ -8288,7 +8298,7 @@ export default function CoachIQStats(){
               if(player) setRoster(prev=>[...prev,player]);
               localStorage.setItem('coachiq_onboarded','1'); // never show again on this device
             }}/>}
-            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} />}
+            {view==="games"     &&<GamesView     games={games} setGames={setGames} teamName={activeTeam?.name} roster={roster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} opponents={opponents} setOpponents={setOpponents} onViewOpponent={(name)=>{setPendingOpp(name);setView("opponents");}} setLivePreload={setLivePreload} setView={setView}/>}
             {view==="live"      &&<LiveTrackView games={games} setGames={setGames} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} roster={roster} userId={userId} teamId={safeTeamId} userName={session?.user?.email?.split("@")[0]||"Coach"} joinSessionId={liveJoinId} onClearJoin={()=>setLiveJoinId(null)} gamePlans={gamePlans} livePreload={livePreload} onClearPreload={()=>setLivePreload(null)}/>}
             {view==="analytics" &&<AnalyticsView games={games} roster={roster} practices={practices} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} safeTeamId={safeTeamId}/>}
             {view==="settings"&&!isCoCoach&&<SettingsView teamHub={teamHub} saveTeamHub={saveTeamHub} games={games} isPro={isPro} isElite={isElite} brandName={brandName} setBrandName={setBrandName} brandLogo={brandLogo} setBrandLogo={setBrandLogo} onUpgrade={()=>setShowUpgrade(true)} onManage={manageSubscription} userId={userId} safeTeamId={safeTeamId} teams={teams} addTeam={addTeam} renameTeam={renameTeam} deleteTeam={deleteTeam} activeTeamName={activeTeam?.name}/>}
