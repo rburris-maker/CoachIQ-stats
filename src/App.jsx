@@ -885,7 +885,7 @@ function getHistory(pid, games) {
     const st = g.stats.find(s=>s.playerId===pid); if (!st) return null;
     const res = calcRating(st, primaryPos(player), isCS(g,pid));
     return {...st,...res,date:g.date,opponent:g.opponent,gameId:g.id};
-  }).filter(Boolean);
+  }).filter(Boolean).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
 }
 
 function formTrend(pid, games){
@@ -7352,7 +7352,7 @@ export default function CoachIQStats(){
         supabase.from("opponents").select("*",{filter:{team_id:tid}}),
       ]);
       setRosterState((r.data?.[0]?.players) || []);
-      setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0));
+      setGamesState((g.data||[]).map(x=>x.data).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||b.createdAt?.localeCompare(a.createdAt||"")||0));
       setGamePlansState((gp.data||[]).map(x=>x.data));
       setPracticesState((pr.data||[]).map(x=>x.data));
       setDrillsState((dr.data?.[0]?.data) || []);
