@@ -8299,7 +8299,7 @@ export default function CoachIQStats(){
             {view==="calendar"  &&<CalendarView  schedule={schedule} setSchedule={setSchedule} games={games} setGames={setGames} setLivePreload={setLivePreload} setView={setView} practices={practices} setPractices={setPractices} setView={setView} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="lineups"   &&<LineupsView  lineups={lineups} setLineups={setLineups} roster={roster} teamName={activeTeam?.name} activeTeamId={safeTeamId}/>}
             {view==="tryouts"   &&<TryoutsView   tryouts={tryouts} setTryouts={setTryouts} roster={roster} setRoster={setRoster} teams={teams} activeTeamId={safeTeamId} onSwitchTeam={switchTeam} addPlayerToTeam={addPlayerToTeam}/>}
-            {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
+            {view==="opponents" &&<OpponentsView  opponents={opponents} setOpponents={setOpponents} games={games} gamePlans={gamePlans} roster={roster} isPro={isPro} onUpgrade={()=>setShowUpgrade(true)} pendingOpp={pendingOpp} onClearPendingOpp={()=>setPendingOpp(null)}/>}
             {/* redirect old dashboard id */}
 
           </div>
@@ -14508,7 +14508,7 @@ function OppSquadGrid({positions, oppPlayers, update, updateOppPlayer, getOppPla
   );
 }
 
-function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgrade, pendingOpp, onClearPendingOpp}){
+function OpponentsView({opponents, setOpponents, games, gamePlans, roster, isPro, onUpgrade, pendingOpp, onClearPendingOpp}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Opponent intelligence database">{null}</ProGate>;
   const [sel,    setSel]    = useState(null);
   const [adding, setAdding] = useState(false);
