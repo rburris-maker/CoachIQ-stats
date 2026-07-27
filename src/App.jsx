@@ -909,7 +909,7 @@ function avgRating(pid, games) {
 }
 
 function teamSum(games) {
-  const d=games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
+  const d=games.filter(g=>g.status==="completed"&&!g.scrimmage);
   const w=d.filter(g=>g.ourScore>g.theirScore).length;
   const dr=d.filter(g=>g.ourScore===g.theirScore).length;
   const l=d.filter(g=>g.ourScore<g.theirScore).length;
@@ -976,7 +976,7 @@ function BreakdownBars({breakdown}){
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function DashboardView({games,setView,teamName}){
   const ts=teamSum(games);
-  const done=games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
+  const done=games.filter(g=>g.status==="completed"&&!g.scrimmage);
 
   const top=useMemo(()=>
     PLAYERS.map(p=>({...p,avg:avgRating(p.id,games)})).sort((a,b)=>b.avg-a.avg).slice(0,5)
@@ -3573,7 +3573,7 @@ function WorkoutBuilderView({workouts, setWorkouts, roster}){
 function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId}){
   if(!isPro) return <ProGate isPro={isPro} onUpgrade={onUpgrade} feature="Season analytics and reports">{null}</ProGate>;
 
-  const done = (games||[]).filter(g=>g.status==="completed");
+  const done = (games||[]).filter(g=>g.status==="completed"&&!g.scrimmage);
   const wins   = done.filter(g=>g.ourScore>g.theirScore).length;
   const draws  = done.filter(g=>g.ourScore===g.theirScore).length;
   const losses = done.filter(g=>g.ourScore<g.theirScore).length;
@@ -8315,7 +8315,7 @@ export default function CoachIQStats(){
 // ─── HOME VIEW ────────────────────────────────────────────────────────────────
 function HomeView({games, gamePlans, practices, roster, setView, teamName, schedule}){
   const ts   = teamSum(games);
-  const done = games.filter(g=>g.status==="completed"&&!g.excludeFromRating);
+  const done = games.filter(g=>g.status==="completed"&&!g.scrimmage);
   const today = new Date().toISOString().split("T")[0];
   const upcoming = [...gamePlans].sort((a,b)=>a.date.localeCompare(b.date)).find(gp=>gp.date>=today);
   const recent = done.slice(0,3);
