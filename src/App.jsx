@@ -14518,8 +14518,24 @@ function OpponentsView({opponents, setOpponents, games, gamePlans, isPro, onUpgr
   // Auto-select opponent navigated from Games tab
   useEffect(()=>{
     if(!pendingOpp) return;
-    const opp = opponents.find(o=>o.name===pendingOpp);
-    if(opp){ setSel(opp.id); }
+    let opp = opponents.find(o=>o.name===pendingOpp);
+    if(opp){
+      setSel(opp.id);
+    } else {
+      // Opponent exists in games but not in the opponents list yet — create it
+      const newOpp = {
+        id:`opp${Date.now()}`,
+        name:pendingOpp,
+        formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",
+        oppPlayers:{},
+        tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},
+        setPieces:{cornersAtk:"",cornersDef:"",freeKicksAtk:"",freeKicksDef:"",throwInsAtk:"",throwInsDef:""},
+        counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},
+        createdAt:new Date().toISOString(),
+      };
+      setOpponents(prev=>[...prev, newOpp]);
+      setSel(newOpp.id);
+    }
     onClearPendingOpp&&onClearPendingOpp();
   },[pendingOpp]); // overview | squad | setpieces | response
 
