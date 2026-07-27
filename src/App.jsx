@@ -5082,15 +5082,24 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
       </div>
 
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {games.filter(g=>g.status==="completed").map(game=>{
+        {[
+            ...(games.filter(g=>g.status!=="completed").sort((a,b)=>(a.date||"").localeCompare(b.date||""))),
+            ...(games.filter(g=>g.status==="completed").sort((a,b)=>(b.date||"").localeCompare(a.date||"")))
+          ].map(game=>{
+          const isUpcoming = game.status!=="completed";
+          const today = new Date().toISOString().split("T")[0];
+          const isToday = game.date===today;
           const r=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
           const rc=r==="W"?C.accent:r==="L"?C.danger:C.warning;
           return(
             <div key={game.id}
-              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 20px",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
+              style={{background:C.card,border:`1px solid ${isToday?"#f59e0b":isUpcoming?C.accent+"44":C.border}`,borderRadius:14,padding:"14px 20px",display:"flex",alignItems:"center",gap:16,transition:"all .15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-              <div onClick={()=>setSel(game.id)} style={{width:40,height:40,borderRadius:10,background:rc+"22",border:`2px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:20,flexShrink:0,cursor:"pointer"}}>{r}</div>
+              onMouseLeave={e=>e.currentTarget.style.borderColor=isToday?"#f59e0b":isUpcoming?C.accent+"44":C.border}>
+              {isUpcoming
+                ? <div onClick={()=>setSel(game.id)} style={{width:40,height:40,borderRadius:10,background:isToday?"#f59e0b22":"#ffffff11",border:`2px solid ${isToday?"#f59e0b":C.accent+"66"}`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:isToday?"#f59e0b":C.muted,fontSize:11,flexShrink:0,cursor:"pointer",letterSpacing:.5}}>{isToday?"TODAY":"UPC"}</div>
+                : <div onClick={()=>setSel(game.id)} style={{width:40,height:40,borderRadius:10,background:rc+"22",border:`2px solid ${rc}44`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Oswald',sans-serif",fontWeight:900,color:rc,fontSize:20,flexShrink:0,cursor:"pointer"}}>{r}</div>
+              }
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <div onClick={()=>setSel(game.id)} style={{color:C.text,fontWeight:700,fontSize:15,cursor:"pointer"}}>vs {game.opponent}</div>
