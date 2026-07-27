@@ -10901,7 +10901,7 @@ function PracticeView({practices, setPractices, gamePlans, roster, drills, setDr
         if(totalMins>0){
           const footer = document.createElement("div");
           footer.style.cssText = "margin-top:20px;padding-top:12px;border-top:1px solid #e8d5c0;text-align:right;font-size:12px;color:#8a6040;";
-          footer.innerHTML = `Total drill time: <strong style="color:#1a0d00;">${totalMins} mins</strong> / ${session.duration} min session`;
+          footer.innerHTML = `Total drill time: <strong style="color:#1a0d00;">${totalMins} mins</strong>${session.duration ? " / " + session.duration + " min session" : ""}`;
           portal.appendChild(footer);
         }
 
