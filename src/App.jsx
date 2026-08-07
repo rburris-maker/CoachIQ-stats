@@ -6225,10 +6225,10 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       <div style={{background:"#000",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
 
         {/* Possession buttons */}
-        <div style={{display:"flex",height:56}}>
+        <div style={{display:"flex",height:52}}>
           <button onClick={()=>togglePossession("home")}
             style={{flex:1,border:"none",cursor:"pointer",position:"relative",
-              fontWeight:900,fontSize:17,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
+              fontWeight:900,fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
               background:possession.current==="home"?C.accent:"#0d0d0d",
               color:possession.current==="home"?"#000":"#333",transition:"all .12s"}}>
             {possession.current==="home"&&<div style={{position:"absolute",top:5,right:7,
@@ -6238,7 +6238,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           <div style={{width:1,background:"#222",flexShrink:0}}/>
           <button onClick={()=>togglePossession("away")}
             style={{flex:1,border:"none",cursor:"pointer",position:"relative",
-              fontWeight:900,fontSize:17,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
+              fontWeight:900,fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
               background:possession.current==="away"?"#3b82f6":"#0d0d0d",
               color:possession.current==="away"?"#fff":"#333",transition:"all .12s"}}>
             {possession.current==="away"&&<div style={{position:"absolute",top:5,right:7,
@@ -6246,65 +6246,65 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             AWAY
           </button>
           <button onClick={()=>setShowNoteInput(s=>!s)}
-            style={{width:44,background:"#0d0d0d",border:"none",
-              borderLeft:"1px solid #222",cursor:"pointer",color:"#555",fontSize:15,flexShrink:0}}>
+            style={{width:42,background:"#0d0d0d",border:"none",
+              borderLeft:"1px solid #222",cursor:"pointer",color:"#555",fontSize:14,flexShrink:0}}>
             📝
           </button>
         </div>
 
-        {/* Team stat counters — US left, THEM right */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 2px 1fr",borderTop:"1px solid #1a1a1a"}}>
-          <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
-            {TEAM_STAT_BTNS.map(btn=>{
-              const val=teamStatsUs[btn.k]||0;
-              const bump=d=>setTeamStatsUs(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
-              return(
-                <button key={btn.k} onClick={()=>bump(1)}
-                  onContextMenu={e=>{e.preventDefault();bump(-1);}}
-                  onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
-                  onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
-                  style={{flex:"0 0 auto",minWidth:40,display:"flex",flexDirection:"column",
-                    alignItems:"center",justifyContent:"center",padding:"5px 2px",
-                    background:"transparent",border:"none",borderRight:"1px solid #1a1a1a",
-                    cursor:"pointer",WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
-                  <span style={{color:val>0?C.accent:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
-                    fontWeight:900,fontSize:16,lineHeight:1}}>{val}</span>
-                  <span style={{color:val>0?"#555":"#2a2a2a",fontSize:7,fontWeight:700,
-                    letterSpacing:.3,marginTop:2}}>{btn.label.toUpperCase()}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div style={{background:"#2a2a2a"}}/>
-          <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",
-            flexDirection:"row-reverse"}}>
-            {TEAM_STAT_BTNS.map(btn=>{
-              const val=teamStatsThem[btn.k]||0;
-              const bump=d=>setTeamStatsThem(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
-              return(
-                <button key={btn.k} onClick={()=>bump(1)}
-                  onContextMenu={e=>{e.preventDefault();bump(-1);}}
-                  onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
-                  onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
-                  style={{flex:"0 0 auto",minWidth:40,display:"flex",flexDirection:"column",
-                    alignItems:"center",justifyContent:"center",padding:"5px 2px",
-                    background:"transparent",border:"none",borderLeft:"1px solid #1a1a1a",
-                    cursor:"pointer",WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
-                  <span style={{color:val>0?"#3b82f6":"#2a2a2a",fontFamily:"'Oswald',sans-serif",
-                    fontWeight:900,fontSize:16,lineHeight:1}}>{val}</span>
-                  <span style={{color:val>0?"#555":"#2a2a2a",fontSize:7,fontWeight:700,
-                    letterSpacing:.3,marginTop:2}}>{btn.label.toUpperCase()}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* Stat rows — stacked, US left / THEM right */}
+        {(()=>{
+          const ROW1 = [{k:"passes",l:"PASS"},{k:"shots",l:"SHOT"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
+          const ROW2 = [{k:"goals",l:"GOAL"},{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"}];
+          const StatBtn = ({btn, usUs, col})=>{
+            const setFn = usUs ? setTeamStatsUs : setTeamStatsThem;
+            const state = usUs ? teamStatsUs : teamStatsThem;
+            const val = state[btn.k]||0;
+            const bump = d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+            const ac = usUs ? C.accent : "#3b82f6";
+            return(
+              <button onClick={()=>bump(1)}
+                onContextMenu={e=>{e.preventDefault();bump(-1);}}
+                onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
+                onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
+                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                  justifyContent:"center",padding:"7px 2px",background:"transparent",
+                  border:"none",cursor:"pointer",
+                  WebkitTapHighlightColor:"transparent",userSelect:"none",
+                  borderRight:usUs?"1px solid #1a1a1a":"none",
+                  borderLeft:usUs?"none":"1px solid #1a1a1a"}}>
+                <span style={{color:val>0?ac:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
+                  fontWeight:900,fontSize:18,lineHeight:1}}>{val}</span>
+                <span style={{color:val>0?"#666":"#252525",fontSize:7,fontWeight:700,
+                  letterSpacing:.3,marginTop:2}}>{btn.l}</span>
+              </button>
+            );
+          };
+          return(
+            <>
+              {[ROW1, ROW2].map((row, ri)=>(
+                <div key={ri} style={{display:"grid",gridTemplateColumns:"1fr 1px 1fr",
+                  borderTop:"1px solid #1a1a1a"}}>
+                  {/* US side */}
+                  <div style={{display:"flex"}}>
+                    {row.map(btn=><StatBtn key={btn.k} btn={btn} usUs={true}/>)}
+                  </div>
+                  <div style={{background:"#2a2a2a"}}/>
+                  {/* THEM side — mirrored */}
+                  <div style={{display:"flex",flexDirection:"row-reverse"}}>
+                    {row.map(btn=><StatBtn key={btn.k} btn={btn} usUs={false}/>)}
+                  </div>
+                </div>
+              ))}
+            </>
+          );
+        })()}
 
         {/* Labels */}
         <div style={{display:"flex",justifyContent:"space-between",
           padding:"2px 8px",borderTop:"1px solid #1a1a1a"}}>
-          <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US</span>
-          <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM</span>
+          <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.6}}>US (HOME)</span>
+          <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.6}}>THEM (AWAY)</span>
         </div>
       </div>
 
