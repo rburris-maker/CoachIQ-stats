@@ -6224,7 +6224,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       {/* ── POSSESSION + TEAM STATS ── */}
       <div style={{background:"#000",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
 
-        {/* Possession buttons */}
+        {/* Possession row */}
         <div style={{display:"flex",height:52}}>
           <button onClick={()=>togglePossession("home")}
             style={{flex:1,border:"none",cursor:"pointer",position:"relative",
@@ -6252,60 +6252,54 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           </button>
         </div>
 
-        {/* Stat rows — stacked, US left / THEM right */}
+        {/* Stat rows */}
         {(()=>{
-          const ROW1 = [{k:"passes",l:"PASS"},{k:"shots",l:"SHOT"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
-          const ROW2 = [{k:"goals",l:"GOAL"},{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"}];
-          const StatBtn = ({btn, usUs, col})=>{
-            const setFn = usUs ? setTeamStatsUs : setTeamStatsThem;
-            const state = usUs ? teamStatsUs : teamStatsThem;
-            const val = state[btn.k]||0;
-            const bump = d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
-            const ac = usUs ? C.accent : "#3b82f6";
+          const ROW1=[{k:"passes",l:"PASS"},{k:"shots",l:"SHOT"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
+          const ROW2=[{k:"goals",l:"GOAL"},{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"}];
+          const StatBtn=({btn,stateObj,setFn,ac})=>{
+            const val=stateObj[btn.k]||0;
+            const active=val>0;
+            const bump=d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
             return(
               <button onClick={()=>bump(1)}
                 onContextMenu={e=>{e.preventDefault();bump(-1);}}
                 onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
                 onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
                 style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-                  justifyContent:"center",padding:"7px 2px",background:"transparent",
-                  border:"none",cursor:"pointer",
-                  WebkitTapHighlightColor:"transparent",userSelect:"none",
-                  borderRight:usUs?"1px solid #1a1a1a":"none",
-                  borderLeft:usUs?"none":"1px solid #1a1a1a"}}>
-                <span style={{color:val>0?ac:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
-                  fontWeight:900,fontSize:18,lineHeight:1}}>{val}</span>
-                <span style={{color:val>0?"#666":"#252525",fontSize:7,fontWeight:700,
-                  letterSpacing:.3,marginTop:2}}>{btn.l}</span>
+                  justifyContent:"center",padding:"8px 2px",cursor:"pointer",
+                  background:active?ac+"22":"transparent",border:"none",
+                  borderRight:"1px solid #1a1a1a",transition:"background .1s",
+                  WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
+                <span style={{color:active?ac:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
+                  fontWeight:900,fontSize:20,lineHeight:1}}>{val}</span>
+                <span style={{color:active?ac:"#2a2a2a",fontSize:8,fontWeight:700,
+                  letterSpacing:.4,marginTop:3}}>{btn.l}</span>
               </button>
             );
           };
           return(
             <>
-              {[ROW1, ROW2].map((row, ri)=>(
-                <div key={ri} style={{display:"grid",gridTemplateColumns:"1fr 1px 1fr",
-                  borderTop:"1px solid #1a1a1a"}}>
-                  {/* US side */}
-                  <div style={{display:"flex"}}>
-                    {row.map(btn=><StatBtn key={btn.k} btn={btn} usUs={true}/>)}
-                  </div>
-                  <div style={{background:"#2a2a2a"}}/>
-                  {/* THEM side — mirrored */}
-                  <div style={{display:"flex",flexDirection:"row-reverse"}}>
-                    {row.map(btn=><StatBtn key={btn.k} btn={btn} usUs={false}/>)}
-                  </div>
-                </div>
-              ))}
+              <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px"}}>
+                <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US (HOME)</span>
+              </div>
+              <div style={{display:"flex",borderTop:"1px solid #111"}}>
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
+              </div>
+              <div style={{display:"flex",borderTop:"1px solid #111"}}>
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
+              </div>
+              <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px",marginTop:2}}>
+                <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM (AWAY)</span>
+              </div>
+              <div style={{display:"flex",borderTop:"1px solid #111"}}>
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
+              </div>
+              <div style={{display:"flex",borderTop:"1px solid #111"}}>
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
+              </div>
             </>
           );
         })()}
-
-        {/* Labels */}
-        <div style={{display:"flex",justifyContent:"space-between",
-          padding:"2px 8px",borderTop:"1px solid #1a1a1a"}}>
-          <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.6}}>US (HOME)</span>
-          <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.6}}>THEM (AWAY)</span>
-        </div>
       </div>
 
       {/* ── STAT SELECTOR ── */}
