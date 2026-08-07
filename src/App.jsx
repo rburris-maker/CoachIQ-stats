@@ -5232,80 +5232,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
   const TEAM_STAT_BTNS = [
-    {k:"passes",   label:"Passes",   emoji:"🔵", color:"#42a5f5"},
-    {k:"shots",    label:"Shots",    emoji:"🔴", color:"#ef5350"},
-    {k:"goals",    label:"Goals",    emoji:"⚽", color:"#ff6b00"},
-    {k:"corners",  label:"Corners",  emoji:"🚩", color:"#ab47bc"},
-    {k:"tackles",  label:"Tackles",  emoji:"💪", color:"#27a560"},
-    {k:"fifty50",  label:"50/50s",   emoji:"⚔️",  color:"#f59e0b"},
-    {k:"turnovers",label:"T/O Won",  emoji:"🔄", color:"#66bb6a"},
-    {k:"fouls",    label:"Fouls",    emoji:"🟨", color:"#ffa726"},
+    {k:"passes",   label:"Passes",  emoji:"🔵", color:"#42a5f5"},
+    {k:"shots",    label:"Shots",   emoji:"🔴", color:"#ef5350"},
+    {k:"goals",    label:"Goals",   emoji:"⚽", color:"#ff6b00"},
+    {k:"corners",  label:"Corners", emoji:"🚩", color:"#ab47bc"},
+    {k:"tackles",  label:"Tackles", emoji:"💪", color:"#27a560"},
+    {k:"fifty50",  label:"50/50s",  emoji:"⚔️",  color:"#f59e0b"},
+    {k:"turnovers",label:"T/O",     emoji:"🔄", color:"#66bb6a"},
+    {k:"fouls",    label:"Fouls",   emoji:"🟨", color:"#ffa726"},
   ];
-  const INIT_TSTATS = {passes:0,shots:0,goals:0,corners:0,tackles:0,fifty50:0,turnovers:0,fouls:0};
-  const [teamStats,  setTeamStats]  = useState({us:{...INIT_TSTATS},them:{...INIT_TSTATS}});
-
-
-  // ── Realtime state ─────────────────────────────────────────────────────────
-  const [sessionId,    setSessionId]    = useState(null);
-  const [rtStatus,     setRtStatus]     = useState("disconnected"); // connected|disconnected|error
-  const [role,         setRole]         = useState(null); // null=not picked yet
-  const [connectedUsers, setConnectedUsers] = useState([]); // [{name,role}]
-  const [isHost,       setIsHost]       = useState(false);
-  const [lobby,        setLobby]        = useState(false); // waiting for kickoff
-  const [showRolePicker, setShowRolePicker] = useState(false);
-  const [oppScorer,    setOppScorer]    = useState(false); // show opp scorer input
-  const [oppScorerName,setOppScorerName]= useState("");
-  const [gameNote,     setGameNote]     = useState("");
-  const [showNoteInput,setShowNoteInput]= useState(false);
-
-  // ── Possession state ───────────────────────────────────────────────────────
-  const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null}); // lastTs = Date.now()
-
-  const timerRef = useRef(null);
-  const sessionIdRef = useRef(null);
-  const preloadRef    = useRef(null); // stores livePreload for startGame
-
-  // ── Stat groups ────────────────────────────────────────────────────────────
-  const ROLES = [
-    {k:"head",      label:"Head Coach",  desc:"Full access — all stats, score, subs, end game",
-     color:C.accent, stats:["goals","assists","shots","shotsOnTarget","keyPasses","passesCompleted","passesIncomplete","tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"]},
-    {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots and key passes",
-     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
-    {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions and fouls",
-     color:"#3b82f6", stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
-    {k:"passing",   label:"Passing",     desc:"Track completed passes, incomplete passes and key passes",
-     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","keyPasses"]},
-    {k:"possession",label:"Possession",  desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
-     color:"#27a560", stats:[]},
-  ];
-
-  const STAT_GROUPS_LIVE = [
-    {group:"Attack",    color:"#ff6b00", stats:[{k:"goals",label:"Goal"},{k:"assists",label:"Assist"},{k:"shots",label:"Shot"},{k:"shotsOnTarget",label:"On Target"},{k:"keyPasses",label:"Key Pass"}]},
-    {group:"Passing",   color:"#66bb6a", stats:[{k:"passesCompleted",label:"Pass ✓"},{k:"passesIncomplete",label:"Pass ✗"},{k:"keyPasses",label:"Key Pass"}]},
-    {group:"Defence",   color:"#42a5f5", stats:[{k:"tackles",label:"Tackle"},{k:"interceptions",label:"Int"},{k:"aerialDuelsWon",label:"Aerial"}]},
-    {group:"Discipline",color:"#ffa502", stats:[{k:"fouls",label:"Foul"},{k:"dangerousTurnovers",label:"Bad Turn"}]},
-    {group:"GK",        color:"#ffb300", stats:[{k:"saves",label:"Save",gkOnly:true},{k:"goalsConceded",label:"Conceded",gkOnly:true}]},
-  ];
-
-  const STAT_BTNS = STAT_GROUPS_LIVE.flatMap(g=>g.stats.map(s=>({...s,color:g.color})));
-
-  function roleStats(r){
-    if(!r) return STAT_BTNS;
-    const roleObj = ROLES.find(x=>x.k===r);
-    if(!roleObj) return STAT_BTNS;
-    return STAT_BTNS.filter(b=>roleObj.stats.includes(b.k));
-  }
-
-  // ── Auto minute ticker ─────────────────────────────────────────────────────
-  useEffect(()=>{
-    if(autoMin&&live&&!halfTime&&!lobby){
-      timerRef.current=setInterval(()=>setMin(function(m){
-        if(m>=7200){setAutoMin(false);return 7200;}
-        return m+1;
-      }),1000);
-    } else { clearInterval(timerRef.current); }
-    return ()=>clearInterval(timerRef.current);
-  },[autoMin,live,halfTime]);
+  const INIT_TS = {passes:0,shots:0,goals:0,corners:0,tackles:0,fifty50:0,turnovers:0,fouls:0};
+  const [teamStatsUs,   setTeamStatsUs]   = useState({...INIT_TS});
+  const [teamStatsThem, setTeamStatsThem] = useState({...INIT_TS});
+  const [tsSide,        setTsSide]        = useState("us");
 
   // ── Save minute to session every 30 seconds for rejoin ───────────────────
   useEffect(()=>{
@@ -5553,15 +5492,30 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     });
     const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
+    const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
     setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    if(live.opponent&&setOpponents){
+      const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
+      if(anyThemStats){
+        setOpponents(prev=>{
+          const existing=prev.find(o=>o.name===live.opponent);
+          const gameEntry={gameId:live.id,date:live.date,ourScore:live.ourScore,theirScore:live.theirScore,stats:{...teamStatsThem}};
+          if(existing){
+            const prevLog=existing.liveGameLog||[];
+            const newLog=prevLog.find(e=>e.gameId===live.id)?prevLog.map(e=>e.gameId===live.id?gameEntry:e):[...prevLog,gameEntry];
+            return prev.map(o=>o.id===existing.id?{...o,liveGameLog:newLog}:o);
+          }
+          return [...prev,{id:"opp"+Date.now(),name:live.opponent,formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",oppPlayers:{},tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},setPieces:{cornersAtk:"",cornersDef:"",freeKicksAtk:"",freeKicksDef:"",throwInsAtk:"",throwInsDef:""},counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},createdAt:new Date().toISOString(),liveGameLog:[gameEntry]}];
+        });
+      }
+    }
     // Clean up session
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
     setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
-    setTeamStats({us:{...INIT_TSTATS},them:{...INIT_TSTATS}});
-    setTeamStats({passes:0,shots:0,goals:0,corners:0,fouls:0});
+    setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
     addFeedEvent("── Game Ended ──");
   }
 
@@ -6252,105 +6206,65 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       )}
 
-      {/* ── TEAM QUICK STATS BAR ── */}
-      <div style={{background:"#0d0d0d",borderBottom:`1px solid ${C.border}`,padding:"8px 12px",flexShrink:0}}>
-        <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:2,marginBottom:6}}>TEAM TOTALS — TAP TO LOG</div>
-        <div style={{display:"flex",gap:8}}>
-          {[
-            {k:"passes",  label:"Pass",   emoji:"🔵", color:"#42a5f5"},
-            {k:"shots",   label:"Shot",   emoji:"🔴", color:"#ef5350"},
-            {k:"goals",   label:"Goal",   emoji:"⚽", color:C.accent},
-            {k:"corners", label:"Corner", emoji:"🚩", color:"#ab47bc"},
-            {k:"fouls",   label:"Foul",   emoji:"🟨", color:"#f59e0b"},
-          ].map(btn=>(
-            <button key={btn.k}
-              onClick={()=>setTeamStats(prev=>({...prev,[btn.k]:(prev[btn.k]||0)+1}))}
-              onContextMenu={e=>{e.preventDefault();setTeamStats(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)-1)}))}  }
-              style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,
-                padding:"8px 4px",borderRadius:10,cursor:"pointer",
-                background:btn.color+"18",border:`2px solid ${btn.color}44`,
-                transition:"all .1s",WebkitTapHighlightColor:"transparent",userSelect:"none"}}
-              onTouchStart={e=>e.currentTarget.style.background=btn.color+"44"}
-              onTouchEnd={e=>e.currentTarget.style.background=btn.color+"18"}>
-              <span style={{fontSize:16}}>{btn.emoji}</span>
-              <span style={{color:btn.color,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
-                {teamStats[btn.k]||0}
-              </span>
-              <span style={{color:btn.color,fontSize:9,fontWeight:700,letterSpacing:.5}}>{btn.label.toUpperCase()}</span>
-            </button>
-          ))}
-        </div>
-        <div style={{color:C.muted,fontSize:9,marginTop:5,textAlign:"right",opacity:.5}}>long-press to undo</div>
-      </div>
-
-      {/* ── TEAM QUICK STATS BAR ── */}
-      {(()=>{
-        const [activeSide, setActiveSide] = React.useState("us");
-        const side = teamStats[activeSide]||{};
-        const bump = (k,delta=1) => setTeamStats(prev=>({
-          ...prev,
-          [activeSide]:{...prev[activeSide],[k]:Math.max(0,(prev[activeSide][k]||0)+delta)}
-        }));
-        return(
-          <div style={{background:"#0a0a0a",borderBottom:`1px solid ${C.border}`,padding:"8px 10px",flexShrink:0}}>
-            {/* US / THEM toggle */}
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-              <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`,flexShrink:0}}>
-                {[{k:"us",label:"US"},{k:"them",label:"THEM"}].map(t=>(
-                  <button key={t.k} onClick={()=>setActiveSide(t.k)}
-                    style={{padding:"4px 14px",border:"none",cursor:"pointer",fontWeight:800,fontSize:11,
-                      fontFamily:"'Oswald',sans-serif",letterSpacing:1,
-                      background:activeSide===t.k?(t.k==="us"?C.accent:"#3b82f6"):"#1a1a1a",
-                      color:activeSide===t.k?"#000":"#555",transition:"all .1s"}}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:1,opacity:.6}}>
-                TAP + · HOLD −
-              </div>
-              {/* Mini summary of other team */}
-              <div style={{marginLeft:"auto",display:"flex",gap:6}}>
-                {["shots","goals","corners"].map(k=>(
-                  <div key={k} style={{textAlign:"center",opacity:.5}}>
-                    <div style={{color:activeSide==="us"?"#3b82f6":C.accent,fontSize:10,fontWeight:700,fontFamily:"'Oswald',sans-serif"}}>
-                      {(teamStats[activeSide==="us"?"them":"us"][k]||0)}
-                    </div>
-                    <div style={{color:C.muted,fontSize:8}}>{k}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Stat buttons */}
-            <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
-              {TEAM_STAT_BTNS.map(btn=>(
-                <button key={btn.k}
-                  onClick={()=>bump(btn.k,1)}
-                  onContextMenu={e=>{e.preventDefault();bump(btn.k,-1);}}
-                  onTouchStart={e=>{
-                    const t=setTimeout(()=>bump(btn.k,-1),500);
-                    e.currentTarget._lh=t;
-                  }}
-                  onTouchEnd={e=>{clearTimeout(e.currentTarget._lh);}}
-                  style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-                    padding:"7px 10px",borderRadius:10,cursor:"pointer",minWidth:56,
-                    background:btn.color+"18",border:`2px solid ${btn.color}${side[btn.k]>0?"99":"33"}`,
-                    transition:"all .1s",WebkitTapHighlightColor:"transparent",userSelect:"none",
-                    boxShadow:side[btn.k]>0?`0 0 8px ${btn.color}44`:"none"}}>
-                  <span style={{fontSize:14}}>{btn.emoji}</span>
-                  <span style={{color:side[btn.k]>0?btn.color:C.muted,
-                    fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
-                    {side[btn.k]||0}
-                  </span>
-                  <span style={{color:btn.color,fontSize:8,fontWeight:700,letterSpacing:.3,opacity:.8}}>
-                    {btn.label.toUpperCase()}
-                  </span>
-                </button>
-              ))}
-            </div>
+      {/* ── TEAM QUICK STATS ── */}
+      <div style={{background:"#0a0a0a",borderBottom:`1px solid ${C.border}`,padding:"8px 10px",flexShrink:0}}>
+        {/* US / THEM toggle + mini opponent summary */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+          <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`,flexShrink:0}}>
+            {[{k:"us",label:"US",ac:C.accent},{k:"them",label:"THEM",ac:"#3b82f6"}].map(t=>(
+              <button key={t.k} onClick={()=>setTsSide(t.k)}
+                style={{padding:"5px 16px",border:"none",cursor:"pointer",fontWeight:900,fontSize:12,
+                  fontFamily:"'Oswald',sans-serif",letterSpacing:1,transition:"all .1s",
+                  background:tsSide===t.k?t.ac:"#1a1a1a",
+                  color:tsSide===t.k?"#000":"#555"}}>
+                {t.label}
+              </button>
+            ))}
           </div>
-        );
-      })()}
+          <span style={{color:C.muted,fontSize:9,fontWeight:600,opacity:.5}}>TAP + · HOLD −</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center"}}>
+            {["shots","goals","corners"].map(k=>{
+              const other=tsSide==="us"?teamStatsThem:teamStatsUs;
+              return(
+                <div key={k} style={{textAlign:"center"}}>
+                  <div style={{color:tsSide==="us"?"#3b82f6":C.accent,fontFamily:"'Oswald',sans-serif",
+                    fontWeight:900,fontSize:13}}>{other[k]||0}</div>
+                  <div style={{color:C.muted,fontSize:8,textTransform:"uppercase"}}>{k}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Stat buttons */}
+        <div style={{display:"flex",gap:5,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
+          {TEAM_STAT_BTNS.map(btn=>{
+            const side = tsSide==="us"?teamStatsUs:teamStatsThem;
+            const setSide = tsSide==="us"?setTeamStatsUs:setTeamStatsThem;
+            const val = side[btn.k]||0;
+            const bump = (d)=>setSide(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+            return(
+              <button key={btn.k}
+                onClick={()=>bump(1)}
+                onContextMenu={e=>{e.preventDefault();bump(-1);}}
+                onTouchStart={e=>{const t=setTimeout(()=>bump(-1),500);e.currentTarget._lh=t;}}
+                onTouchEnd={e=>{clearTimeout(e.currentTarget._lh);}}
+                style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+                  padding:"7px 9px",borderRadius:10,cursor:"pointer",minWidth:52,
+                  background:btn.color+"18",
+                  border:`2px solid ${btn.color}${val>0?"bb":"33"}`,
+                  boxShadow:val>0?`0 0 8px ${btn.color}44`:"none",
+                  transition:"all .1s",WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
+                <span style={{fontSize:13}}>{btn.emoji}</span>
+                <span style={{color:val>0?btn.color:C.muted,fontFamily:"'Oswald',sans-serif",
+                  fontWeight:900,fontSize:18,lineHeight:1}}>{val}</span>
+                <span style={{color:btn.color,fontSize:8,fontWeight:700,letterSpacing:.3,opacity:.8}}>
+                  {btn.label.toUpperCase()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── STAT SELECTOR ── */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 10px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,alignItems:"flex-start",WebkitOverflowScrolling:"touch"}}>
