@@ -5252,6 +5252,37 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const sessionIdRef = useRef(null);
   const preloadRef    = useRef(null);
 
+  // ── Stat groups ────────────────────────────────────────────────────────────
+  const ROLES = [
+    {k:"head",      label:"Head Coach",  desc:"Full access — all stats, score, subs, end game",
+     color:C.accent, stats:["goals","assists","shots","shotsOnTarget","keyPasses","passesCompleted","passesIncomplete","tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"]},
+    {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots and key passes",
+     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
+    {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions and fouls",
+     color:"#3b82f6", stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
+    {k:"passing",   label:"Passing",     desc:"Track completed passes, incomplete passes and key passes",
+     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","keyPasses"]},
+    {k:"possession",label:"Possession",  desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
+     color:"#27a560", stats:[]},
+  ];
+
+  const STAT_GROUPS_LIVE = [
+    {group:"Attack",    color:"#ff6b00", stats:[{k:"goals",label:"Goal"},{k:"assists",label:"Assist"},{k:"shots",label:"Shot"},{k:"shotsOnTarget",label:"On Target"},{k:"keyPasses",label:"Key Pass"}]},
+    {group:"Passing",   color:"#66bb6a", stats:[{k:"passesCompleted",label:"Pass ✓"},{k:"passesIncomplete",label:"Pass ✗"},{k:"keyPasses",label:"Key Pass"}]},
+    {group:"Defence",   color:"#42a5f5", stats:[{k:"tackles",label:"Tackle"},{k:"interceptions",label:"Int"},{k:"aerialDuelsWon",label:"Aerial"}]},
+    {group:"Discipline",color:"#ffa502", stats:[{k:"fouls",label:"Foul"},{k:"dangerousTurnovers",label:"Bad Turn"}]},
+    {group:"GK",        color:"#ffb300", stats:[{k:"saves",label:"Save",gkOnly:true},{k:"goalsConceded",label:"Conceded",gkOnly:true}]},
+  ];
+
+  const STAT_BTNS = STAT_GROUPS_LIVE.flatMap(g=>g.stats.map(s=>({...s,color:g.color})));
+
+  function roleStats(r){
+    if(!r) return STAT_BTNS;
+    const roleObj = ROLES.find(x=>x.k===r);
+    if(!roleObj) return STAT_BTNS;
+    return STAT_BTNS.filter(b=>roleObj.stats.includes(b.k));
+  }
+
   const TEAM_STAT_BTNS = [
     {k:"passes",   label:"Passes",  emoji:"🔵", color:"#42a5f5"},
     {k:"shots",    label:"Shots",   emoji:"🔴", color:"#ef5350"},
