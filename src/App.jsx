@@ -5231,6 +5231,27 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [endConfirm, setEndConfirm] = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
+
+  // ── Realtime state ─────────────────────────────────────────────────────────
+  const [sessionId,    setSessionId]    = useState(null);
+  const [rtStatus,     setRtStatus]     = useState("disconnected");
+  const [role,         setRole]         = useState(null);
+  const [connectedUsers, setConnectedUsers] = useState([]);
+  const [isHost,       setIsHost]       = useState(false);
+  const [lobby,        setLobby]        = useState(false);
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [oppScorer,    setOppScorer]    = useState(false);
+  const [oppScorerName,setOppScorerName]= useState("");
+  const [gameNote,     setGameNote]     = useState("");
+  const [showNoteInput,setShowNoteInput]= useState(false);
+
+  // ── Possession state ───────────────────────────────────────────────────────
+  const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null});
+
+  const timerRef = useRef(null);
+  const sessionIdRef = useRef(null);
+  const preloadRef    = useRef(null);
+
   const TEAM_STAT_BTNS = [
     {k:"passes",   label:"Passes",  emoji:"🔵", color:"#42a5f5"},
     {k:"shots",    label:"Shots",   emoji:"🔴", color:"#ef5350"},
