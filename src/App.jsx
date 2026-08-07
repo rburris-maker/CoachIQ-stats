@@ -6223,113 +6223,91 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
       {/* ── POSSESSION + TEAM STATS ── */}
       <div style={{background:"#000",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-        {/* Possession tap row */}
-        <div style={{display:"flex",gap:3,height:72}}>
+
+        {/* Possession buttons */}
+        <div style={{display:"flex",height:56}}>
           <button onClick={()=>togglePossession("home")}
-            style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
-              fontSize:20,fontFamily:"'Oswald',sans-serif",letterSpacing:2,
-              background:possession.current==="home"?C.accent:"#111",
-              color:possession.current==="home"?"#000":"#444",
-              transition:"all .12s",position:"relative"}}>
-            {possession.current==="home"&&(
-              <div style={{position:"absolute",top:6,right:8,width:8,height:8,
-                borderRadius:"50%",background:"#000",animation:"pulse 1s infinite"}}/>
-            )}
+            style={{flex:1,border:"none",cursor:"pointer",position:"relative",
+              fontWeight:900,fontSize:17,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
+              background:possession.current==="home"?C.accent:"#0d0d0d",
+              color:possession.current==="home"?"#000":"#333",transition:"all .12s"}}>
+            {possession.current==="home"&&<div style={{position:"absolute",top:5,right:7,
+              width:7,height:7,borderRadius:"50%",background:"rgba(0,0,0,.4)",animation:"pulse 1s infinite"}}/>}
             HOME
           </button>
-          <div style={{width:1,background:C.border,flexShrink:0}}/>
+          <div style={{width:1,background:"#222",flexShrink:0}}/>
           <button onClick={()=>togglePossession("away")}
-            style={{flex:1,border:"none",cursor:"pointer",fontWeight:900,
-              fontSize:20,fontFamily:"'Oswald',sans-serif",letterSpacing:2,
-              background:possession.current==="away"?"#3b82f6":"#111",
-              color:possession.current==="away"?"#fff":"#444",
-              transition:"all .12s",position:"relative"}}>
-            {possession.current==="away"&&(
-              <div style={{position:"absolute",top:6,right:8,width:8,height:8,
-                borderRadius:"50%",background:"rgba(255,255,255,.6)",animation:"pulse 1s infinite"}}/>
-            )}
+            style={{flex:1,border:"none",cursor:"pointer",position:"relative",
+              fontWeight:900,fontSize:17,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
+              background:possession.current==="away"?"#3b82f6":"#0d0d0d",
+              color:possession.current==="away"?"#fff":"#333",transition:"all .12s"}}>
+            {possession.current==="away"&&<div style={{position:"absolute",top:5,right:7,
+              width:7,height:7,borderRadius:"50%",background:"rgba(255,255,255,.4)",animation:"pulse 1s infinite"}}/>}
             AWAY
           </button>
           <button onClick={()=>setShowNoteInput(s=>!s)}
-            style={{width:46,background:"#111",border:"none",
-              borderLeft:`1px solid ${C.border}`,cursor:"pointer",
-              color:C.muted,fontSize:16,flexShrink:0}}>
+            style={{width:44,background:"#0d0d0d",border:"none",
+              borderLeft:"1px solid #222",cursor:"pointer",color:"#555",fontSize:15,flexShrink:0}}>
             📝
           </button>
         </div>
-        {/* Team stat counters — HOME = us, AWAY = them */}
-        <div style={{display:"flex",borderTop:`1px solid ${C.border}`}}>
-          {/* US stats */}
-          <div style={{flex:1,display:"flex",overflowX:"auto",gap:0,WebkitOverflowScrolling:"touch"}}>
-            {TEAM_STAT_BTNS.map((btn,i)=>{
+
+        {/* Team stat counters — US left, THEM right */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 2px 1fr",borderTop:"1px solid #1a1a1a"}}>
+          <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+            {TEAM_STAT_BTNS.map(btn=>{
               const val=teamStatsUs[btn.k]||0;
-              const bump=(d)=>setTeamStatsUs(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+              const bump=d=>setTeamStatsUs(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
               return(
-                <button key={btn.k}
-                  onClick={()=>bump(1)}
+                <button key={btn.k} onClick={()=>bump(1)}
                   onContextMenu={e=>{e.preventDefault();bump(-1);}}
                   onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
-                  onTouchEnd={e=>{clearTimeout(e.currentTarget._lh);}}
-                  style={{flex:"0 0 auto",display:"flex",flexDirection:"column",alignItems:"center",
-                    padding:"5px 8px",background:"transparent",
-                    border:"none",borderRight:`1px solid ${C.border}`,
-                    cursor:"pointer",minWidth:48,
-                    WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
-                  <span style={{color:val>0?C.accent:"#333",fontFamily:"'Oswald',sans-serif",
+                  onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
+                  style={{flex:"0 0 auto",minWidth:40,display:"flex",flexDirection:"column",
+                    alignItems:"center",justifyContent:"center",padding:"5px 2px",
+                    background:"transparent",border:"none",borderRight:"1px solid #1a1a1a",
+                    cursor:"pointer",WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
+                  <span style={{color:val>0?C.accent:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
                     fontWeight:900,fontSize:16,lineHeight:1}}>{val}</span>
-                  <span style={{color:"#444",fontSize:8,fontWeight:700,letterSpacing:.3,marginTop:2}}>
-                    {btn.label.toUpperCase()}
-                  </span>
+                  <span style={{color:val>0?"#555":"#2a2a2a",fontSize:7,fontWeight:700,
+                    letterSpacing:.3,marginTop:2}}>{btn.label.toUpperCase()}</span>
                 </button>
               );
             })}
           </div>
-          <div style={{width:1,background:C.border,flexShrink:0}}/>
-          {/* THEM stats */}
-          <div style={{flex:1,display:"flex",overflowX:"auto",gap:0,WebkitOverflowScrolling:"touch",justifyContent:"flex-end"}}>
-            {TEAM_STAT_BTNS.map((btn,i)=>{
+          <div style={{background:"#2a2a2a"}}/>
+          <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",
+            flexDirection:"row-reverse"}}>
+            {TEAM_STAT_BTNS.map(btn=>{
               const val=teamStatsThem[btn.k]||0;
-              const bump=(d)=>setTeamStatsThem(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+              const bump=d=>setTeamStatsThem(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
               return(
-                <button key={btn.k}
-                  onClick={()=>bump(1)}
+                <button key={btn.k} onClick={()=>bump(1)}
                   onContextMenu={e=>{e.preventDefault();bump(-1);}}
                   onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
-                  onTouchEnd={e=>{clearTimeout(e.currentTarget._lh);}}
-                  style={{flex:"0 0 auto",display:"flex",flexDirection:"column",alignItems:"center",
-                    padding:"5px 8px",background:"transparent",
-                    border:"none",borderLeft:i>0?`1px solid ${C.border}`:"none",
-                    cursor:"pointer",minWidth:48,
-                    WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
-                  <span style={{color:val>0?"#3b82f6":"#333",fontFamily:"'Oswald',sans-serif",
+                  onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
+                  style={{flex:"0 0 auto",minWidth:40,display:"flex",flexDirection:"column",
+                    alignItems:"center",justifyContent:"center",padding:"5px 2px",
+                    background:"transparent",border:"none",borderLeft:"1px solid #1a1a1a",
+                    cursor:"pointer",WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
+                  <span style={{color:val>0?"#3b82f6":"#2a2a2a",fontFamily:"'Oswald',sans-serif",
                     fontWeight:900,fontSize:16,lineHeight:1}}>{val}</span>
-                  <span style={{color:"#444",fontSize:8,fontWeight:700,letterSpacing:.3,marginTop:2}}>
-                    {btn.label.toUpperCase()}
-                  </span>
+                  <span style={{color:val>0?"#555":"#2a2a2a",fontSize:7,fontWeight:700,
+                    letterSpacing:.3,marginTop:2}}>{btn.label.toUpperCase()}</span>
                 </button>
               );
             })}
           </div>
         </div>
+
         {/* Labels */}
         <div style={{display:"flex",justifyContent:"space-between",
-          padding:"2px 10px",borderTop:`1px solid ${C.border}`}}>
-          <span style={{color:C.accent,fontSize:9,fontWeight:700,letterSpacing:1}}>US (HOME)</span>
-          <span style={{color:"#3b82f6",fontSize:9,fontWeight:700,letterSpacing:1}}>THEM (AWAY)</span>
+          padding:"2px 8px",borderTop:"1px solid #1a1a1a"}}>
+          <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US</span>
+          <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM</span>
         </div>
       </div>
 
-      {/* Note input */}
-      {showNoteInput&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 12px",display:"flex",gap:8,flexShrink:0}}>
-          <input value={gameNote} onChange={e=>setGameNote(e.target.value)}
-            placeholder={`Note at ${min}' (e.g. their #9 getting in behind...)`}
-            onKeyDown={e=>{if(e.key==="Enter"&&gameNote.trim()){broadcastEvent("note",{text:gameNote.trim(),min,author:userName});setGameNote("");setShowNoteInput(false);}}}
-            style={{flex:1,padding:"5px 10px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:12,outline:"none",fontFamily:"'Outfit',sans-serif"}}/>
-          <button onClick={()=>{if(gameNote.trim()){broadcastEvent("note",{text:gameNote.trim(),min,author:userName});setGameNote("");setShowNoteInput(false);}}}
-            style={{padding:"5px 12px",background:C.accent,border:"none",borderRadius:6,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
-        </div>
-      )}
       {/* ── STAT SELECTOR ── */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 10px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,alignItems:"flex-start",WebkitOverflowScrolling:"touch"}}>
         {STAT_GROUPS_LIVE.map(group=>{
