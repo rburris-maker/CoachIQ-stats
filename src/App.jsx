@@ -4502,6 +4502,17 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
           <button onClick={()=>{setSel(null);setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}/>
+          {game.status!=="completed"&&setView&&setLivePreload&&(
+            <button onClick={()=>{
+                setLivePreload({opponent:game.opponent,location:game.location,formation:game.formation,date:game.date,gameId:game.id});
+                setView("live");
+                setSel(null);
+              }}
+              style={{display:"flex",alignItems:"center",gap:6,background:"#ff6b00",border:"none",borderRadius:8,
+                padding:"8px 14px",color:"#000",cursor:"pointer",fontWeight:900,fontSize:12,fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+              ▶ Go Live
+            </button>
+          )}
           <button onClick={()=>setEditGame(game)}
             style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
@@ -5220,6 +5231,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [endConfirm, setEndConfirm] = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
+  const [teamStats,  setTeamStats]  = useState({passes:0,shots:0,goals:0,possession:0});
 
   // ── Realtime state ─────────────────────────────────────────────────────────
   const [sessionId,    setSessionId]    = useState(null);
@@ -6225,6 +6237,37 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             style={{padding:"5px 12px",background:C.accent,border:"none",borderRadius:6,color:"#000",fontWeight:700,fontSize:12,cursor:"pointer"}}>Add</button>
         </div>
       )}
+
+      {/* ── TEAM QUICK STATS BAR ── */}
+      <div style={{background:"#0d0d0d",borderBottom:`1px solid ${C.border}`,padding:"8px 12px",flexShrink:0}}>
+        <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:2,marginBottom:6}}>TEAM TOTALS — TAP TO LOG</div>
+        <div style={{display:"flex",gap:8}}>
+          {[
+            {k:"passes",  label:"Pass",   emoji:"🔵", color:"#42a5f5"},
+            {k:"shots",   label:"Shot",   emoji:"🔴", color:"#ef5350"},
+            {k:"goals",   label:"Goal",   emoji:"⚽", color:C.accent},
+            {k:"corners", label:"Corner", emoji:"🚩", color:"#ab47bc"},
+            {k:"fouls",   label:"Foul",   emoji:"🟨", color:"#f59e0b"},
+          ].map(btn=>(
+            <button key={btn.k}
+              onClick={()=>setTeamStats(prev=>({...prev,[btn.k]:(prev[btn.k]||0)+1}))}
+              onContextMenu={e=>{e.preventDefault();setTeamStats(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)-1)}))}  }
+              style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                padding:"8px 4px",borderRadius:10,cursor:"pointer",
+                background:btn.color+"18",border:`2px solid ${btn.color}44`,
+                transition:"all .1s",WebkitTapHighlightColor:"transparent",userSelect:"none"}}
+              onTouchStart={e=>e.currentTarget.style.background=btn.color+"44"}
+              onTouchEnd={e=>e.currentTarget.style.background=btn.color+"18"}>
+              <span style={{fontSize:16}}>{btn.emoji}</span>
+              <span style={{color:btn.color,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,lineHeight:1}}>
+                {teamStats[btn.k]||0}
+              </span>
+              <span style={{color:btn.color,fontSize:9,fontWeight:700,letterSpacing:.5}}>{btn.label.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{color:C.muted,fontSize:9,marginTop:5,textAlign:"right",opacity:.5}}>long-press to undo</div>
+      </div>
 
       {/* ── STAT SELECTOR ── */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 10px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,alignItems:"flex-start",WebkitOverflowScrolling:"touch"}}>
