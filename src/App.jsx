@@ -5561,6 +5561,21 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         });
       }
     }
+    if(live.opponent&&setOpponents){
+      const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
+      if(anyThemStats){
+        setOpponents(prev=>{
+          const existing=prev.find(o=>o.name===live.opponent);
+          const gameEntry={gameId:live.id,date:live.date,ourScore:live.ourScore,theirScore:live.theirScore,stats:{...teamStatsThem}};
+          if(existing){
+            const prevLog=existing.liveGameLog||[];
+            const newLog=prevLog.find(e=>e.gameId===live.id)?prevLog.map(e=>e.gameId===live.id?gameEntry:e):[...prevLog,gameEntry];
+            return prev.map(o=>o.id===existing.id?{...o,liveGameLog:newLog}:o);
+          }
+          return [...prev,{id:"opp"+Date.now(),name:live.opponent,formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",oppPlayers:{},tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},setPieces:{cornersAtk:"",cornersDef:"",freeKicksAtk:"",freeKicksDef:"",throwInsAtk:"",throwInsDef:""},counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},createdAt:new Date().toISOString(),liveGameLog:[gameEntry]}];
+        });
+      }
+    }
     // Clean up session
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
@@ -6260,7 +6275,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
       {/* ── TEAM QUICK STATS ── */}
       <div style={{background:"#0a0a0a",borderBottom:`1px solid ${C.border}`,padding:"8px 10px",flexShrink:0}}>
-        {/* US / THEM toggle + mini opponent summary */}
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
           <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`,flexShrink:0}}>
             {[{k:"us",label:"US",ac:C.accent},{k:"them",label:"THEM",ac:"#3b82f6"}].map(t=>(
@@ -6287,13 +6301,12 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             })}
           </div>
         </div>
-        {/* Stat buttons */}
         <div style={{display:"flex",gap:5,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
           {TEAM_STAT_BTNS.map(btn=>{
-            const side = tsSide==="us"?teamStatsUs:teamStatsThem;
-            const setSide = tsSide==="us"?setTeamStatsUs:setTeamStatsThem;
-            const val = side[btn.k]||0;
-            const bump = (d)=>setSide(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+            const side=tsSide==="us"?teamStatsUs:teamStatsThem;
+            const setSide=tsSide==="us"?setTeamStatsUs:setTeamStatsThem;
+            const val=side[btn.k]||0;
+            const bump=(d)=>setSide(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
             return(
               <button key={btn.k}
                 onClick={()=>bump(1)}
