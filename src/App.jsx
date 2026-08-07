@@ -15640,7 +15640,6 @@ function MatchReportPage(){
   useEffect(()=>{
     async function load(){
       try{
-        // Load all games
         var gRes=await supabase.from("games").select("*");
         var gRows=gRes.data||[];
         var foundGame=null, teamId=null;
@@ -15654,15 +15653,11 @@ function MatchReportPage(){
         }
         if(!foundGame){setError("Game not found.");setLoading(false);return;}
         setGame(foundGame);
-
-        // Load roster
         if(teamId){
           var rRes=await supabase.from("rosters").select("*");
           var rRows=(rRes.data||[]).filter(function(r){return r.team_id===teamId;});
           setRoster(rRows[0]?rRows[0].players:[]);
         }
-
-        // Load opponent scout
         if(foundGame.opponent){
           var oRes=await supabase.from("opponents").select("*");
           var oRows=oRes.data||[];
@@ -15673,8 +15668,6 @@ function MatchReportPage(){
             }
           }
         }
-
-        // Load linked game plan (for upcoming games)
         if(foundGame.status!=="completed"){
           var gpRes=await supabase.from("game_plans").select("*");
           var gpRows=gpRes.data||[];
@@ -15694,15 +15687,15 @@ function MatchReportPage(){
     load();
   },[gameId]);
 
-  if(loading) return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#333"}}>Loading report...</div>);
-  if(error)   return(<div style={{minHeight:"100vh",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Arial,sans-serif",color:"#c00"}}>{error}</div>);
+  if(loading) return(<div style={{minHeight:"100vh",background:"#f8f7f5",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",color:"#333",fontSize:16}}>Loading report...</div>);
+  if(error)   return(<div style={{minHeight:"100vh",background:"#f8f7f5",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",color:"#c00",fontSize:16}}>{error}</div>);
 
   var isCompleted = game.status==="completed";
   var res  = isCompleted?(game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D"):null;
   var resLabel = res==="W"?"VICTORY":res==="L"?"DEFEAT":"DRAW";
   var resCol   = res==="W"?"#2e7d32":res==="L"?"#c62828":"#b45a00";
+  var resBg    = res==="W"?"#f0faf0":res==="L"?"#fff5f5":"#fffbf0";
 
-  // Build player rows for completed games
   var rows=[];
   if(isCompleted&&game.stats){
     rows = game.stats.map(function(s){
@@ -15716,182 +15709,294 @@ function MatchReportPage(){
   var squadAvg = rows.length?Math.round(rows.reduce(function(a,r){return a+r.rating;},0)/rows.length*10)/10:null;
   var topPlayer = rows[0]||null;
   var topScorer = rows.slice().sort(function(a,b){return (b.s.goals||0)-(a.s.goals||0);})[0];
-
-  // Unavailable players
+  var topAssist = rows.slice().sort(function(a,b){return (b.s.assists||0)-(a.s.assists||0);})[0];
   var unavail = roster.filter(function(p){return p.availability&&p.availability!=="available";});
+  var ts = game.teamStats||null;
+  var tsShotsUs   = (ts&&ts.us&&ts.us.shots)||game.stats&&game.stats.reduce(function(a,s){return a+(s.shots||0);},0)||0;
+  var tsPassesUs  = (ts&&ts.us&&ts.us.passes)||game.stats&&game.stats.reduce(function(a,s){return a+(s.passesCompleted||0);},0)||0;
+  var tsCornersUs = ts&&ts.us&&ts.us.corners||0;
+  var tsTacklesUs = (ts&&ts.us&&ts.us.tackles)||game.stats&&game.stats.reduce(function(a,s){return a+(s.tackles||0);},0)||0;
+  var tsShots2    = ts&&ts.them&&ts.them.shots||0;
+  var tsPasses2   = ts&&ts.them&&ts.them.passes||0;
+  var possHome = game.possession&&game.possession.home||0;
+  var possAway = game.possession&&game.possession.away||0;
+  var possTotal = possHome+possAway;
+  var possPct  = possTotal>0?Math.round(possHome/possTotal*100):null;
 
-  var LBL={fontSize:10,fontWeight:"bold",letterSpacing:1,color:"#555",marginBottom:6,display:"block",textTransform:"uppercase",fontFamily:"Arial,sans-serif"};
-  var BODY={fontSize:12,color:"#222",lineHeight:1.75,fontFamily:"Arial,sans-serif"};
-  var SEC={borderTop:"1px solid #eee",paddingTop:12,marginBottom:14};
+  // Styles
+  var accent = "#ff6b00";
+  var F = "'Outfit',Arial,sans-serif";
+  var FH = "'Oswald',Arial,sans-serif";
 
   return(
-    <div>
-      <style>{"*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;color:#000;font-family:Arial,sans-serif;}@media print{.no-print{display:none!important;}@page{margin:10mm 12mm;size:A4 portrait;}}"}</style>
-      <div style={{maxWidth:760,margin:"0 auto",padding:"20px 16px",background:"#fff"}}>
+    <div style={{background:"#f8f7f5",minHeight:"100vh",fontFamily:F}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#f8f7f5;}
+        @media print{
+          .no-print{display:none!important;}
+          body{background:#fff!important;}
+          @page{margin:10mm 12mm;size:A4 portrait;}
+        }
+      `}</style>
 
-        <div className="no-print" style={{display:"flex",gap:10,marginBottom:20}}>
-          <button onClick={function(){window.history.back();}} style={{padding:"8px 16px",border:"1px solid #ccc",borderRadius:6,background:"#f5f5f5",cursor:"pointer",fontSize:13}}>Back</button>
-          <div style={{flex:1}}/>
-          <button onClick={function(){window.print();}} style={{padding:"9px 22px",background:"#1a1a1a",border:"none",borderRadius:6,color:"#fff",fontWeight:"bold",fontSize:13,cursor:"pointer"}}>Print / Save PDF</button>
+      {/* Toolbar */}
+      <div className="no-print" style={{background:"#fff",borderBottom:"1px solid #e5e0d8",
+        padding:"10px 20px",display:"flex",alignItems:"center",gap:12,
+        position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 4px #0001"}}>
+        <button onClick={function(){window.history.back();}}
+          style={{padding:"7px 14px",border:"1px solid #ddd",borderRadius:7,
+            background:"transparent",cursor:"pointer",fontSize:13,color:"#555"}}>← Back</button>
+        <div style={{flex:1,fontWeight:700,fontSize:14,color:"#111"}}>
+          vs {game.opponent} · {fmtDate(game.date)}
         </div>
+        <button onClick={function(){window.print();}}
+          style={{padding:"8px 20px",background:accent,border:"none",borderRadius:8,
+            color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+          Print / Save PDF
+        </button>
+      </div>
 
-        {/* Header */}
-        <div style={{borderBottom:"2.5px solid #000",paddingBottom:10,marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-          <div style={{flexShrink:0}}><AppLogo size={40} glow={false}/></div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:"bold",letterSpacing:1,color:"#777",textTransform:"uppercase",marginBottom:3,fontFamily:"Arial,sans-serif"}}>
-              {isCompleted?"Match Report":"Match Preview"}
-            </div>
-            <div style={{fontSize:18,fontWeight:"bold",fontFamily:"Arial,sans-serif"}}>{"vs "+game.opponent}</div>
-            <div style={{fontSize:11,color:"#666",marginTop:2,fontFamily:"Arial,sans-serif"}}>
-              {[game.date,game.location,game.formation].filter(Boolean).join(" · ")}
-            </div>
-          </div>
-          {isCompleted&&(
-            <div style={{textAlign:"right",flexShrink:0}}>
-              <div style={{fontSize:36,fontWeight:"bold",fontFamily:"Arial,sans-serif",lineHeight:1}}>
-                {game.ourScore}<span style={{color:"#aaa",fontSize:24}}> – </span>{game.theirScore}
+      <div style={{maxWidth:800,margin:"0 auto",padding:"24px 20px 48px"}}>
+
+        {/* ── HEADER ── */}
+        <div style={{background:"#fff",borderRadius:16,padding:"20px 24px",
+          marginBottom:16,border:"1px solid #e5e0d8",boxShadow:"0 1px 4px #0001"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:accent,marginBottom:4}}>
+                {isCompleted?"POST-GAME REPORT":"MATCH PREVIEW"}
               </div>
-              <div style={{fontSize:11,fontWeight:"bold",color:resCol,letterSpacing:1,marginTop:3,fontFamily:"Arial,sans-serif"}}>{resLabel}</div>
+              <div style={{fontFamily:FH,fontSize:32,fontWeight:900,color:"#111",lineHeight:1}}>
+                vs {game.opponent}
+              </div>
+              <div style={{fontSize:13,color:"#888",marginTop:6,display:"flex",gap:12,flexWrap:"wrap"}}>
+                <span>{fmtDate(game.date)}</span>
+                {game.location&&<span>· {game.location}</span>}
+                {game.formation&&<span>· {game.formation}</span>}
+                {game.isScrimmage&&<span style={{color:"#f59e0b",fontWeight:700}}>· SCRIMMAGE</span>}
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* ── COMPLETED GAME REPORT ── */}
-        {isCompleted&&(
-          <div>
-            {/* Key stats strip */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
-              {[
-                {label:"Squad Rating",   value:squadAvg?squadAvg+"/10":"—"},
-                {label:"Top Performer",  value:topPlayer?topPlayer.p.name.split(" ").pop()+" ("+topPlayer.rating.toFixed(1)+")":"—"},
-                {label:"Top Scorer",     value:topScorer&&topScorer.s.goals>0?topScorer.p.name.split(" ").pop()+" ("+topScorer.s.goals+")":"—"},
-                {label:"Result",         value:resLabel},
-              ].map(function(item){
-                return(
-                  <div key={item.label} style={{border:"1px solid #ddd",borderRadius:8,padding:"10px 12px"}}>
-                    <div style={{fontSize:9,fontWeight:"bold",letterSpacing:1,color:"#777",marginBottom:4,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{item.label}</div>
-                    <div style={{fontSize:13,fontWeight:"bold",color:"#111",fontFamily:"Arial,sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Player ratings table */}
-            <div style={{marginBottom:16}}>
-              <span style={LBL}>Player Ratings</span>
-              <table style={{width:"100%",borderCollapse:"collapse",fontFamily:"Arial,sans-serif",fontSize:11}}>
-                <thead>
-                  <tr style={{borderBottom:"2px solid #000"}}>
-                    {["Player","Position","Rating","Goals","Assists","Shots","Tackles","Passes"].map(function(h){
-                      return <th key={h} style={{textAlign:"left",padding:"5px 8px",fontSize:9,letterSpacing:1,color:"#555",textTransform:"uppercase",fontWeight:"bold"}}>{h}</th>;
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(function(r,i){
-                    return(
-                      <tr key={i} style={{borderBottom:"1px solid #eee",background:i===0?"#f9f9f9":"transparent"}}>
-                        <td style={{padding:"6px 8px",fontWeight:i===0?"bold":"normal"}}>
-                          {i===0&&<span style={{color:"#c94d00",marginRight:4}}>★</span>}
-                          {r.p.name}
-                        </td>
-                        <td style={{padding:"6px 8px",color:"#666"}}>{primaryPos(r.p)}</td>
-                        <td style={{padding:"6px 8px",fontWeight:"bold",color:r.rating>=7?"#2e7d32":r.rating>=5?"#b45a00":"#c62828"}}>{r.rating.toFixed(1)}</td>
-                        <td style={{padding:"6px 8px"}}>{r.s.goals||0}</td>
-                        <td style={{padding:"6px 8px"}}>{r.s.assists||0}</td>
-                        <td style={{padding:"6px 8px"}}>{r.s.shots||0}</td>
-                        <td style={{padding:"6px 8px"}}>{r.s.tackles||0}</td>
-                        <td style={{padding:"6px 8px"}}>{r.s.passesCompleted||0}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Scout notes if available */}
-            {opp&&opp.scoutNotes&&(
-              <div style={SEC}>
-                <span style={LBL}>Opponent Notes</span>
-                <div style={BODY}>{opp.scoutNotes}</div>
+            {isCompleted&&(
+              <div style={{textAlign:"right",background:resBg,borderRadius:12,
+                padding:"14px 20px",border:`2px solid ${resCol}33`}}>
+                <div style={{fontFamily:FH,fontSize:48,fontWeight:900,color:"#111",lineHeight:1}}>
+                  {game.ourScore}<span style={{color:"#ccc",fontSize:32,margin:"0 6px"}}>—</span>{game.theirScore}
+                </div>
+                <div style={{fontFamily:FH,fontSize:13,fontWeight:900,color:resCol,
+                  letterSpacing:2,marginTop:4}}>{resLabel}</div>
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── COMPLETED GAME ── */}
+        {isCompleted&&(
+          <>
+            {/* Key stats */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",
+              gap:10,marginBottom:16}}>
+              {[
+                {l:"Squad Rating", v:squadAvg?squadAvg+"/10":"—", c:squadAvg?rColor(squadAvg):"#888"},
+                {l:"Top Performer", v:topPlayer?topPlayer.p.name.split(" ").pop()+" ("+topPlayer.rating.toFixed(1)+")":"—", c:accent},
+                {l:"Top Scorer", v:topScorer&&topScorer.s.goals>0?topScorer.p.name.split(" ").pop()+" ("+topScorer.s.goals+")":"—", c:"#111"},
+                {l:"Top Assist", v:topAssist&&topAssist.s.assists>0?topAssist.p.name.split(" ").pop()+" ("+topAssist.s.assists+")":"—", c:"#111"},
+                ...(possPct!==null?[{l:"Possession", v:possPct+"%", c:possPct>50?accent:"#888"}]:[]),
+                {l:"Shots", v:tsShotsUs, c:"#111"},
+                {l:"Tackles", v:tsTacklesUs, c:"#111"},
+                {l:"Passes", v:tsPassesUs, c:"#111"},
+              ].map(function(item){return(
+                <div key={item.l} style={{background:"#fff",borderRadius:12,padding:"12px 14px",
+                  border:"1px solid #e5e0d8",textAlign:"center"}}>
+                  <div style={{fontFamily:FH,fontWeight:900,fontSize:22,color:item.c,lineHeight:1}}>{item.v}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:"#888",marginTop:4,letterSpacing:.5}}>{item.l.toUpperCase()}</div>
+                </div>
+              );})}
+            </div>
+
+            {/* Team live stats comparison */}
+            {ts&&(ts.us||ts.them)&&(()=>{
+              var uv=ts.us||{}; var tv=ts.them||{};
+              var items=[
+                {k:"passes",l:"Passes"},{k:"shots",l:"Shots"},{k:"goals",l:"Goals"},
+                {k:"corners",l:"Corners"},{k:"tackles",l:"Tackles"},
+                {k:"fifty50",l:"50/50s"},{k:"turnovers",l:"T/O Won"},{k:"fouls",l:"Fouls"}
+              ].filter(function(x){return (uv[x.k]||0)+(tv[x.k]||0)>0;});
+              if(!items.length) return null;
+              return(
+                <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
+                  marginBottom:16,border:"1px solid #e5e0d8"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
+                    TEAM STATS
+                  </div>
+                  {items.map(function(x){
+                    var u=uv[x.k]||0; var t=tv[x.k]||0; var total=u+t;
+                    var pct=total>0?Math.round(u/total*100):50;
+                    return(
+                      <div key={x.k} style={{marginBottom:8}}>
+                        <div style={{display:"flex",justifyContent:"space-between",
+                          marginBottom:3,fontSize:12}}>
+                          <span style={{fontWeight:700,color:accent}}>{u}</span>
+                          <span style={{color:"#888",fontSize:11}}>{x.l}</span>
+                          <span style={{fontWeight:700,color:"#3b82f6"}}>{t}</span>
+                        </div>
+                        <div style={{height:6,background:"#f0ede8",borderRadius:3,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:pct+"%",background:accent,borderRadius:3,transition:"width .3s"}}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+                    <span style={{color:accent,fontSize:10,fontWeight:700}}>US</span>
+                    <span style={{color:"#3b82f6",fontSize:10,fontWeight:700}}>THEM</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Player ratings table */}
+            {rows.length>0&&(
+              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
+                marginBottom:16,border:"1px solid #e5e0d8",overflowX:"auto"}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
+                  PLAYER RATINGS
+                </div>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
+                  <thead>
+                    <tr style={{borderBottom:"2px solid #e5e0d8"}}>
+                      {["#","Player","Pos","Rating","G","A","Shots","Tackles","Passes"].map(function(h){
+                        return <th key={h} style={{textAlign:"left",padding:"5px 8px",fontSize:9,
+                          letterSpacing:1,color:"#aaa",fontWeight:700}}>{h}</th>;
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(function(r,i){
+                      var rc=r.rating>=8?"#2e7d32":r.rating>=6.5?"#b45a00":"#c62828";
+                      return(
+                        <tr key={i} style={{borderBottom:"1px solid #f0ede8",
+                          background:i===0?"#fff8f5":"transparent"}}>
+                          <td style={{padding:"7px 8px",color:"#ccc",fontSize:11}}>{i+1}</td>
+                          <td style={{padding:"7px 8px",fontWeight:i===0?700:500}}>
+                            {i===0&&<span style={{color:accent,marginRight:4,fontSize:11}}>★</span>}
+                            {r.p.name}
+                          </td>
+                          <td style={{padding:"7px 8px",color:"#999",fontSize:11}}>{primaryPos(r.p)}</td>
+                          <td style={{padding:"7px 8px"}}>
+                            <span style={{background:rc+"18",color:rc,fontFamily:FH,fontWeight:900,
+                              fontSize:14,padding:"2px 8px",borderRadius:6}}>{r.rating.toFixed(1)}</span>
+                          </td>
+                          <td style={{padding:"7px 8px",fontWeight:r.s.goals>0?700:400,color:r.s.goals>0?accent:"#666"}}>{r.s.goals||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.assists||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.shots||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.tackles||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.passesCompleted||0}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Coach notes */}
+            {game.coachNotes&&(
+              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
+                marginBottom:16,border:"1px solid #e5e0d8"}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:8}}>
+                  COACH NOTES
+                </div>
+                <div style={{fontSize:13,color:"#444",lineHeight:1.7,whiteSpace:"pre-wrap"}}>
+                  {game.coachNotes}
+                </div>
+              </div>
+            )}
+
+            {/* Opponent scout notes */}
+            {opp&&opp.scoutNotes&&(
+              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
+                marginBottom:16,border:"1px solid #e5e0d8"}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:8}}>
+                  OPPONENT NOTES — {opp.name.toUpperCase()}
+                </div>
+                <div style={{fontSize:13,color:"#444",lineHeight:1.7}}>{opp.scoutNotes}</div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* ── UPCOMING GAME PREVIEW ── */}
+        {/* ── PREVIEW (upcoming) ── */}
         {!isCompleted&&(
-          <div style={{display:"flex",gap:24}}>
-
-            {/* Left — lineup + instructions */}
-            <div style={{width:210,flexShrink:0}}>
+          <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
+            <div style={{minWidth:200,flex:"0 0 200px"}}>
               {gplan&&gplan.lineup&&Object.values(gplan.lineup).some(function(s){return s.filter(Boolean).length>0;})&&(
-                <div style={{marginBottom:14}}>
-                  <span style={LBL}>Planned Lineup</span>
+                <div style={{background:"#fff",borderRadius:14,padding:"14px",
+                  marginBottom:14,border:"1px solid #e5e0d8"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:8}}>LINEUP</div>
                   <SharePitch lineup={gplan.lineup} roster={roster}/>
                 </div>
               )}
               {gplan&&gplan.instructions&&(
-                <div style={{borderTop:"1px solid #eee",paddingTop:12,marginBottom:14}}>
-                  <span style={LBL}>Match Instructions</span>
-                  <div style={BODY}>{gplan.instructions}</div>
+                <div style={{background:"#fff",borderRadius:14,padding:"14px",
+                  marginBottom:14,border:"1px solid #e5e0d8"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:6}}>INSTRUCTIONS</div>
+                  <div style={{fontSize:13,color:"#444",lineHeight:1.6}}>{gplan.instructions}</div>
                 </div>
               )}
               {unavail.length>0&&(
-                <div style={{borderTop:"1px solid #eee",paddingTop:12}}>
-                  <span style={LBL}>Unavailable</span>
-                  <div style={BODY}>
-                    {unavail.map(function(p){
-                      return <div key={p.id} style={{marginBottom:3}}>{p.name}{p.availNote?" — "+p.availNote:""}</div>;
-                    })}
-                  </div>
+                <div style={{background:"#fff8f5",borderRadius:14,padding:"14px",
+                  border:"1px solid #fde8d8"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:6}}>UNAVAILABLE</div>
+                  {unavail.map(function(p){return(
+                    <div key={p.id} style={{fontSize:13,color:"#666",marginBottom:3}}>
+                      {p.name}{p.availNote?" — "+p.availNote:""}
+                    </div>
+                  );})}
                 </div>
               )}
             </div>
-
-            {/* Right — scout */}
-            <div style={{flex:1,borderLeft:"1.5px solid #ddd",paddingLeft:20}}>
+            <div style={{flex:1,minWidth:200}}>
               {opp?(
-                <div>
-                  <div style={{marginBottom:14}}>
-                    <span style={LBL}>{"Scout — "+opp.name+(opp.formation?" ("+opp.formation+")":"")}</span>
-                    {opp.scoutNotes&&<div style={Object.assign({},BODY,{marginBottom:8})}>{opp.scoutNotes}</div>}
-                    {opp.tendencies&&opp.tendencies.pressing&&<div style={BODY}>{"Pressing: "+opp.tendencies.pressing}</div>}
-                    {opp.tendencies&&opp.tendencies.weaknesses&&<div style={BODY}>{"Weaknesses: "+opp.tendencies.weaknesses}</div>}
+                <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",border:"1px solid #e5e0d8"}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
+                    SCOUT — {opp.name.toUpperCase()}{opp.formation?" ("+opp.formation+")":""}
                   </div>
-                  {opp.counterPlan&&opp.counterPlan.howWeAttack&&(
-                    <div style={SEC}>
-                      <span style={LBL}>How We Attack</span>
-                      <div style={BODY}>{opp.counterPlan.howWeAttack}</div>
-                    </div>
-                  )}
-                  {opp.counterPlan&&opp.counterPlan.howWeDefend&&(
-                    <div style={SEC}>
-                      <span style={LBL}>How We Defend</span>
-                      <div style={BODY}>{opp.counterPlan.howWeDefend}</div>
-                    </div>
-                  )}
-                  {opp.counterPlan&&opp.counterPlan.focusPoints&&(
-                    <div style={SEC}>
-                      <span style={LBL}>Focus Points</span>
-                      <div style={BODY}>{opp.counterPlan.focusPoints}</div>
-                    </div>
-                  )}
+                  {opp.scoutNotes&&<div style={{fontSize:13,color:"#444",lineHeight:1.7,marginBottom:10}}>{opp.scoutNotes}</div>}
+                  {[{k:"howWeAttack",l:"How We Attack"},{k:"howWeDefend",l:"How We Defend"},{k:"focusPoints",l:"Focus Points"}].map(function(item){
+                    if(!opp.counterPlan||!opp.counterPlan[item.k]) return null;
+                    return(
+                      <div key={item.k} style={{borderTop:"1px solid #f0ede8",paddingTop:10,marginBottom:10}}>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:1,color:"#aaa",marginBottom:4}}>{item.l.toUpperCase()}</div>
+                        <div style={{fontSize:13,color:"#444",lineHeight:1.7}}>{opp.counterPlan[item.k]}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               ):(
-                <div style={{color:"#aaa",fontSize:13,fontStyle:"italic",fontFamily:"Arial,sans-serif"}}>No scout data found for this opponent.</div>
+                <div style={{background:"#fff",borderRadius:14,padding:"20px",
+                  border:"1px solid #e5e0d8",color:"#aaa",fontSize:13,fontStyle:"italic"}}>
+                  No scout data found for {game.opponent}.
+                </div>
               )}
             </div>
           </div>
         )}
 
-        <div style={{borderTop:"1px solid #ddd",marginTop:16,paddingTop:8,textAlign:"center",fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>CoachIQ</div>
+        {/* Footer */}
+        <div style={{marginTop:20,paddingTop:10,borderTop:"1px solid #e5e0d8",
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <AppLogo size={28} glow={false}/>
+            <span style={{fontSize:11,color:"#aaa",fontWeight:600}}>CoachIQ</span>
+          </div>
+          <span style={{fontSize:11,color:"#bbb"}}>Generated {fmtDate(new Date().toISOString().split("T")[0])}</span>
+        </div>
+
       </div>
     </div>
   );
 }
-
 
 function DiagramArrow({x1,y1,x2,y2,color,dashed}){
   const angle=Math.atan2(y2-y1,x2-x1);
