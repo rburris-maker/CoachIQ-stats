@@ -5541,13 +5541,14 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     });
     const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
-    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss},...prev]);
+    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
     // Clean up session
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
     setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
+    setTeamStats({passes:0,shots:0,goals:0,corners:0,fouls:0});
     addFeedEvent("── Game Ended ──");
   }
 
