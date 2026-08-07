@@ -4502,7 +4502,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         <div style={{display:"flex",gap:10,marginBottom:20,alignItems:"center"}}>
           <button onClick={()=>{setSel(null);setExpanded(null);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 14px",color:C.text,cursor:"pointer",fontSize:13}}>← Back</button>
           <div style={{flex:1}}/>
-          {game.status!=="completed"&&setView&&setLivePreload&&(
+          {setView&&setLivePreload&&(
             <button onClick={()=>{
                 setLivePreload({opponent:game.opponent,location:game.location,formation:game.formation,date:game.date,gameId:game.id});
                 setView("live");
