@@ -4918,40 +4918,30 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             })}
             {/* Possession editor */}
             {(()=>{
-              const p=editTeamStats.poss||{home:0,away:0};
+              const p=editTeamStats.poss||{home:50,away:50};
               const total=(p.home||0)+(p.away||0);
               const homePct=total>0?Math.round(p.home/total*100):50;
               return(
                 <div style={{marginBottom:20,borderTop:`1px solid ${C.border}`,paddingTop:16}}>
-                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:10}}>POSSESSION (seconds tracked)</div>
-                  <div style={{display:"flex",gap:12,marginBottom:10}}>
-                    {[{k:"home",l:"HOME (US)",ac:C.accent},{k:"away",l:"AWAY (THEM)",ac:"#2563eb"}].map(function(side){
-                      const val=p[side.k]||0;
-                      return(
-                        <div key={side.k} style={{flex:1,background:C.surface,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{color:side.ac,fontSize:9,fontWeight:700,letterSpacing:.5,marginBottom:6}}>{side.l}</div>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,poss:{...prev.poss,[side.k]:Math.max(0,(prev.poss[side.k]||0)-10)}}})}
-                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.muted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                            <span style={{color:side.ac,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,minWidth:36,textAlign:"center"}}>{val}s</span>
-                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,poss:{...prev.poss,[side.k]:(prev.poss[side.k]||0)+10}}})}
-                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.muted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:14}}>POSSESSION</div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{homePct}%</span>
+                    <span style={{color:C.muted,fontSize:11,alignSelf:"center"}}>HOME vs AWAY</span>
+                    <span style={{color:"#2563eb",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{100-homePct}%</span>
                   </div>
-                  {total>0&&(
-                    <div>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                        <span style={{color:C.accent,fontSize:11,fontWeight:700}}>{homePct}%</span>
-                        <span style={{color:"#2563eb",fontSize:11,fontWeight:700}}>{100-homePct}%</span>
-                      </div>
-                      <div style={{height:6,background:"#2563eb",borderRadius:3,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:homePct+"%",background:C.accent,transition:"width .2s"}}/>
-                      </div>
-                    </div>
-                  )}
+                  <div style={{height:8,background:"#2563eb",borderRadius:4,overflow:"hidden",marginBottom:12}}>
+                    <div style={{height:"100%",width:homePct+"%",background:C.accent,transition:"width .15s"}}/>
+                  </div>
+                  <input type="range" min="0" max="100" value={homePct}
+                    onChange={function(e){
+                      const v=parseInt(e.target.value);
+                      setEditTeamStats(function(prev){return {...prev,poss:{home:v,away:100-v}};});
+                    }}
+                    style={{width:"100%",accentColor:C.accent,cursor:"pointer"}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+                    <span style={{color:C.muted,fontSize:9,fontWeight:600}}>HOME (US)</span>
+                    <span style={{color:C.muted,fontSize:9,fontWeight:600}}>AWAY (THEM)</span>
+                  </div>
                 </div>
               );
             })()}
@@ -4965,7 +4955,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <button onClick={()=>{
                   setGames(function(prev){return prev.map(function(g){
                     if(g.id!==editTeamStats.gameId) return g;
-                    const newPoss=editTeamStats.poss?{home:editTeamStats.poss.home||0,away:editTeamStats.poss.away||0}:g.possession;
+                    const ep=editTeamStats.poss||{}; const newPoss={home:ep.home||0,away:ep.away||0};
                     return {...g,teamStats:{us:{...editTeamStats.us},them:{...editTeamStats.them}},possession:newPoss};
                   });});
                   setEditTeamStats(null);
