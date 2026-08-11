@@ -3615,11 +3615,20 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
       onTarget:  (acc.onTarget||0)+(us.onTarget||0),
       goals:     (acc.goals||0)+(us.goals||0),
       corners:   (acc.corners||0)+(us.corners||0),
+      tackles:   (acc.tackles||0)+(us.tackles||0),
+      fifty50:   (acc.fifty50||0)+(us.fifty50||0),
+      turnovers: (acc.turnovers||0)+(us.turnovers||0),
       fouls:     (acc.fouls||0)+(us.fouls||0),
     };
   },{});
   const hasTeamStats = Object.values(seasonTeamStats).some(function(v){return v>0;});
-  const tsGamesTracked = done.filter(function(g){return g.teamStats&&g.teamStats.us;}).length;
+  const seasonPassAcc = (seasonTeamStats.passes+seasonTeamStats.passesInc)>0
+    ? Math.round(seasonTeamStats.passes/(seasonTeamStats.passes+seasonTeamStats.passesInc)*100)
+    : null;
+  const seasonShotAcc = (seasonTeamStats.shots>0&&seasonTeamStats.onTarget>0)
+    ? Math.round(seasonTeamStats.onTarget/seasonTeamStats.shots*100)
+    : null;
+  const tsGamesTracked = done.filter(function(g){return g.teamStats&&(g.teamStats.us||g.teamStats.them);}).length;
 
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
@@ -3666,8 +3675,15 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
               {l:"Inc Passes",  v:seasonTeamStats.passesInc, c:C.danger},
               {l:"Shots",       v:seasonTeamStats.shots,      c:C.warning},
               {l:"On Target",   v:seasonTeamStats.onTarget,  c:C.warning},
+              ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
+              ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
+              ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
+              ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
               {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
               {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
+              {l:"Tackles",     v:seasonTeamStats.tackles,    c:C.accent},
+              {l:"50/50s",      v:seasonTeamStats.fifty50,    c:C.warning},
+              {l:"T/O Won",     v:seasonTeamStats.turnovers,  c:C.accent},
               {l:"Fouls",       v:seasonTeamStats.fouls,      c:C.muted},
             ].filter(function(x){return x.v>0;}).map(function(item){return(
               <div key={item.l} style={{background:C.surface,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
@@ -4661,9 +4677,14 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           {gts&&(gtsUs||gtsThem)&&(function(){
             var ITEMS=[
               {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},{k:"shots",l:"Shots"},{k:"onTarget",l:"On Target"},
-              {k:"goals",l:"Goals"},{k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
+              {k:"goals",l:"Goals"},{k:"corners",l:"Corners"},{k:"tackles",l:"Tackles"},
+              {k:"fifty50",l:"50/50s"},{k:"turnovers",l:"T/O Won"},{k:"fouls",l:"Fouls"},
             ].filter(function(x){return ((gtsUs&&gtsUs[x.k]||0)+(gtsThem&&gtsThem[x.k]||0))>0;});
             if(!ITEMS.length) return null;
+            var usPA=(gtsUs&&(gtsUs.passes||0)+(gtsUs.passesInc||0)>0)?Math.round((gtsUs.passes||0)/((gtsUs.passes||0)+(gtsUs.passesInc||0))*100):null;
+            var thPA=(gtsThem&&(gtsThem.passes||0)+(gtsThem.passesInc||0)>0)?Math.round((gtsThem.passes||0)/((gtsThem.passes||0)+(gtsThem.passesInc||0))*100):null;
+            var usSA=(gtsUs&&gtsUs.shots>0&&gtsUs.onTarget>0)?Math.round(gtsUs.onTarget/gtsUs.shots*100):null;
+            var thSA=(gtsThem&&gtsThem.shots>0&&gtsThem.onTarget>0)?Math.round(gtsThem.onTarget/gtsThem.shots*100):null;
             return(
               <div style={{marginTop:16,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
                 <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
@@ -4674,6 +4695,22 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                     Edit
                   </button>
                 </div>
+                {(usPA!==null||thPA!==null)&&(
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,
+                    padding:"6px 10px",background:C.surface,borderRadius:8}}>
+                    <span style={{color:C.accent,fontWeight:700,fontSize:13}}>{usPA!==null?usPA+"%":"—"}</span>
+                    <span style={{color:C.muted,fontSize:10,alignSelf:"center"}}>Pass Acc.</span>
+                    <span style={{color:"#2563eb",fontWeight:700,fontSize:13}}>{thPA!==null?thPA+"%":"—"}</span>
+                  </div>
+                )}
+                {(usSA!==null||thSA!==null)&&(
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,
+                    padding:"6px 10px",background:C.surface,borderRadius:8}}>
+                    <span style={{color:C.accent,fontWeight:700,fontSize:13}}>{usSA!==null?usSA+"%":"—"}</span>
+                    <span style={{color:C.muted,fontSize:10,alignSelf:"center"}}>Shot Acc.</span>
+                    <span style={{color:"#2563eb",fontWeight:700,fontSize:13}}>{thSA!==null?thSA+"%":"—"}</span>
+                  </div>
+                )}
                 <div style={{display:"flex",marginBottom:6}}>
                   <span style={{color:C.accent,fontSize:10,fontWeight:700,flex:1}}>US</span>
                   <span style={{flex:3}}/>
@@ -5495,7 +5532,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     {k:"turnovers",label:"T/O",     emoji:"🔄", color:"#66bb6a"},
     {k:"fouls",    label:"Fouls",   emoji:"🟨", color:"#ffa726"},
   ];
-  const INIT_TS = {passes:0,shots:0,goals:0,corners:0,tackles:0,fifty50:0,turnovers:0,fouls:0};
+  const INIT_TS = {passes:0,passesInc:0,shots:0,onTarget:0,goals:0,corners:0,tackles:0,fifty50:0,turnovers:0,fouls:0};
   const [teamStatsUs,   setTeamStatsUs]   = useState({...INIT_TS});
   const [teamStatsThem, setTeamStatsThem] = useState({...INIT_TS});
   const [tsSide,        setTsSide]        = useState("us");
@@ -5763,21 +5800,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         });
       }
     }
-    if(live.opponent&&setOpponents){
-      const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
-      if(anyThemStats){
-        setOpponents(prev=>{
-          const existing=prev.find(o=>o.name===live.opponent);
-          const gameEntry={gameId:live.id,date:live.date,ourScore:live.ourScore,theirScore:live.theirScore,stats:{...teamStatsThem}};
-          if(existing){
-            const prevLog=existing.liveGameLog||[];
-            const newLog=prevLog.find(e=>e.gameId===live.id)?prevLog.map(e=>e.gameId===live.id?gameEntry:e):[...prevLog,gameEntry];
-            return prev.map(o=>o.id===existing.id?{...o,liveGameLog:newLog}:o);
-          }
-          return [...prev,{id:"opp"+Date.now(),name:live.opponent,formation:"",keyPlayers:"",scoutNotes:"",setPieceNotes:"",oppPlayers:{},tendencies:{pressing:"",buildUp:"",attackShape:"",defShape:"",weaknesses:""},setPieces:{cornersAtk:"",cornersDef:"",freeKicksAtk:"",freeKicksDef:"",throwInsAtk:"",throwInsDef:""},counterPlan:{howWeAttack:"",howWeDefend:"",keyMatchups:"",focusPoints:""},createdAt:new Date().toISOString(),liveGameLog:[gameEntry]}];
-        });
-      }
-    }
+
     // Clean up session
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
