@@ -4330,6 +4330,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [sendMsg,setSendMsg]=useState(null);
   const [showQuick,setShowQuick]=useState(false);
   const [editGame,setEditGame]=useState(null); // game object being edited
+  const [editTeamStats,setEditTeamStats]=useState(null);
   const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
   const [addStatsFor,setAddStatsFor]=useState(null);
   const [editStats,setEditStats]=useState(null); // {game, stat} being edited
@@ -4648,7 +4649,14 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             if(!ITEMS.length) return null;
             return(
               <div style={{marginTop:16,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
-                <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:10}}>LIVE TEAM STATS</div>
+                <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:2,flex:1}}>LIVE TEAM STATS</div>
+                  <button onClick={()=>setEditTeamStats({gameId:game.id,us:{...(gtsUs||{})},them:{...(gtsThem||{})}})}
+                    style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,
+                      padding:"2px 8px",color:C.muted,fontSize:10,cursor:"pointer",fontWeight:600}}>
+                    Edit
+                  </button>
+                </div>
                 <div style={{display:"flex",marginBottom:6}}>
                   <span style={{color:C.accent,fontSize:10,fontWeight:700,flex:1}}>US</span>
                   <span style={{flex:3}}/>
@@ -4862,6 +4870,73 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         roster={activeRoster||[]}
       />}
 
+
+      {/* ── EDIT TEAM STATS MODAL ── */}
+      {editTeamStats&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+            width:"100%",maxWidth:460,padding:24,maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>EDIT TEAM STATS</div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:20}}>Adjust live-tracked totals. Player stats are not affected.</div>
+            {["us","them"].map(function(side){
+              const ac=side==="us"?C.accent:"#2563eb";
+              const lbl=side==="us"?"US (HOME)":"THEM (AWAY)";
+              const st=editTeamStats[side]||{};
+              const BTNS=[
+                {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},
+                {k:"shots",l:"Shots"},{k:"goals",l:"Goals"},
+                {k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
+              ];
+              return(
+                <div key={side} style={{marginBottom:20}}>
+                  <div style={{color:ac,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:10}}>{lbl}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                    {BTNS.map(function(btn){
+                      const val=st[btn.k]||0;
+                      return(
+                        <div key={btn.k} style={{background:C.surface,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                          <div style={{color:C.muted,fontSize:9,fontWeight:700,letterSpacing:.5,marginBottom:6}}>{btn.l.toUpperCase()}</div>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,[side]:{...prev[side],[btn.k]:Math.max(0,(prev[side][btn.k]||0)-1)}};})}
+                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,
+                                background:C.bg,color:C.muted,cursor:"pointer",fontSize:18,lineHeight:1,
+                                display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                            <span style={{color:val>0?ac:C.muted,fontFamily:"'Oswald',sans-serif",
+                              fontWeight:900,fontSize:22,minWidth:28,textAlign:"center"}}>{val}</span>
+                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,[side]:{...prev[side],[btn.k]:(prev[side][btn.k]||0)+1}};})}
+                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,
+                                background:C.bg,color:C.muted,cursor:"pointer",fontSize:18,lineHeight:1,
+                                display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{display:"flex",gap:10,marginTop:4}}>
+              <button onClick={()=>setEditTeamStats(null)}
+                style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
+                Cancel
+              </button>
+              <button onClick={()=>{
+                  setGames(function(prev){return prev.map(function(g){
+                    if(g.id!==editTeamStats.gameId) return g;
+                    return {...g,teamStats:{us:{...editTeamStats.us},them:{...editTeamStats.them}}};
+                  });});
+                  setEditTeamStats(null);
+                }}
+                style={{flex:2,padding:"11px",background:C.accent,border:"none",borderRadius:10,
+                  color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+                Save Changes →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
     );
   }
