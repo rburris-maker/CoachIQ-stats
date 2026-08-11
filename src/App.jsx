@@ -4651,7 +4651,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <div style={{marginTop:16,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
                 <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
                   <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:2,flex:1}}>LIVE TEAM STATS</div>
-                  <button onClick={()=>setEditTeamStats({gameId:game.id,us:{...(gtsUs||{})},them:{...(gtsThem||{})}})}
+                  <button onClick={()=>setEditTeamStats({gameId:game.id,us:{...(gtsUs||{})},them:{...(gtsThem||{})},poss:{home:(game.possession&&game.possession.home)||0,away:(game.possession&&game.possession.away)||0}})}
                     style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,
                       padding:"2px 8px",color:C.muted,fontSize:10,cursor:"pointer",fontWeight:600}}>
                     Edit
@@ -4916,6 +4916,46 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                 </div>
               );
             })}
+            {/* Possession editor */}
+            {(()=>{
+              const p=editTeamStats.poss||{home:0,away:0};
+              const total=(p.home||0)+(p.away||0);
+              const homePct=total>0?Math.round(p.home/total*100):50;
+              return(
+                <div style={{marginBottom:20,borderTop:`1px solid ${C.border}`,paddingTop:16}}>
+                  <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:10}}>POSSESSION (seconds tracked)</div>
+                  <div style={{display:"flex",gap:12,marginBottom:10}}>
+                    {[{k:"home",l:"HOME (US)",ac:C.accent},{k:"away",l:"AWAY (THEM)",ac:"#2563eb"}].map(function(side){
+                      const val=p[side.k]||0;
+                      return(
+                        <div key={side.k} style={{flex:1,background:C.surface,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                          <div style={{color:side.ac,fontSize:9,fontWeight:700,letterSpacing:.5,marginBottom:6}}>{side.l}</div>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,poss:{...prev.poss,[side.k]:Math.max(0,(prev.poss[side.k]||0)-10)}}})}
+                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.muted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                            <span style={{color:side.ac,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:18,minWidth:36,textAlign:"center"}}>{val}s</span>
+                            <button onClick={()=>setEditTeamStats(function(prev){return {...prev,poss:{...prev.poss,[side.k]:(prev.poss[side.k]||0)+10}}})}
+                              style={{width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.muted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {total>0&&(
+                    <div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                        <span style={{color:C.accent,fontSize:11,fontWeight:700}}>{homePct}%</span>
+                        <span style={{color:"#2563eb",fontSize:11,fontWeight:700}}>{100-homePct}%</span>
+                      </div>
+                      <div style={{height:6,background:"#2563eb",borderRadius:3,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:homePct+"%",background:C.accent,transition:"width .2s"}}/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div style={{display:"flex",gap:10,marginTop:4}}>
               <button onClick={()=>setEditTeamStats(null)}
                 style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
@@ -4925,7 +4965,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <button onClick={()=>{
                   setGames(function(prev){return prev.map(function(g){
                     if(g.id!==editTeamStats.gameId) return g;
-                    return {...g,teamStats:{us:{...editTeamStats.us},them:{...editTeamStats.them}}};
+                    const newPoss=editTeamStats.poss?{home:editTeamStats.poss.home||0,away:editTeamStats.poss.away||0}:g.possession;
+                    return {...g,teamStats:{us:{...editTeamStats.us},them:{...editTeamStats.them}},possession:newPoss};
                   });});
                   setEditTeamStats(null);
                 }}
