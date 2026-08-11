@@ -6222,81 +6222,81 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       )}
 
       {/* ── POSSESSION + TEAM STATS ── */}
-      <div style={{background:"#000",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+      <div style={{background:"#0a0a0a",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
 
         {/* Possession row */}
-        <div style={{display:"flex",height:52}}>
+        <div style={{display:"flex",height:50}}>
           <button onClick={()=>togglePossession("home")}
             style={{flex:1,border:"none",cursor:"pointer",position:"relative",
-              fontWeight:900,fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
-              background:possession.current==="home"?C.accent:"#0d0d0d",
-              color:possession.current==="home"?"#000":"#333",transition:"all .12s"}}>
-            {possession.current==="home"&&<div style={{position:"absolute",top:5,right:7,
-              width:7,height:7,borderRadius:"50%",background:"rgba(0,0,0,.4)",animation:"pulse 1s infinite"}}/>}
+              fontWeight:900,fontSize:15,fontFamily:"'Oswald',sans-serif",letterSpacing:4,
+              background:possession.current==="home"?C.accent:"#111",
+              color:possession.current==="home"?"#000":"#2a2a2a",transition:"all .12s"}}>
+            {possession.current==="home"&&<div style={{position:"absolute",top:5,right:8,
+              width:6,height:6,borderRadius:"50%",background:"rgba(0,0,0,.5)",animation:"pulse 1s infinite"}}/>}
             HOME
           </button>
-          <div style={{width:1,background:"#222",flexShrink:0}}/>
+          <div style={{width:1,background:"#1e1e1e",flexShrink:0}}/>
           <button onClick={()=>togglePossession("away")}
             style={{flex:1,border:"none",cursor:"pointer",position:"relative",
-              fontWeight:900,fontSize:16,fontFamily:"'Oswald',sans-serif",letterSpacing:3,
-              background:possession.current==="away"?"#3b82f6":"#0d0d0d",
-              color:possession.current==="away"?"#fff":"#333",transition:"all .12s"}}>
-            {possession.current==="away"&&<div style={{position:"absolute",top:5,right:7,
-              width:7,height:7,borderRadius:"50%",background:"rgba(255,255,255,.4)",animation:"pulse 1s infinite"}}/>}
+              fontWeight:900,fontSize:15,fontFamily:"'Oswald',sans-serif",letterSpacing:4,
+              background:possession.current==="away"?"#2563eb":"#111",
+              color:possession.current==="away"?"#fff":"#2a2a2a",transition:"all .12s"}}>
+            {possession.current==="away"&&<div style={{position:"absolute",top:5,right:8,
+              width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,.4)",animation:"pulse 1s infinite"}}/>}
             AWAY
           </button>
           <button onClick={()=>setShowNoteInput(s=>!s)}
-            style={{width:42,background:"#0d0d0d",border:"none",
-              borderLeft:"1px solid #222",cursor:"pointer",color:"#555",fontSize:14,flexShrink:0}}>
+            style={{width:40,background:"#111",border:"none",
+              borderLeft:"1px solid #1e1e1e",cursor:"pointer",color:"#444",fontSize:13,flexShrink:0}}>
             📝
           </button>
         </div>
 
-        {/* Stat rows */}
+        {/* Team stat rows */}
         {(()=>{
-          const ROW1=[{k:"passes",l:"PASS"},{k:"shots",l:"SHOT"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
-          const ROW2=[{k:"goals",l:"GOAL"},{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"}];
-          const StatBtn=({btn,stateObj,setFn,ac})=>{
-            const val=stateObj[btn.k]||0;
-            const active=val>0;
-            const bump=d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
-            return(
-              <button onClick={()=>bump(1)}
-                onContextMenu={e=>{e.preventDefault();bump(-1);}}
-                onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
-                onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
-                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-                  justifyContent:"center",padding:"8px 2px",cursor:"pointer",
-                  background:active?ac+"22":"transparent",border:"none",
-                  borderRight:"1px solid #1a1a1a",transition:"background .1s",
-                  WebkitTapHighlightColor:"transparent",userSelect:"none"}}>
-                <span style={{color:active?ac:"#2a2a2a",fontFamily:"'Oswald',sans-serif",
-                  fontWeight:900,fontSize:20,lineHeight:1}}>{val}</span>
-                <span style={{color:active?ac:"#2a2a2a",fontSize:8,fontWeight:700,
-                  letterSpacing:.4,marginTop:3}}>{btn.l}</span>
-              </button>
-            );
-          };
+          const BTNS=[
+            {k:"passes",   l:"Pass",     ac:C.accent,   tc:"#2563eb"},
+            {k:"passesInc",l:"Inc Pass", ac:C.accent,   tc:"#2563eb"},
+            {k:"shots",    l:"Shot",     ac:C.accent,   tc:"#2563eb"},
+            {k:"corners",  l:"Corner",   ac:C.accent,   tc:"#2563eb"},
+            {k:"fouls",    l:"Foul",     ac:"#f59e0b",  tc:"#f59e0b"},
+            {k:"goals",    l:"Goal",     ac:"#22c55e",  tc:"#22c55e"},
+          ];
+          const Row=({label,labelColor,stateObj,setFn})=>(
+            <>
+              <div style={{padding:"3px 10px",borderTop:"1px solid #161616"}}>
+                <span style={{color:labelColor,fontSize:8,fontWeight:700,letterSpacing:1.5,opacity:.8}}>{label}</span>
+              </div>
+              <div style={{display:"flex",borderTop:"1px solid #161616"}}>
+                {BTNS.map((btn,i)=>{
+                  const val=stateObj[btn.k]||0;
+                  const ac=label==="US (HOME)"?btn.ac:btn.tc;
+                  const bump=d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+                  return(
+                    <button key={btn.k} onClick={()=>bump(1)}
+                      onContextMenu={e=>{e.preventDefault();bump(-1);}}
+                      onTouchStart={e=>{const t=setTimeout(()=>bump(-1),600);e.currentTarget._lh=t;}}
+                      onTouchEnd={e=>clearTimeout(e.currentTarget._lh)}
+                      style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                        justifyContent:"center",padding:"9px 2px",cursor:"pointer",border:"none",
+                        borderRight:i<BTNS.length-1?"1px solid #161616":"none",
+                        background:val>0?ac+"18":"transparent",
+                        transition:"background .12s",WebkitTapHighlightColor:"transparent",
+                        userSelect:"none"}}>
+                      <span style={{color:val>0?ac:"#252525",fontFamily:"'Oswald',sans-serif",
+                        fontWeight:900,fontSize:22,lineHeight:1}}>{val}</span>
+                      <span style={{color:val>0?ac+"aa":"#252525",fontSize:8,fontWeight:600,
+                        letterSpacing:.3,marginTop:3,textTransform:"uppercase"}}>{btn.l}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          );
           return(
             <>
-              <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px"}}>
-                <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US (HOME)</span>
-              </div>
-              <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
-              </div>
-              <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
-              </div>
-              <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px",marginTop:2}}>
-                <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM (AWAY)</span>
-              </div>
-              <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
-              </div>
-              <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
-              </div>
+              <Row label="US (HOME)" labelColor={C.accent} stateObj={teamStatsUs} setFn={setTeamStatsUs}/>
+              <Row label="THEM (AWAY)" labelColor="#2563eb" stateObj={teamStatsThem} setFn={setTeamStatsThem}/>
             </>
           );
         })()}
@@ -12386,7 +12386,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
             location:form.location||"Home",
             formation:"4-3-3",
             ourScore:"", theirScore:"",
-            status:"completed", // always completed so it shows in GamesView
+            status:form.date>new Date().toISOString().split("T")[0]?"scheduled":"completed",
             stats:[], coachNotes:"",
             linkedCalEventId:evtId
           }]);
@@ -13142,7 +13142,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                                 e.stopPropagation();
                                 const ex=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");
                                 if(ex){setGames(prev=>prev.map(g=>g.id===ex.id?{...g,status:"completed",calendarHidden:false}:g));}
-                                else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}
+                                else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:evt.date>new Date().toISOString().split("T")[0]?"scheduled":"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}
                                 setView("games");
                               }} style={{flexShrink:0,padding:"2px 7px",background:C.accent+"18",
                                 border:`1px solid ${C.accent}33`,borderRadius:5,
@@ -13195,7 +13195,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
                               {evt.type==="game"&&evt.opponent&&(()=>{
                                 const already=(games||[]).some(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status==="completed");
                                 if(already) return null;
-                                return(<button onClick={e=>{e.stopPropagation();const ex=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");if(ex){setGames(prev=>prev.map(g=>g.id===ex.id?{...g,status:"completed",calendarHidden:false}:g));}else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}setView("games");}} style={{marginTop:7,padding:"5px 10px",width:"100%",background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>+ Add to Games</button>);
+                                return(<button onClick={e=>{e.stopPropagation();const ex=(games||[]).find(g=>g.opponent===evt.opponent&&g.date===evt.date&&g.status!=="completed");if(ex){setGames(prev=>prev.map(g=>g.id===ex.id?{...g,status:"completed",calendarHidden:false}:g));}else{setGames(prev=>[...prev,{id:"g"+Date.now(),opponent:evt.opponent,date:evt.date,time:evt.time||"",location:evt.location||"Home",ourScore:0,theirScore:0,status:evt.date>new Date().toISOString().split("T")[0]?"scheduled":"completed",stats:[],coachNotes:"",formation:"4-3-3",fromCalendar:true}]);}setView("games");}} style={{marginTop:7,padding:"5px 10px",width:"100%",background:C.accent+"18",border:`1px solid ${C.accent}33`,borderRadius:6,color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>+ Add to Games</button>);
                               })()}
                             </div>
                           </div>
