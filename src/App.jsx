@@ -3612,6 +3612,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
       passes:    (acc.passes||0)+(us.passes||0),
       passesInc: (acc.passesInc||0)+(us.passesInc||0),
       shots:     (acc.shots||0)+(us.shots||0),
+      onTarget:  (acc.onTarget||0)+(us.onTarget||0),
       goals:     (acc.goals||0)+(us.goals||0),
       corners:   (acc.corners||0)+(us.corners||0),
       fouls:     (acc.fouls||0)+(us.fouls||0),
@@ -3664,6 +3665,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
               {l:"Passes",      v:seasonTeamStats.passes,    c:C.accent},
               {l:"Inc Passes",  v:seasonTeamStats.passesInc, c:C.danger},
               {l:"Shots",       v:seasonTeamStats.shots,      c:C.warning},
+              {l:"On Target",   v:seasonTeamStats.onTarget,  c:C.warning},
               {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
               {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
               {l:"Fouls",       v:seasonTeamStats.fouls,      c:C.muted},
@@ -4630,11 +4632,26 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               </div>
             )}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {[["Shots",gtsUs?gtsUs.shots:tSh],["On Target",tSoT],["Pass Acc.",pacc+"%"],["Passes",gtsUs?gtsUs.passes:tPC],
-              ...(gtsUs&&gtsUs.corners>0?[["Corners",gtsUs.corners]]:[]),
-              ...(gtsUs&&gtsUs.fouls>0?[["Fouls",gtsUs.fouls]]:[]),
-              ...(game.possession&&(game.possession.home||game.possession.away)?[["Poss %",Math.round((game.possession.home/(game.possession.home+game.possession.away))*100)+"%"]]:[] )
-            ].map(function(item){return(
+            {(function(){
+              var shots   = gtsUs&&gtsUs.shots>0 ? gtsUs.shots : tSh;
+              var onTgt   = gtsUs&&gtsUs.onTarget>0 ? gtsUs.onTarget : tSoT;
+              var passes  = gtsUs&&gtsUs.passes>0 ? gtsUs.passes : tPC;
+              var incPass = gtsUs&&gtsUs.passesInc>0 ? gtsUs.passesInc : 0;
+              var totalPass = passes+(incPass||0);
+              var passAcc = totalPass>0 ? Math.round(passes/totalPass*100)+"%" : (pacc+"%");
+              var shotAcc = shots>0&&onTgt>0 ? Math.round(onTgt/shots*100)+"%" : null;
+              var possTotal = game.possession&&(game.possession.home||game.possession.away) ? game.possession.home+game.possession.away : 0;
+              return [
+                ["Shots", shots],
+                ["On Target", onTgt],
+                ...(shotAcc?[["Shot Acc.", shotAcc]]:[]),
+                ["Pass Acc.", passAcc],
+                ["Passes", passes],
+                ...(gtsUs&&gtsUs.corners>0?[["Corners",gtsUs.corners]]:[]),
+                ...(gtsUs&&gtsUs.fouls>0?[["Fouls",gtsUs.fouls]]:[]),
+                ...(possTotal>0?[["Poss %",Math.round(game.possession.home/possTotal*100)+"%"]]:[]),
+              ];
+            })().map(function(item){return(
               <div key={item[0]} style={{background:C.bg,borderRadius:8,padding:"8px 14px"}}>
                 <div style={{color:C.text+"66",fontSize:10,fontWeight:600}}>{item[0]}</div>
                 <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700}}>{item[1]}</div>
@@ -4643,7 +4660,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
           {gts&&(gtsUs||gtsThem)&&(function(){
             var ITEMS=[
-              {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},{k:"shots",l:"Shots"},
+              {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},{k:"shots",l:"Shots"},{k:"onTarget",l:"On Target"},
               {k:"goals",l:"Goals"},{k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
             ].filter(function(x){return ((gtsUs&&gtsUs[x.k]||0)+(gtsThem&&gtsThem[x.k]||0))>0;});
             if(!ITEMS.length) return null;
@@ -4885,8 +4902,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               const st=editTeamStats[side]||{};
               const BTNS=[
                 {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},
-                {k:"shots",l:"Shots"},{k:"goals",l:"Goals"},
-                {k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
+                {k:"shots",l:"Shots"},{k:"onTarget",l:"On Target"},
+                {k:"goals",l:"Goals"},{k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
               ];
               return(
                 <div key={side} style={{marginBottom:20}}>
@@ -6439,8 +6456,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
         {/* Stat rows */}
         {(()=>{
-          const ROW1=[{k:"passes",l:"PASS"},{k:"shots",l:"SHOT"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
-          const ROW2=[{k:"goals",l:"GOAL"},{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"}];
+          const ROW1=[{k:"passes",l:"PASS"},{k:"passesInc",l:"INC"},{k:"shots",l:"SHOT"},{k:"onTarget",l:"ON TGT"},{k:"goals",l:"GOAL"}];
+          const ROW2=[{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
           const StatBtn=({btn,stateObj,setFn,ac})=>{
             const val=stateObj[btn.k]||0;
             const active=val>0;
