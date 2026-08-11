@@ -3606,9 +3606,8 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
     opp:g.opponent
   }));
 
-  // Aggregate live team stats across all games
-  const seasonTeamStats = done.reduce((acc,g)=>{
-    const us=g.teamStats?.us||{};
+  const seasonTeamStats = done.reduce(function(acc,g){
+    const us=(g.teamStats&&g.teamStats.us)||{};
     return {
       passes:    (acc.passes||0)+(us.passes||0),
       passesInc: (acc.passesInc||0)+(us.passesInc||0),
@@ -3618,7 +3617,8 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
       fouls:     (acc.fouls||0)+(us.fouls||0),
     };
   },{});
-  const hasTeamStats = Object.values(seasonTeamStats).some(v=>v>0);
+  const hasTeamStats = Object.values(seasonTeamStats).some(function(v){return v>0;});
+  const tsGamesTracked = done.filter(function(g){return g.teamStats&&g.teamStats.us;}).length;
 
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
@@ -3655,30 +3655,28 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
         </div>
       )}
 
-      {/* Season team stats from live tracking */}
+      {/* Season live team stats */}
       {hasTeamStats&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 20px",marginBottom:20}}>
-          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>SEASON TEAM STATS (LIVE TRACKED)</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:10}}>
+          <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>SEASON TEAM STATS — LIVE TRACKED</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:10}}>
             {[
-              {l:"Passes",v:seasonTeamStats.passes,c:C.accent},
-              {l:"Inc Passes",v:seasonTeamStats.passesInc,c:C.danger},
-              {l:"Shots",v:seasonTeamStats.shots,c:C.warning},
-              {l:"Goals",v:seasonTeamStats.goals,c:C.accent},
-              {l:"Corners",v:seasonTeamStats.corners,c:C.muted},
-              {l:"Fouls",v:seasonTeamStats.fouls,c:C.muted},
-            ].filter(x=>x.v>0).map(item=>(
+              {l:"Passes",      v:seasonTeamStats.passes,    c:C.accent},
+              {l:"Inc Passes",  v:seasonTeamStats.passesInc, c:C.danger},
+              {l:"Shots",       v:seasonTeamStats.shots,      c:C.warning},
+              {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
+              {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
+              {l:"Fouls",       v:seasonTeamStats.fouls,      c:C.muted},
+            ].filter(function(x){return x.v>0;}).map(function(item){return(
               <div key={item.l} style={{background:C.surface,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
                 <div style={{color:item.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{item.v}</div>
                 <div style={{color:C.muted,fontSize:10,marginTop:4,fontWeight:600}}>{item.l}</div>
               </div>
-            ))}
+            );})}
           </div>
-          {done.filter(g=>g.teamStats?.us).length>0&&(
-            <div style={{color:C.muted,fontSize:10,marginTop:10,textAlign:"right"}}>
-              Tracked in {done.filter(g=>g.teamStats?.us).length} of {done.length} games
-            </div>
-          )}
+          <div style={{color:C.muted,fontSize:10,marginTop:10,textAlign:"right"}}>
+            Tracked in {tsGamesTracked} of {done.length} games
+          </div>
         </div>
       )}
 
@@ -4531,8 +4529,8 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const tPA=game.stats.reduce((a,s)=>a+s.passesAttempted,0);
     const pacc=tPA>0?Math.round((tPC/tPA)*100):0;
     const gts=game.teamStats||null;
-    const gtsUs=gts?.us||null;
-    const gtsThem=gts?.them||null;
+    const gtsUs=(gts&&gts.us)||null;
+    const gtsThem=(gts&&gts.them)||null;
     const squadAvg=game.excludeFromRating?null:Math.round((rows.reduce((a,r)=>a+(r.rating||0),0)/rows.length)*10)/10;
 
     return(
@@ -4630,47 +4628,44 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                 <div style={{color:C.text+"cc",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{game.coachNotes}</div>
               </div>
             )}
-          {/* Player-derived summary pills */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {[["Shots",gtsUs?gtsUs.shots:tSh],["On Target",tSoT],["Pass Acc.",`${pacc}%`],["Passes",gtsUs?gtsUs.passes:tPC],
-              ...(gtsUs?.corners>0?[["Corners",gtsUs.corners]]:[]),
-              ...(gtsUs?.fouls>0?[["Fouls",gtsUs.fouls]]:[]),
+            {[["Shots",gtsUs?gtsUs.shots:tSh],["On Target",tSoT],["Pass Acc.",pacc+"%"],["Passes",gtsUs?gtsUs.passes:tPC],
+              ...(gtsUs&&gtsUs.corners>0?[["Corners",gtsUs.corners]]:[]),
+              ...(gtsUs&&gtsUs.fouls>0?[["Fouls",gtsUs.fouls]]:[]),
               ...(game.possession&&(game.possession.home||game.possession.away)?[["Poss %",Math.round((game.possession.home/(game.possession.home+game.possession.away))*100)+"%"]]:[] )
-            ].map(([l,v])=>(
-              <div key={l} style={{background:C.bg,borderRadius:8,padding:"8px 14px"}}>
-                <div style={{color:C.text+"66",fontSize:10,fontWeight:600}}>{l}</div>
-                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700}}>{v}</div>
+            ].map(function(item){return(
+              <div key={item[0]} style={{background:C.bg,borderRadius:8,padding:"8px 14px"}}>
+                <div style={{color:C.text+"66",fontSize:10,fontWeight:600}}>{item[0]}</div>
+                <div style={{color:C.text,fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700}}>{item[1]}</div>
               </div>
-            ))}
+            );})}
           </div>
-
-          {/* US vs THEM live stat comparison */}
-          {gts&&(gtsUs||gtsThem)&&(()=>{
-            const ITEMS=[
+          {gts&&(gtsUs||gtsThem)&&(function(){
+            var ITEMS=[
               {k:"passes",l:"Passes"},{k:"passesInc",l:"Inc Pass"},{k:"shots",l:"Shots"},
               {k:"goals",l:"Goals"},{k:"corners",l:"Corners"},{k:"fouls",l:"Fouls"},
-            ].filter(x=>((gtsUs?.[x.k]||0)+(gtsThem?.[x.k]||0))>0);
+            ].filter(function(x){return ((gtsUs&&gtsUs[x.k]||0)+(gtsThem&&gtsThem[x.k]||0))>0;});
             if(!ITEMS.length) return null;
             return(
               <div style={{marginTop:16,borderTop:`1px solid ${C.border}`,paddingTop:14}}>
                 <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:10}}>LIVE TEAM STATS</div>
-                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <div style={{display:"flex",marginBottom:6}}>
                   <span style={{color:C.accent,fontSize:10,fontWeight:700,flex:1}}>US</span>
                   <span style={{flex:3}}/>
                   <span style={{color:"#2563eb",fontSize:10,fontWeight:700,flex:1,textAlign:"right"}}>THEM</span>
                 </div>
-                {ITEMS.map(x=>{
-                  const u=gtsUs?.[x.k]||0; const t=gtsThem?.[x.k]||0;
-                  const total=u+t; const pct=total>0?Math.round(u/total*100):50;
+                {ITEMS.map(function(x){
+                  var u=(gtsUs&&gtsUs[x.k])||0; var t=(gtsThem&&gtsThem[x.k])||0;
+                  var total=u+t; var pct=total>0?Math.round(u/total*100):50;
                   return(
                     <div key={x.k} style={{marginBottom:8}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{color:u>t?C.accent:C.muted,fontWeight:700,fontFamily:"'Oswald',sans-serif",fontSize:16}}>{u}</span>
                         <span style={{color:C.muted,fontSize:10,alignSelf:"center"}}>{x.l}</span>
                         <span style={{color:t>u?"#2563eb":C.muted,fontWeight:700,fontFamily:"'Oswald',sans-serif",fontSize:16}}>{t}</span>
                       </div>
                       <div style={{height:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:pct+"%",background:C.accent,borderRadius:3,transition:"width .3s"}}/>
+                        <div style={{height:"100%",width:pct+"%",background:C.accent,borderRadius:3}}/>
                       </div>
                     </div>
                   );
