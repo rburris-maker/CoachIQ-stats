@@ -5468,6 +5468,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [playerMins, setPlayerMins] = useState({});
   const [halfTime,   setHalfTime]   = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState(null); // existing game to merge into
+  const [mergeMode,   setMergeMode]   = useState(null); // "possession"|"teamStats"|"playerStats"|"all"
+  const [showMerge,   setShowMerge]   = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
 
@@ -5774,7 +5777,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setHalfTime(false);
   }
 
-  function endGame(){
+  function endGame(mergeWith, mode){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
     const finalMins={};
     PLAYERS.forEach(p=>{
@@ -5784,7 +5787,34 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    const anyPlayerStats=sa.some(s=>s.goals>0||s.assists>0||s.shots>0||s.tackles>0||s.minutesPlayed>0);
+    const anyTeamStats=Object.values(teamStatsUs).some(v=>v>0)||Object.values(teamStatsThem).some(v=>v>0);
+    const anyPoss=finalPoss.home>0||finalPoss.away>0;
+
+    if(mergeWith && mode){
+      // Merge into existing game
+      setGames(prev=>prev.map(g=>{
+        if(g.id!==mergeWith.id) return g;
+        const merged={...g};
+        if(mode==="possession"||mode==="all"){
+          if(anyPoss) merged.possession=finalPoss;
+        }
+        if(mode==="teamStats"||mode==="all"){
+          if(anyTeamStats) merged.teamStats=teamStats;
+        }
+        if(mode==="playerStats"||mode==="all"){
+          if(anyPlayerStats) merged.stats=sa;
+        }
+        if(mode==="score"||mode==="all"){
+          merged.ourScore=live.ourScore;
+          merged.theirScore=live.theirScore;
+        }
+        return merged;
+      }));
+    } else {
+      // New game record
+      setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    }
     if(live.opponent&&setOpponents){
       const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
       if(anyThemStats){
@@ -5805,7 +5835,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
-    setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
+    setLive(null);setEndConfirm(false);setShowMerge(false);setMergeTarget(null);setMergeMode(null);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
     addFeedEvent("── Game Ended ──");
@@ -6436,12 +6466,91 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           </button>}
         </div>
       )}
-      {endConfirm&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexShrink:0}}>
-          <span style={{color:C.text,fontSize:13}}>Save and end game?</span>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={endGame} style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>Save & End</button>
-            <button onClick={()=>setEndConfirm(false)} style={{padding:"6px 12px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>Cancel</button>
+      {endConfirm&&!showMerge&&(
+        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:4}}>
+            <span style={{color:C.text,fontSize:13,fontWeight:600}}>Save and end game?</span>
+            <button onClick={()=>setEndConfirm(false)} style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>Cancel</button>
+          </div>
+          {(()=>{
+            // Check if a matching game already exists
+            const existing = games.find(g=>
+              g.status==="completed"&&(
+                g.id===live.id ||
+                (g.opponent===live.opponent&&g.date===live.date)
+              )
+            );
+            if(existing){
+              return(
+                <div>
+                  <div style={{color:C.warning,fontSize:11,marginBottom:6}}>
+                    ⚠ A game record already exists for {existing.opponent} on {fmtDate(existing.date)}.
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button onClick={()=>{setMergeTarget(existing);setShowMerge(true);}}
+                      style={{padding:"6px 12px",background:C.warning+"22",border:`1px solid ${C.warning}`,
+                        borderRadius:7,color:C.warning,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                      Merge into existing →
+                    </button>
+                    <button onClick={()=>endGame(null,null)}
+                      style={{padding:"6px 12px",background:C.surface,border:`1px solid ${C.border}`,
+                        borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                      Save as new game
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            return(
+              <button onClick={()=>endGame(null,null)}
+                style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,
+                  color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                Save & End
+              </button>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── MERGE MODE PICKER ── */}
+      {showMerge&&mergeTarget&&(
+        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:2000,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+            width:"100%",maxWidth:420,padding:24}}>
+            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>MERGE INTO EXISTING GAME</div>
+            <div style={{color:C.text,fontWeight:700,fontSize:16,marginBottom:4}}>vs {mergeTarget.opponent}</div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:20}}>What did you track this session? Choose what to add:</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              {[
+                {k:"possession",  l:"Possession only",     d:"Overwrites possession % with this session's tracking"},
+                {k:"teamStats",   l:"Team stats only",     d:"Overwrites passes, shots, corners etc. from this session"},
+                {k:"playerStats", l:"Player stats only",   d:"Overwrites individual player stats and ratings"},
+                {k:"all",         l:"Everything",          d:"Replaces all data — score, possession, team stats, player stats"},
+              ].map(function(opt){return(
+                <button key={opt.k} onClick={()=>setMergeMode(opt.k)}
+                  style={{textAlign:"left",padding:"12px 14px",borderRadius:10,cursor:"pointer",
+                    background:mergeMode===opt.k?C.accent+"22":C.surface,
+                    border:`1px solid ${mergeMode===opt.k?C.accent:C.border}`,transition:"all .1s"}}>
+                  <div style={{color:mergeMode===opt.k?C.accent:C.text,fontWeight:700,fontSize:13}}>{opt.l}</div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:2}}>{opt.d}</div>
+                </button>
+              );})}
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{setShowMerge(false);setMergeMode(null);}}
+                style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:10,color:C.muted,cursor:"pointer",fontSize:14}}>
+                Cancel
+              </button>
+              <button onClick={()=>{if(mergeMode)endGame(mergeTarget,mergeMode);}}
+                disabled={!mergeMode}
+                style={{flex:2,padding:"11px",background:mergeMode?C.accent:"#444",border:"none",
+                  borderRadius:10,color:mergeMode?"#000":"#666",fontWeight:900,fontSize:15,
+                  cursor:mergeMode?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
+                {mergeMode?"Merge & End →":"Select an option above"}
+              </button>
+            </div>
           </div>
         </div>
       )}
