@@ -5782,8 +5782,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
     const currentStats=Object.keys(statsRef.current).length>0?statsRef.current:stats;
     const currentLive=liveRef.current||live;
-    const _mergeTarget = overrideMergeTarget!==undefined ? overrideMergeTarget : mergeTarget;
-    const _mergeMode   = overrideMergeMode!==undefined   ? overrideMergeMode   : mergeMode;
+    const _mergeTarget=overrideMergeTarget!==undefined?overrideMergeTarget:mergeTarget;
+    const _mergeMode=overrideMergeMode!==undefined?overrideMergeMode:mergeMode;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
@@ -5796,9 +5796,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       setGames(prev=>prev.map(g=>{
         if(g.id!==_mergeTarget.id) return g;
         const merged={...g};
-        if(_mergeMode==="possession"||_mergeMode==="all"){merged.possession=finalPoss;}
-        if(_mergeMode==="teamStats"||_mergeMode==="all"){merged.teamStats=teamStats;}
-        if(_mergeMode==="playerStats"||_mergeMode==="all"){merged.stats=sa;}
+        if(_mergeMode==="possession"||mergeMode==="all"){merged.possession=finalPoss;}
+        if(_mergeMode==="teamStats"||mergeMode==="all"){merged.teamStats=teamStats;}
+        if(_mergeMode==="playerStats"||mergeMode==="all"){merged.stats=sa;}
         if(_mergeMode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
         return merged;
       }));
