@@ -5496,6 +5496,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
   const preloadRef    = useRef(null);
+  const statsRef      = useRef({});   // always current stats, safe to read in endGame
+  const liveRef       = useRef(null); // always current live game, safe to read in endGame
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5602,17 +5604,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          return {...prev,[payload.pid]:s};
+          const next={...prev,[payload.pid]:s};
+          statsRef.current=next; // keep ref in sync
+          return next;
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
+          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g; liveRef.current=n; return n;});
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
+        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g; liveRef.current=n; return n;});
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5782,12 +5786,15 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   function endGame(mergeWith, mode){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
+    // Use refs for always-current values (avoids stale closure bugs)
+    const currentStats = statsRef.current||stats;
+    const currentLive  = liveRef.current||live;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
       finalMins[p.id]=benched.has(p.id)?pm.totalMins||0:(pm.totalMins||0)+(min-(pm.startMin??0));
     });
-    const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
+    const sa=PLAYERS.map(p=>({playerId:p.id,...(currentStats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
     const _mergeWith = mergeWith||mergeTarget;
@@ -5799,11 +5806,11 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         if(_mode==="possession"||_mode==="all"){merged.possession=finalPoss;}
         if(_mode==="teamStats"||_mode==="all"){merged.teamStats=teamStats;}
         if(_mode==="playerStats"||_mode==="all"){merged.stats=sa;}
-        if(_mode==="all"){merged.ourScore=live.ourScore;merged.theirScore=live.theirScore;}
+        if(_mode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
         return merged;
       }));
     } else {
-      setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+      setGames(prev=>[{...currentLive,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
     }
     if(live.opponent&&setOpponents){
       const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
@@ -5887,6 +5894,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
+    liveRef.current=gameData; statsRef.current=init;
+    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6620,12 +6629,12 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
               // Hook goals into the live scoreboard
               if(btn.k==="goals"&&d>0){
-                if(isUs) setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
-                else     setLive(g=>g?{...g,theirScore:(g.theirScore||0)+1}:g);
+                if(isUs){setLive(g=>{const n=g?{...g,ourScore:(g.ourScore||0)+1}:g;liveRef.current=n;return n;});}
+                else{setLive(g=>{const n=g?{...g,theirScore:(g.theirScore||0)+1}:g;liveRef.current=n;return n;});}
               }
               if(btn.k==="goals"&&d<0){
-                if(isUs) setLive(g=>g?{...g,ourScore:Math.max(0,(g.ourScore||0)-1)}:g);
-                else     setLive(g=>g?{...g,theirScore:Math.max(0,(g.theirScore||0)-1)}:g);
+                if(isUs){setLive(g=>{const n=g?{...g,ourScore:Math.max(0,(g.ourScore||0)-1)}:g;liveRef.current=n;return n;});}
+                else{setLive(g=>{const n=g?{...g,theirScore:Math.max(0,(g.theirScore||0)-1)}:g;liveRef.current=n;return n;});}
               }
             };
             return(
@@ -6740,7 +6749,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                 <button onClick={()=>{
                     // Skip scorer — log goal without player assignment
                     goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
-                    setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
+                    setLive(g=>{const n=g?{...g,ourScore:(g.ourScore||0)+1}:g;liveRef.current=n;return n;});
                     addFeedEvent("⚽ GOAL ("+min+"')");
                     setGoalPopup(null);
                   }}
