@@ -737,17 +737,17 @@ function calcRating(s, position, cleanSheet = false) {
   const label  = rating>=9?"Dominant":rating>=8?"Excellent":rating>=7?"Strong":rating>=6?"Solid":rating>=5?"Below Par":"Poor";
 
   const strengths=[], concerns=[];
-  if (defensive>=1.0)  strengths.push("strong defensive performance");
+  if(defensive>=1.0) strengths.push("strong defensive performance");
   else if(defensive>=0.5) strengths.push("decent defensive contribution");
-  if (possession>=1.0) strengths.push("excellent passing security");
+  if(possession>=1.0) strengths.push("excellent passing security");
   else if(possession>=0.5) strengths.push("solid ball retention");
   else if(possession<0.1&&pa>10) concerns.push("passing security needs work");
-  if (attack>=1.5)     strengths.push("excellent attacking contribution");
+  if(attack>=1.5) strengths.push("excellent attacking contribution");
   else if(attack>=0.8) strengths.push("positive attacking presence");
   else if(attack<0.2&&(POS==="FWD"||POS==="MID")) concerns.push("limited attacking impact this match");
-  if (cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
-  if (dt>=2)           concerns.push("reduce dangerous giveaways under pressure");
-  if (errors<=-0.5)    concerns.push("cut out costly mistakes");
+  if(cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
+  if(dt>=2) concerns.push("reduce dangerous giveaways under pressure");
+  if(errors<=-0.5) concerns.push("cut out costly mistakes");
   if(!strengths.length&&!concerns.length) strengths.push("met positional requirements at an acceptable level");
 
   const coachNote=[
@@ -5778,6 +5778,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
     liveRef.current=gameData; statsRef.current=init;
+    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6442,6 +6443,13 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
             </span>
           </span>
+        </div>
+      )}
+
+      {sessionIntent&&sessionIntent!=="all"&&(
+        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,flexShrink:0}}/>
+          <span style={{color:C.muted,fontSize:10}}>Tracking: <span style={{color:C.accent,fontWeight:700}}>{sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}</span></span>
         </div>
       )}
 
