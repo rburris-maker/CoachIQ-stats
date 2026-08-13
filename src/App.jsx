@@ -5473,6 +5473,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [showMerge,        setShowMerge]        = useState(false);
   const [sessionIntent,    setSessionIntent]    = useState(null);
   const [showIntentPicker, setShowIntentPicker] = useState(false);
+  const [goalPopup,        setGoalPopup]        = useState(null); // {scorer:null, assister:null, step:"scorer"|"assister"}
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
 
@@ -5825,7 +5826,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
     setLive(null);setEndConfirm(false);setShowMerge(false);setMergeTarget(null);setMergeMode(null);
-    setSessionIntent(null);setShowIntentPicker(false);
+    setSessionIntent(null);setShowIntentPicker(false);setGoalPopup(null);
     setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
@@ -6611,6 +6612,11 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             const val=stateObj[btn.k]||0;
             const active=val>0;
             const bump=d=>{
+              // US Goals: show popup to assign scorer/assister
+              if(btn.k==="goals"&&d>0&&isUs){
+                setGoalPopup({scorer:null,assister:null,step:"scorer",setFn,stateObj});
+                return; // popup handles the rest
+              }
               setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
               // Hook goals into the live scoreboard
               if(btn.k==="goals"&&d>0){
@@ -6663,6 +6669,131 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           );
         })()}
       </div>
+
+      {/* ── GOAL POPUP ── */}
+      {goalPopup&&(
+        <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:3000,
+          display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div style={{background:C.card,borderRadius:"20px 20px 0 0",padding:"20px 16px",
+            maxHeight:"70vh",display:"flex",flexDirection:"column"}}>
+
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
+              <div style={{flex:1}}>
+                <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>
+                  ⚽ GOAL! — {min}'
+                </div>
+                <div style={{color:C.text,fontWeight:700,fontSize:16,marginTop:2}}>
+                  {goalPopup.step==="scorer"?"Who scored?":"Who assisted?"}
+                </div>
+              </div>
+              {goalPopup.step==="assister"&&(
+                <div style={{color:C.muted,fontSize:12,textAlign:"right"}}>
+                  <div style={{color:C.accent,fontWeight:700}}>{goalPopup.scorer?PLAYERS.find(p=>p.id===goalPopup.scorer)?.name:"Unknown"}</div>
+                  <div>scored</div>
+                </div>
+              )}
+            </div>
+
+            {/* Player grid */}
+            <div style={{overflowY:"auto",flex:1,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+                {PLAYERS.filter(p=>!benched.has(p.id)&&!excluded.has(p.id)).map(p=>{
+                  const isSelected=(goalPopup.step==="scorer"&&goalPopup.scorer===p.id)||
+                                   (goalPopup.step==="assister"&&goalPopup.assister===p.id);
+                  const pc=posColor(primaryPos(p));
+                  return(
+                    <button key={p.id}
+                      onClick={()=>{
+                        if(goalPopup.step==="scorer"){
+                          setGoalPopup(prev=>({...prev,scorer:p.id,step:"assister"}));
+                        } else {
+                          setGoalPopup(prev=>({...prev,assister:p.id}));
+                        }
+                      }}
+                      style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                        padding:"10px 8px",borderRadius:10,cursor:"pointer",border:"none",
+                        background:isSelected?C.accent+"22":C.surface,
+                        outline:isSelected?`2px solid ${C.accent}`:"none",
+                        transition:"all .1s"}}>
+                      <div style={{width:36,height:36,borderRadius:8,background:pc,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontWeight:900,fontSize:12,color:"#fff",fontFamily:"'Oswald',sans-serif"}}>
+                        {primaryPos(p)}
+                      </div>
+                      <div style={{color:isSelected?C.accent:C.text,fontWeight:700,fontSize:12,
+                        textAlign:"center",lineHeight:1.2}}>
+                        {p.name.split(" ").pop()}
+                      </div>
+                      {isSelected&&<div style={{color:C.accent,fontSize:10,fontWeight:700}}>
+                        {goalPopup.step==="scorer"?"SCORER":"ASSIST"}
+                      </div>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{display:"flex",gap:8}}>
+              {goalPopup.step==="scorer"&&(
+                <button onClick={()=>{
+                    // Skip scorer — log goal without player assignment
+                    goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
+                    setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
+                    addFeedEvent("⚽ GOAL ("+min+"')");
+                    setGoalPopup(null);
+                  }}
+                  style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
+                  Skip / Unknown
+                </button>
+              )}
+              {goalPopup.step==="assister"&&(
+                <>
+                  <button onClick={()=>{
+                      // Confirm with no assister
+                      const scorerName=PLAYERS.find(p=>p.id===goalPopup.scorer)?.name||"Unknown";
+                      if(goalPopup.scorer) broadcastEvent("stat",{pid:goalPopup.scorer,stat:"goals",delta:1,min});
+                      else{
+                        goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
+                        setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
+                        addFeedEvent("⚽ GOAL — "+scorerName+" ("+min+"')");
+                      }
+                      setGoalPopup(null);
+                    }}
+                    style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
+                    No Assist
+                  </button>
+                  <button onClick={()=>{
+                      const scorerName=PLAYERS.find(p=>p.id===goalPopup.scorer)?.name||"Unknown";
+                      const assistName=PLAYERS.find(p=>p.id===goalPopup.assister)?.name;
+                      if(goalPopup.scorer) broadcastEvent("stat",{pid:goalPopup.scorer,stat:"goals",delta:1,min});
+                      if(goalPopup.assister) broadcastEvent("stat",{pid:goalPopup.assister,stat:"assists",delta:1,min});
+                      goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
+                      setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
+                      addFeedEvent("⚽ GOAL — "+scorerName+(assistName?" (assist: "+assistName:")":"")+" ("+min+"')");
+                      setGoalPopup(null);
+                    }}
+                    disabled={!goalPopup.assister}
+                    style={{flex:2,padding:"11px",background:goalPopup.assister?C.accent:"#333",
+                      border:"none",borderRadius:10,color:goalPopup.assister?"#000":"#666",
+                      fontWeight:900,fontSize:14,cursor:goalPopup.assister?"pointer":"not-allowed",
+                      fontFamily:"'Oswald',sans-serif"}}>
+                    Confirm →
+                  </button>
+                </>
+              )}
+              <button onClick={()=>setGoalPopup(null)}
+                style={{width:44,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:10,color:C.muted,cursor:"pointer",fontSize:16,flexShrink:0}}>
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── STAT SELECTOR ── */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 10px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,alignItems:"flex-start",WebkitOverflowScrolling:"touch"}}>
