@@ -5491,9 +5491,11 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Possession state ───────────────────────────────────────────────────────
   const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null});
 
-  const timerRef = useRef(null);
+  const timerRef    = useRef(null);
   const sessionIdRef = useRef(null);
-  const preloadRef    = useRef(null);
+  const preloadRef   = useRef(null);
+  const statsRef     = useRef({});
+  const liveRef      = useRef(null);
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5600,17 +5602,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          return {...prev,[payload.pid]:s};
+          const next={...prev,[payload.pid]:s};
+          statsRef.current=next;
+          return next;
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
+          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g;liveRef.current=n;return n;});
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
+        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g;liveRef.current=n;return n;});
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5778,10 +5782,12 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setHalfTime(false);
   }
 
-  function endGame(){
+  function endGame(overrideMergeTarget, overrideMergeMode){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
     const currentStats=Object.keys(statsRef.current).length>0?statsRef.current:stats;
     const currentLive=liveRef.current||live;
+    const _mergeTarget = overrideMergeTarget!==undefined ? overrideMergeTarget : mergeTarget;
+    const _mergeMode   = overrideMergeMode!==undefined   ? overrideMergeMode   : mergeMode;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
@@ -5790,14 +5796,14 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     const sa=PLAYERS.map(p=>({playerId:p.id,...(currentStats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    if(mergeTarget&&mergeMode){
+    if(_mergeTarget&&_mergeMode){
       setGames(prev=>prev.map(g=>{
-        if(g.id!==mergeTarget.id) return g;
+        if(g.id!==_mergeTarget.id) return g;
         const merged={...g};
-        if(mergeMode==="possession"||mergeMode==="all"){merged.possession=finalPoss;}
-        if(mergeMode==="teamStats"||mergeMode==="all"){merged.teamStats=teamStats;}
-        if(mergeMode==="playerStats"||mergeMode==="all"){merged.stats=sa;}
-        if(mergeMode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
+        if(_mergeMode==="possession"||_mergeMode==="all"){merged.possession=finalPoss;}
+        if(_mergeMode==="teamStats"||_mergeMode==="all"){merged.teamStats=teamStats;}
+        if(_mergeMode==="playerStats"||_mergeMode==="all"){merged.stats=sa;}
+        if(_mergeMode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
         return merged;
       }));
     } else {
@@ -5884,6 +5890,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
+    liveRef.current=gameData; statsRef.current=init;
+    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6539,13 +6547,13 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             </button>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={endGame}
+            <button onClick={()=>endGame(mergeTarget,mergeMode)}
               style={{flex:2,padding:"8px 14px",background:C.accent,border:"none",borderRadius:7,
                 color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
               {mergeTarget?"Merge & End →":"Save & End →"}
             </button>
             {mergeTarget&&(
-              <button onClick={()=>{setMergeTarget(null);setMergeMode(null);endGame();}}
+              <button onClick={()=>endGame(null,null)}
                 style={{flex:1,padding:"8px",background:C.surface,border:`1px solid ${C.border}`,
                   borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
                 Save as new
