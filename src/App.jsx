@@ -165,6 +165,7 @@ const supabase = (() => {
         }
       }
       const msg=data?.message||data?.error||data?.details||`HTTP ${res.status}`;
+      console.error(`Supabase error [${res.status}]`,url,data);
       return {data:null,error:{message:msg,status:res.status,code:data?.code}};
     }
     return {data,error:null};
@@ -209,9 +210,11 @@ const supabase = (() => {
 
         // Safety: no filter deletes/updates are blocked
         if(this._method==="DELETE"&&!this._filters.length){
+          console.warn("🛑 Delete without filter blocked — use .eq() to filter");
           return {data:null,error:{message:"DELETE requires a WHERE clause"}};
         }
         if(this._method==="PATCH"&&!this._filters.length){
+          console.warn("🛑 Update without filter blocked — use .eq() to filter");
           return {data:null,error:{message:"UPDATE requires a WHERE clause"}};
         }
 
@@ -277,6 +280,7 @@ const supabase = (() => {
     from(table){ return makeBuilder(table); },
   };
 })();
+
 
 
 // ─── EMAILJS CONFIG ───────────────────────────────────────────────────────────
@@ -505,6 +509,124 @@ function enrichStats(s){
 // ─── STATS FACTORY ───────────────────────────────────────────────────────────
 // goals,assists,shots,shotsOT,passComp,passAtt,tackles,inter,fouls,saves,mins,
 // keyPasses,aerialWon,bigChancesMissed,dangerousTurnovers,goalsConceded
+const mk = (
+  pid,g=0,a=0,sh=0,sot=0,pc=0,pa=0,ta=0,int=0,fo=0,sv=0,min=90,
+  kp=0,aw=0,bcm=0,dt=0,gc=0
+) => ({
+  playerId:pid,goals:g,assists:a,shots:sh,shotsOnTarget:sot,
+  passesCompleted:pc,passesAttempted:pa,tackles:ta,interceptions:int,
+  fouls:fo,saves:sv,minutesPlayed:min,
+  keyPasses:kp,aerialDuelsWon:aw,bigChancesMissed:bcm,
+  dangerousTurnovers:dt,goalsConceded:gc,
+});
+
+const GAMES = [
+  { id:"g1", date:"2026-03-08", opponent:"City FC",   location:"Home", formation:"4-3-3",
+    ourScore:3, theirScore:1, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 28,35, 0,2,0,5,90, 0,0,0,1,1),
+      mk("p2",  0,1,1,0, 41,48, 4,3,1,0,90, 2,1,0,0,0),
+      mk("p3",  0,0,0,0, 45,52, 5,2,0,0,90, 0,4,0,0,0),
+      mk("p4",  0,0,1,1, 38,44, 3,4,1,0,90, 0,5,0,1,0),
+      mk("p5",  0,0,0,0, 43,50, 4,2,1,0,90, 1,1,0,0,0),
+      mk("p6",  1,1,4,2, 52,61, 3,2,1,0,90, 2,0,0,0,0),
+      mk("p7",  0,1,3,2, 60,68, 2,1,2,0,90, 3,0,0,0,0),
+      mk("p8",  1,0,5,3, 58,65, 4,3,0,0,90, 2,0,0,0,0),
+      mk("p9",  0,0,2,1, 44,53, 3,2,1,0,77, 2,0,0,1,0),
+      mk("p10", 1,0,6,4, 22,28, 1,0,1,0,90, 1,0,1,0,0),
+      mk("p11", 0,1,4,2, 25,31, 1,1,0,0,90, 2,0,0,0,0),
+      mk("p12", 0,0,3,1, 18,24, 0,0,2,0,68, 0,0,1,1,0),
+    ]},
+  { id:"g2", date:"2026-03-01", opponent:"United SC", location:"Away", formation:"4-3-3",
+    ourScore:1, theirScore:1, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 22,30, 0,1,0,7,90, 0,0,0,2,1),
+      mk("p2",  0,0,0,0, 36,45, 3,2,2,0,90, 0,2,0,1,0),
+      mk("p3",  0,0,0,0, 40,49, 4,3,0,0,90, 0,4,0,0,0),
+      mk("p4",  0,0,0,0, 34,43, 3,3,2,0,90, 0,3,0,1,0),
+      mk("p5",  0,0,0,0, 38,47, 3,1,2,0,90, 0,1,0,1,0),
+      mk("p6",  0,0,3,1, 46,58, 2,2,2,0,90, 1,0,0,1,0),
+      mk("p7",  1,0,4,3, 54,63, 2,1,1,0,90, 2,0,0,0,0),
+      mk("p8",  0,1,2,1, 51,62, 3,2,1,0,90, 2,0,0,1,0),
+      mk("p9",  0,0,1,0, 38,48, 2,1,3,0,90, 1,0,0,2,0),
+      mk("p10", 0,0,4,2, 18,26, 1,0,2,0,83, 1,0,2,0,0),
+      mk("p11", 0,0,3,1, 20,28, 1,0,1,0,90, 1,0,0,1,0),
+      mk("p12", 0,0,2,1, 14,20, 0,0,1,0,62, 0,0,1,1,0),
+    ]},
+  { id:"g3", date:"2026-02-22", opponent:"Eagles FC", location:"Home", formation:"4-4-2",
+    ourScore:2, theirScore:0, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 30,38, 0,2,0,3,90, 0,0,0,0,0),
+      mk("p2",  1,0,2,1, 43,50, 5,3,0,0,90, 2,2,0,0,0),
+      mk("p3",  0,0,0,0, 47,54, 6,4,1,0,90, 0,5,0,0,0),
+      mk("p4",  0,1,0,0, 40,46, 4,5,0,0,90, 0,6,0,0,0),
+      mk("p5",  0,0,0,0, 44,51, 4,3,1,0,90, 1,2,0,0,0),
+      mk("p6",  1,1,5,3, 55,63, 3,2,0,0,90, 2,0,0,0,0),
+      mk("p7",  0,0,2,1, 58,66, 2,2,2,0,90, 2,0,0,0,0),
+      mk("p8",  0,1,3,2, 60,68, 5,3,0,0,90, 3,0,0,0,0),
+      mk("p9",  0,0,1,1, 46,55, 2,1,1,0,90, 2,0,0,0,0),
+      mk("p10", 0,0,5,3, 24,31, 1,0,1,0,90, 1,0,1,0,0),
+      mk("p11", 0,0,4,2, 22,29, 0,1,0,0,90, 2,0,0,0,0),
+      mk("p12", 0,0,2,0, 16,22, 0,0,1,0,55, 0,0,0,1,0),
+    ]},
+  { id:"g4", date:"2026-02-15", opponent:"Rovers",    location:"Away", formation:"4-3-3",
+    ourScore:0, theirScore:2, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 18,27, 0,0,0,2,90, 0,0,0,2,2),
+      mk("p2",  0,0,0,0, 30,42, 2,1,3,0,90, 0,1,0,2,0),
+      mk("p3",  0,0,0,0, 32,44, 3,2,2,0,90, 0,3,0,1,0),
+      mk("p4",  0,0,0,0, 28,40, 2,2,3,0,90, 0,2,0,2,0),
+      mk("p5",  0,0,0,0, 31,43, 2,1,2,0,90, 0,1,0,1,0),
+      mk("p6",  0,0,2,0, 38,52, 2,1,3,0,90, 0,0,0,2,0),
+      mk("p7",  0,0,2,1, 44,58, 1,1,2,0,78, 1,0,0,1,0),
+      mk("p8",  0,0,1,0, 42,55, 3,2,1,0,90, 1,0,0,1,0),
+      mk("p9",  0,0,2,1, 34,46, 1,1,2,0,90, 1,0,0,2,0),
+      mk("p10", 0,0,3,1, 14,22, 0,0,1,0,90, 0,0,2,0,0),
+      mk("p11", 0,0,2,0, 16,24, 0,0,2,0,90, 0,0,0,1,0),
+      mk("p12", 0,0,1,0, 10,17, 0,0,1,0,45, 0,0,1,0,0),
+    ]},
+  { id:"g5", date:"2026-02-08", opponent:"Metro SC",  location:"Home", formation:"4-3-3",
+    ourScore:4, theirScore:2, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 25,33, 0,1,0,4,90, 0,0,0,1,2),
+      mk("p2",  0,1,1,0, 46,53, 5,3,0,0,90, 2,2,0,0,0),
+      mk("p3",  0,0,0,0, 49,55, 6,4,0,0,90, 0,4,0,0,0),
+      mk("p4",  0,0,0,0, 42,49, 4,4,0,0,90, 0,5,0,0,0),
+      mk("p5",  0,0,0,0, 45,52, 4,3,1,0,90, 1,2,0,0,0),
+      mk("p6",  1,1,5,4, 58,66, 3,2,0,0,90, 2,0,0,0,0),
+      mk("p7",  0,2,3,2, 63,71, 2,2,1,0,90, 4,0,0,0,0),
+      mk("p8",  1,0,4,3, 62,70, 4,3,0,0,90, 2,0,0,0,0),
+      mk("p9",  0,0,2,1, 48,57, 3,2,1,0,90, 2,0,0,0,0),
+      mk("p10", 2,0,8,5, 26,33, 1,0,0,0,90, 1,0,0,0,0),
+      mk("p11", 0,0,3,2, 24,31, 1,0,1,0,90, 2,0,0,0,0),
+      mk("p12", 0,0,2,1, 18,25, 0,0,0,0,72, 1,0,1,0,0),
+    ]},
+  { id:"g6", date:"2026-02-01", opponent:"Rapids",    location:"Home", formation:"4-3-3",
+    ourScore:2, theirScore:1, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 26,34, 0,2,0,5,90, 0,0,0,0,1),
+      mk("p2",  0,0,0,0, 42,50, 4,3,1,0,90, 1,2,0,0,0),
+      mk("p3",  1,0,2,1, 45,52, 5,3,0,0,90, 0,3,0,0,0),
+      mk("p4",  0,0,0,0, 39,46, 4,4,0,0,90, 0,4,0,0,0),
+      mk("p5",  0,0,0,0, 43,50, 3,3,1,0,90, 0,2,0,0,0),
+      mk("p6",  0,1,3,2, 53,62, 3,2,1,0,90, 2,0,0,1,0),
+      mk("p7",  0,0,2,1, 58,67, 2,1,2,0,90, 2,0,0,0,0),
+      mk("p8",  1,1,4,3, 59,68, 4,3,0,0,90, 3,0,0,0,0),
+      mk("p9",  0,0,1,1, 44,54, 3,2,1,0,90, 1,0,0,1,0),
+      mk("p10", 0,0,5,3, 22,30, 1,0,1,0,90, 1,0,1,0,0),
+      mk("p11", 0,0,3,2, 22,29, 1,1,0,0,82, 2,0,0,0,0),
+      mk("p12", 0,0,2,1, 16,23, 0,0,0,0,60, 0,0,0,0,0),
+    ]},
+  { id:"g7", date:"2026-01-25", opponent:"FC Atlas",  location:"Away", formation:"4-4-2",
+    ourScore:2, theirScore:2, status:"completed", stats:[
+      mk("p1",  0,0,0,0, 23,31, 0,1,0,6,90, 0,0,0,1,2),
+      mk("p2",  0,0,0,0, 38,47, 3,2,2,0,90, 0,1,0,1,0),
+      mk("p3",  0,0,0,0, 41,50, 4,3,1,0,90, 0,4,0,0,0),
+      mk("p4",  0,0,0,0, 36,45, 3,3,2,0,90, 0,3,0,1,0),
+      mk("p5",  0,0,0,0, 39,48, 3,2,2,0,90, 0,1,0,0,0),
+      mk("p6",  1,0,4,2, 50,60, 2,2,1,0,90, 1,0,0,1,0),
+      mk("p7",  0,1,3,2, 55,64, 2,1,1,0,90, 3,0,0,0,0),
+      mk("p8",  0,0,2,1, 54,63, 3,2,0,0,90, 2,0,0,0,0),
+      mk("p9",  0,0,1,0, 40,51, 2,1,2,0,90, 1,0,0,2,0),
+      mk("p10", 1,0,5,3, 20,27, 1,0,1,0,90, 1,0,1,0,0),
+      mk("p11", 0,0,3,2, 21,28, 0,0,1,0,90, 1,0,0,0,0),
+      mk("p12", 0,0,1,0, 13,19, 0,0,0,0,60, 0,0,0,1,0),
+    ]},
+];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RATING ENGINE
@@ -1382,6 +1504,7 @@ function PlayerModal({player, onSave, onDelete, onClose}){
     </div>
   );
 }
+
 
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────
@@ -4331,6 +4454,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         });
         sent++;
       }catch(e){
+        console.error("Email failed for", player.name, e.message);
         failedNames.push(player.name);
         failed++;
       }
@@ -4918,6 +5042,14 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   return(
     <div style={{padding:20,maxWidth:920,margin:"0 auto"}}>
 
+      {/* ── EDIT STATS MODAL (also needed in detail view) ── */}
+      {editStats&&<EditStatsModal
+        editStats={editStats}
+        setEditStats={setEditStats}
+        games={games}
+        setGames={setGames}
+        roster={activeRoster||[]}
+      />}
 
       {/* ── EDIT GAME MODAL ── */}
       {editGame&&(
@@ -5033,6 +5165,14 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
         </div>
       )}
 
+      {/* ── EDIT STATS MODAL ── */}
+      {editStats&&<EditStatsModal
+        editStats={editStats}
+        setEditStats={setEditStats}
+        games={games}
+        setGames={setGames}
+        roster={activeRoster||[]}
+      />}
 
       {/* ── QUICK SCORE MODAL ── */}
       {showQuick&&(
@@ -5327,7 +5467,12 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [excluded,   setExcluded]   = useState(new Set());
   const [playerMins, setPlayerMins] = useState({});
   const [halfTime,   setHalfTime]   = useState(false);
-  const [endConfirm, setEndConfirm] = useState(false);
+  const [endConfirm,       setEndConfirm]       = useState(false);
+  const [mergeTarget,      setMergeTarget]      = useState(null);
+  const [mergeMode,        setMergeMode]        = useState(null);
+  const [showMerge,        setShowMerge]        = useState(false);
+  const [sessionIntent,    setSessionIntent]    = useState(null);
+  const [showIntentPicker, setShowIntentPicker] = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
 
@@ -5634,7 +5779,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setHalfTime(false);
   }
 
-  function endGame(){
+  function endGame(mergeWith, mode){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
     const finalMins={};
     PLAYERS.forEach(p=>{
@@ -5644,7 +5789,21 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    const _mergeWith = mergeWith||mergeTarget;
+    const _mode = mode||mergeMode;
+    if(_mergeWith&&_mode){
+      setGames(prev=>prev.map(g=>{
+        if(g.id!==_mergeWith.id) return g;
+        const merged={...g};
+        if(_mode==="possession"||_mode==="all"){merged.possession=finalPoss;}
+        if(_mode==="teamStats"||_mode==="all"){merged.teamStats=teamStats;}
+        if(_mode==="playerStats"||_mode==="all"){merged.stats=sa;}
+        if(_mode==="all"){merged.ourScore=live.ourScore;merged.theirScore=live.theirScore;}
+        return merged;
+      }));
+    } else {
+      setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    }
     if(live.opponent&&setOpponents){
       const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
       if(anyThemStats){
@@ -5665,7 +5824,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
-    setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
+    setLive(null);setEndConfirm(false);setShowMerge(false);setMergeTarget(null);setMergeMode(null);
+    setSessionIntent(null);setShowIntentPicker(false);
+    setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
     addFeedEvent("── Game Ended ──");
@@ -5914,10 +6075,78 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         );
       })()}
 
-      <button onClick={startGame} disabled={!form.opponent}
-        style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-        🔴 KICK OFF →
-      </button>
+      {/* Intent picker — shown when existing game data found */}
+      {showIntentPicker&&(()=>{
+        const existing=games.find(g=>
+          g.status==="completed"&&form.opponent&&g.opponent&&
+          g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
+        );
+        const hasPS=existing&&(existing.stats||[]).some(s=>s.goals>0||s.assists>0||s.shots>0||s.minutesPlayed>0);
+        const hasTS=existing&&existing.teamStats&&(existing.teamStats.us||existing.teamStats.them);
+        const hasPo=existing&&existing.possession&&(existing.possession.home||existing.possession.away);
+        return(
+          <div style={{background:C.surface,border:`1px solid ${C.warning}44`,borderRadius:14,
+            padding:"16px",marginBottom:16}}>
+            <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>⚠ EXISTING GAME FOUND</div>
+            <div style={{color:C.text,fontWeight:700,fontSize:14,marginBottom:2}}>
+              vs {existing&&existing.opponent} · {fmtDate(existing&&existing.date)}
+            </div>
+            <div style={{color:C.muted,fontSize:11,marginBottom:14}}>
+              Already has: {[hasPS&&"player stats",hasTS&&"team stats",hasPo&&"possession"].filter(Boolean).join(", ")||"no data yet"}
+            </div>
+            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>WHAT ARE YOU TRACKING THIS SESSION?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+              {[
+                {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",     done:hasPo},
+                {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",   done:hasTS},
+                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings",done:hasPS},
+                {k:"all",         l:"Everything",         d:"Full session — overwrites all data",    done:false},
+              ].map(function(opt){return(
+                <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
+                  style={{textAlign:"left",padding:"10px 12px",borderRadius:9,cursor:"pointer",
+                    background:sessionIntent===opt.k?C.accent+"22":C.card,
+                    border:`1px solid ${sessionIntent===opt.k?C.accent:C.border}`,transition:"all .1s"}}>
+                  <div style={{display:"flex",alignItems:"center"}}>
+                    <span style={{color:sessionIntent===opt.k?C.accent:C.text,fontWeight:700,fontSize:13,flex:1}}>{opt.l}</span>
+                    {opt.done&&<span style={{color:C.warning,fontSize:10,marginRight:6}}>⚠ tracked</span>}
+                    {sessionIntent===opt.k&&<span style={{color:C.accent}}>✓</span>}
+                  </div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:1}}>{opt.d}</div>
+                </button>
+              );})}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setShowIntentPicker(false);setSessionIntent(null);setMergeTarget(null);setMergeMode(null);}}
+                style={{flex:1,padding:"9px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:8,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
+              <button onClick={()=>{if(sessionIntent){setShowIntentPicker(false);startGame();}}}
+                disabled={!sessionIntent}
+                style={{flex:2,padding:"9px",background:sessionIntent?C.accent:"#333",border:"none",
+                  borderRadius:8,color:sessionIntent?"#000":"#666",fontWeight:900,fontSize:14,
+                  cursor:sessionIntent?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
+                {sessionIntent?"🔴 KICK OFF →":"Select what to track"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {!showIntentPicker&&(
+        <button onClick={()=>{
+            const existing=games.find(g=>
+              g.status==="completed"&&form.opponent&&g.opponent&&
+              g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
+            );
+            if(existing){setShowIntentPicker(true);}
+            else{setSessionIntent("all");startGame();}
+          }}
+          disabled={!form.opponent}
+          style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",
+            borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,
+            cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+          🔴 KICK OFF →
+        </button>
+      )}
 
       {/* Rejoin active session */}
       <div style={{marginTop:24}}>
@@ -6297,12 +6526,49 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       )}
       {endConfirm&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexShrink:0}}>
-          <span style={{color:C.text,fontSize:13}}>Save and end game?</span>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={endGame} style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>Save & End</button>
-            <button onClick={()=>setEndConfirm(false)} style={{padding:"6px 12px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>Cancel</button>
+        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,
+          padding:"8px 12px",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:6}}>
+            <div>
+              <div style={{color:C.text,fontSize:13,fontWeight:700}}>Save and end game?</div>
+              {mergeTarget&&mergeMode&&(
+                <div style={{color:C.warning,fontSize:11,marginTop:1}}>
+                  Merging <strong>{mergeMode==="all"?"all data":mergeMode}</strong> into existing record
+                </div>
+              )}
+            </div>
+            <button onClick={()=>setEndConfirm(false)}
+              style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              Cancel
+            </button>
           </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>endGame()}
+              style={{flex:2,padding:"8px 14px",background:C.accent,border:"none",borderRadius:7,
+                color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              {mergeTarget?"Merge & End →":"Save & End →"}
+            </button>
+            {mergeTarget&&(
+              <button onClick={()=>endGame(null,"new")}
+                style={{flex:1,padding:"8px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                Save as new
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {sessionIntent&&sessionIntent!=="all"&&(
+        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,
+          borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,animation:"pulse 1.5s infinite",flexShrink:0}}/>
+          <span style={{color:C.muted,fontSize:10}}>
+            Tracking: <span style={{color:C.accent,fontWeight:700}}>
+              {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
+            </span>
+          </span>
         </div>
       )}
 
@@ -7493,6 +7759,7 @@ export default function CoachIQStats(){
         await loadTeamData(tid);
       }
     }catch(e){
+      console.error("Load error",e);
     }
     setDataLoading(false);
   }
@@ -7535,6 +7802,7 @@ export default function CoachIQStats(){
               .map(pos=>({CB:"DEF",LB:"DEF",RB:"DEF",CM:"MID",CAM:"MID",CDM:"MID",RM:"MID",LM:"MID",W:"MID",ST:"FWD",GK:"GK",DEF:"DEF",MID:"MID",FWD:"FWD"})[pos]||pos),
           }));
           await supabase.from("rosters").update({players:migrated}).eq("id",rosterRaw[0].id);
+          console.log("✓ Positions migrated to GK/DEF/MID/FWD");
         }
       }
       try{
@@ -7562,6 +7830,7 @@ export default function CoachIQStats(){
   function endSave(err){
     if(err){
       const msg = err?.message||String(err)||"unknown error";
+      console.error("Save error:",msg);
       setSaveStatus({type:"error",message:msg});
     } else {
       setSaveStatus("saved");
@@ -7575,10 +7844,12 @@ export default function CoachIQStats(){
     const resolved = typeof val==="function" ? val(roster) : val;
     setRosterState(resolved);
     startSave();
+    console.log("setRoster saving, teamId:", safeTeamId, "userId:", userId, "players:", resolved.length);
     const {data, error} = await supabase.from("rosters").upsert(
       {team_id:safeTeamId,user_id:userId,players:resolved,updated_at:new Date().toISOString()},
       {onConflict:"team_id"}
     );
+    console.log("setRoster result:", {data, error});
     endSave(error);
   }
 
@@ -7833,6 +8104,7 @@ export default function CoachIQStats(){
     try{
       await loadTeamData(id);
     }catch(e){
+      console.error("switchTeam error:",e);
     }finally{
       setDataLoading(false);
     }
@@ -8246,6 +8518,7 @@ export default function CoachIQStats(){
           </div>
 
 
+
           {/* Nav groups */}
           <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}
             onClick={()=>teamDropOpen&&setTeamDropOpen(false)}>
@@ -8481,6 +8754,7 @@ export default function CoachIQStats(){
     </>
   );
 }
+
 
 
 // ─── GAME PLAN VIEW ───────────────────────────────────────────────────────────
@@ -12616,6 +12890,7 @@ function CalendarView({schedule, setSchedule, games, setGames, practices, setPra
   const monthPractice = monthEvents.filter(e=>e.type==="practice");
 
   const todayStr = today.toISOString().split("T")[0];
+
 
 
   return(
@@ -17900,6 +18175,7 @@ function PlayerPortalPage(){
           <div style={{maxWidth:640}}>
 
 
+
             {/* Upcoming events - grouped */}
             {(()=>{
               var groups=[
@@ -18793,6 +19069,7 @@ function PlayerPortalPage(){
     </div>
   );
 }
+
 
 
 // ─── RECRUITING TAB COMPONENT ─────────────────────────────────────────────────
