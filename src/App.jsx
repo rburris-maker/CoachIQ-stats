@@ -655,221 +655,107 @@ function fmtDate(d){
 function calcRating(s, position, cleanSheet = false) {
   if (!s) return { rating:6.0, label:"Solid", coachNote:"No data.", breakdown:{attack:0,possession:0,defensive:0,bonus:0,errors:0} };
 
-  const pa  = s.passesAttempted    || 0;
-  const pc  = s.passesCompleted    || 0;
-  const pct = pa > 0 ? pc / pa : 0;   // 0–1 pass completion rate
-  const kp  = s.keyPasses          || 0;
-  const aw  = s.aerialDuelsWon     || 0;
-  const bcm = s.bigChancesMissed   || 0;
-  const dt  = s.dangerousTurnovers || 0;
-  const gc  = s.goalsConceded      || 0;
+  const POS = (function(p){
+    if(!p) return "MID";
+    if(p==="GK") return "GK";
+    if(["DEF","CB","LB","RB","WB"].indexOf(p)>-1) return "DEF";
+    if(["FWD","ST","CF","W","LW","RW","CAM","ATT"].indexOf(p)>-1) return "FWD";
+    return "MID";
+  })(position);
+
+  const pc   = s.passesCompleted  || 0;
+  const inc  = s.passesIncomplete || s.passesAttempted || 0;
+  const pa   = pc + inc;
+  const pct  = pa > 0 ? pc / pa : 0;
+  const goals= s.goals         || 0;
+  const ast  = s.assists       || 0;
+  const sot  = s.shotsOnTarget || 0;
+  const tack = s.tackles       || 0;
+  const inter= s.interceptions || 0;
+  const saves= s.saves         || 0;
+  const gc   = s.goalsConceded || 0;
+  const fouls= s.fouls         || 0;
+  const dt   = s.dangerousTurnovers || 0;
 
   let attack = 0, possession = 0, defensive = 0, bonus = 0, errors = 0;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // GOALKEEPER
-  // Shot-Stopping → attack bucket | Distribution → possession | Command → defensive
-  // ─────────────────────────────────────────────────────────────────────────
-  if (position === "GK") {
-    // Shot-Stopping
-    attack += s.saves * 0.35;
-    attack -= gc * 0.40;
-    // Distribution
-    possession += pc * 0.02;
-    if      (pct > 0.85) possession += 0.20;
-    else if (pct > 0.75) possession += 0.10;
-    possession -= dt * 0.25;
-    // Command (interceptions used as cross-claim / sweep proxy)
-    defensive += s.interceptions * 0.20;
-    // Bonus
-    if (cleanSheet) bonus += 0.75;
-    // Errors (-0.50 per major handling mistake — mapped via fouls field)
-    errors -= s.fouls * 0.50;
+  if (POS === "GK") {
+    attack     += saves * 0.40;
+    attack     -= gc    * 0.45;
+    possession += pc    * 0.02;
+    if      (pct > 0.75) possession += 0.25;
+    else if (pct > 0.60) possession += 0.10;
+    defensive  += inter * 0.20;
+    if (cleanSheet) bonus += 1.00;
+    errors     -= fouls * 0.40;
+  } else if (POS === "DEF") {
+    defensive  += tack  * 0.30;
+    defensive  += inter * 0.25;
+    possession += pc    * 0.015;
+    if      (pct > 0.75) possession += 0.30;
+    else if (pct > 0.60) possession += 0.15;
+    possession -= dt    * 0.20;
+    attack     += ast   * 0.40;
+    attack     += goals * 0.60;
+    if (cleanSheet) bonus += 0.60;
+    errors     -= fouls * 0.20;
+    errors     -= dt    * 0.15;
+  } else if (POS === "MID") {
+    attack     += goals * 0.80;
+    attack     += ast   * 0.50;
+    attack     += sot   * 0.15;
+    possession += pc    * 0.020;
+    if      (pct > 0.75) possession += 0.35;
+    else if (pct > 0.60) possession += 0.20;
+    possession -= dt    * 0.25;
+    defensive  += tack  * 0.20;
+    defensive  += inter * 0.15;
+    if (cleanSheet) bonus += 0.20;
+    errors     -= fouls * 0.10;
+    errors     -= dt    * 0.20;
+  } else if (POS === "FWD") {
+    attack     += goals * 1.00;
+    attack     += sot   * 0.20;
+    attack     += ast   * 0.35;
+    possession += pc    * 0.010;
+    if      (pct > 0.75) possession += 0.20;
+    else if (pct > 0.60) possession += 0.10;
+    possession -= dt    * 0.15;
+    defensive  += tack  * 0.10;
+    errors     -= fouls * 0.10;
+    errors     -= dt    * 0.10;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // CENTER BACK
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "CB") {
-    // Defending
-    defensive += s.tackles       * 0.25;
-    defensive += s.interceptions * 0.20;
-    // Aerial / Recovery
-    defensive += aw * 0.20;
-    // Possession
-    possession += pc * 0.015;
-    if      (pct > 0.88) possession += 0.25;
-    else if (pct > 0.80) possession += 0.15;
-    possession -= dt * 0.20;
-    // Bonus
-    if (cleanSheet) bonus += 0.50;
-    bonus += s.assists * 0.40;
-    bonus += s.goals   * 0.75;
-    // Errors
-    errors -= s.fouls * 0.15;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // FULLBACK / WINGBACK
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "LB") {
-    // Defending
-    defensive += s.tackles       * 0.25;
-    defensive += s.interceptions * 0.20;
-    // Possession
-    possession += pc * 0.015;
-    if      (pct > 0.85) possession += 0.20;
-    else if (pct > 0.78) possession += 0.12;
-    possession -= dt * 0.20;
-    // Attacking Support
-    attack += kp           * 0.20;
-    attack += s.assists    * 0.40;
-    attack += s.shotsOnTarget * 0.10;
-    // Bonus
-    if (cleanSheet) bonus += 0.25;
-    bonus += s.goals * 0.75;
-    // Errors (-0.50 beaten badly → mapped via fouls; -1.00 error leading to goal not separately tracked)
-    errors -= s.fouls * 0.15;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DEFENSIVE MIDFIELDER
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "CDM") {
-    // Ball Winning
-    defensive += s.tackles       * 0.25;
-    defensive += s.interceptions * 0.20;
-    // Possession Control
-    possession += pc * 0.015;
-    if      (pct > 0.90) possession += 0.30;
-    else if (pct > 0.82) possession += 0.20;
-    possession -= dt   * 0.20;
-    errors     -= s.fouls * 0.10;   // careless foul in bad area
-    // Progression (key pass covers line-breaking / switches)
-    attack += kp * 0.20;
-    // Bonus
-    bonus += s.assists * 0.40;
-    bonus += s.goals   * 0.60;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CENTRAL / ATTACKING MIDFIELDER
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "CM") {
-    // Creation
-    attack += kp              * 0.25;
-    attack += s.assists       * 0.40;
-    attack += s.shotsOnTarget * 0.20;
-    attack += s.goals         * 0.75;
-    // Possession
-    possession += pc * 0.015;
-    if      (pct > 0.88) possession += 0.25;
-    else if (pct > 0.80) possession += 0.15;
-    possession -= dt * 0.20;
-    // Defensive Work
-    defensive += s.tackles       * 0.15;
-    defensive += s.interceptions * 0.15;
-    // Errors (repeated giveaways / turnovers)
-    errors -= dt    * 0.25;   // -0.75 / 3 turnovers ≈ the spec's "turnover leading to major chance"
-    errors -= s.fouls * 0.10;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // WINGER
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "W") {
-    // Attacking Output
-    attack += s.goals         * 0.75;
-    attack += s.assists       * 0.40;
-    attack += kp              * 0.25;
-    attack += s.shotsOnTarget * 0.15;
-    // Efficiency (pass completion tiers)
-    possession += pc * 0.01;
-    if      (pct > 0.85) possession += 0.25;
-    else if (pct > 0.75) possession += 0.15;
-    possession -= dt * 0.20;
-    // Defensive Effort
-    defensive += s.tackles       * 0.10;
-    defensive += s.interceptions * 0.10;
-    errors -= dt  * 0.10;   // repeated poor decisions killing attacks
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // STRIKER
-  // ─────────────────────────────────────────────────────────────────────────
-  else if (position === "ST") {
-    // Finishing
-    attack += s.goals         * 1.00;
-    attack += s.shotsOnTarget * 0.20;
-    // Link Play
-    attack += s.assists * 0.20;
-    attack += kp        * 0.20;         // key pass = big chance created proxy
-    possession += pc * 0.015;
-    if (pct > 0.75) possession += 0.15;
-    // Errors
-    errors -= dt      * 0.20;   // repeated dispossession
-    errors -= s.fouls * 0.10;
-  }
-
-  // ─── APPLY CAPS ──────────────────────────────────────────────────────────
-  attack     = Math.min(attack,     2.5);
+  attack     = Math.min(attack,     3.0);
   possession = Math.min(possession, 1.5);
   defensive  = Math.min(defensive,  2.0);
   bonus      = Math.min(bonus,      1.0);
-  errors     = Math.max(errors,    -3.0);
+  errors     = Math.max(errors,    -2.0);
 
   const raw    = 6.0 + attack + possession + defensive + bonus + errors;
   const rating = Math.min(10.0, Math.max(1.0, Math.round(raw * 10) / 10));
+  const label  = rating>=9?"Dominant":rating>=8?"Excellent":rating>=7?"Strong":rating>=6?"Solid":rating>=5?"Below Par":"Poor";
 
-  // ─── LABEL ───────────────────────────────────────────────────────────────
-  const label =
-    rating >= 9.0 ? "Dominant"  :
-    rating >= 8.0 ? "Excellent" :
-    rating >= 7.0 ? "Strong"    :
-    rating >= 6.0 ? "Solid"     :
-    rating >= 5.0 ? "Below Par" : "Poor";
+  const strengths=[], concerns=[];
+  if (defensive>=1.0)  strengths.push("strong defensive performance");
+  else if(defensive>=0.5) strengths.push("decent defensive contribution");
+  if (possession>=1.0) strengths.push("excellent passing security");
+  else if(possession>=0.5) strengths.push("solid ball retention");
+  else if(possession<0.1&&pa>10) concerns.push("passing security needs work");
+  if (attack>=1.5)     strengths.push("excellent attacking contribution");
+  else if(attack>=0.8) strengths.push("positive attacking presence");
+  else if(attack<0.2&&(POS==="FWD"||POS==="MID")) concerns.push("limited attacking impact this match");
+  if (cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
+  if (dt>=2)           concerns.push("reduce dangerous giveaways under pressure");
+  if (errors<=-0.5)    concerns.push("cut out costly mistakes");
+  if(!strengths.length&&!concerns.length) strengths.push("met positional requirements at an acceptable level");
 
-  // ─── COACH NOTE (mirrors spec output format) ──────────────────────────────
-  // e.g. "Strong defensive performance, excellent passing security, limited attacking impact.
-  //       Improvement area: reduce dangerous giveaways under pressure."
-  const strengths = [], concerns = [];
+  const coachNote=[
+    strengths.length?capitalise(strengths.join(", "))+".":"",
+    concerns.length?"Improvement area: "+concerns.join("; ")+".":""
+  ].filter(Boolean).join(" ");
 
-  if (defensive >= 1.0)      strengths.push("strong defensive performance");
-  else if (defensive >= 0.5) strengths.push("decent defensive contribution");
-
-  if (possession >= 1.0)      strengths.push("excellent passing security");
-  else if (possession >= 0.5) strengths.push("solid ball retention");
-  else if (possession < 0.1 && pa > 15) concerns.push("passing security needs work");
-
-  if (attack >= 1.5)      strengths.push("excellent attacking contribution");
-  else if (attack >= 0.8) strengths.push("positive attacking presence");
-  else if (attack <= 0.2 && ["W","ST","CM","LB"].includes(position))
-    concerns.push("limited attacking impact this match");
-
-  if (cleanSheet && ["GK","CB","LB","RB"].includes(position)) strengths.push("clean sheet kept");
-
-  if (dt >= 2)        concerns.push("reduce dangerous giveaways under pressure");
-  if (errors <= -0.5) concerns.push("cut out costly mistakes");
-
-  if (strengths.length === 0 && concerns.length === 0)
-    strengths.push("met positional requirements at an acceptable level");
-
-  const mainLine    = strengths.length ? capitalise(strengths.join(", ")) + "." : "";
-  const improveLine = concerns.length  ? `Improvement area: ${concerns.join("; ")}.` : "";
-  const coachNote   = [mainLine, improveLine].filter(Boolean).join(" ");
-
-  return {
-    rating,
-    label,
-    coachNote,
-    breakdown: {
-      attack:     round2(attack),
-      possession: round2(possession),
-      defensive:  round2(defensive),
-      bonus:      round2(bonus),
-      errors:     round2(errors),
-    },
-  };
+  return {rating,label,coachNote,breakdown:{attack:round2(attack),possession:round2(possession),defensive:round2(defensive),bonus:round2(bonus),errors:round2(errors)}};
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -5491,9 +5377,11 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Possession state ───────────────────────────────────────────────────────
   const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null});
 
-  const timerRef = useRef(null);
+  const timerRef    = useRef(null);
   const sessionIdRef = useRef(null);
-  const preloadRef    = useRef(null);
+  const preloadRef   = useRef(null);
+  const statsRef     = useRef({});
+  const liveRef      = useRef(null);
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5600,17 +5488,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          return {...prev,[payload.pid]:s};
+          const next={...prev,[payload.pid]:s};
+          statsRef.current=next;
+          return next;
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
+          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g;liveRef.current=n;return n;});
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
+        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g;liveRef.current=n;return n;});
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5782,8 +5672,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
     const currentStats=Object.keys(statsRef.current).length>0?statsRef.current:stats;
     const currentLive=liveRef.current||live;
-    const _mergeTarget=overrideMergeTarget!==undefined?overrideMergeTarget:mergeTarget;
-    const _mergeMode=overrideMergeMode!==undefined?overrideMergeMode:mergeMode;
+    const _mt=overrideMergeTarget!==undefined?overrideMergeTarget:mergeTarget;
+    const _mm=overrideMergeMode!==undefined?overrideMergeMode:mergeMode;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
@@ -5792,15 +5682,15 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     const sa=PLAYERS.map(p=>({playerId:p.id,...(currentStats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    if(_mergeTarget&&_mergeMode){
+    if(_mt&&_mm){
       setGames(prev=>prev.map(g=>{
-        if(g.id!==_mergeTarget.id) return g;
-        const merged={...g};
-        if(_mergeMode==="possession"||mergeMode==="all"){merged.possession=finalPoss;}
-        if(_mergeMode==="teamStats"||mergeMode==="all"){merged.teamStats=teamStats;}
-        if(_mergeMode==="playerStats"||mergeMode==="all"){merged.stats=sa;}
-        if(_mergeMode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
-        return merged;
+        if(g.id!==_mt.id) return g;
+        const m={...g};
+        if(_mm==="possession"||_mm==="all"){m.possession=finalPoss;}
+        if(_mm==="teamStats"||_mm==="all"){m.teamStats=teamStats;}
+        if(_mm==="playerStats"||_mm==="all"){m.stats=sa;}
+        if(_mm==="all"){m.ourScore=currentLive.ourScore;m.theirScore=currentLive.theirScore;}
+        return m;
       }));
     } else {
       setGames(prev=>[{...currentLive,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
@@ -5829,6 +5719,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
     setMergeTarget(null);setMergeMode(null);setSessionIntent(null);setShowIntentPicker(false);
+    statsRef.current={};liveRef.current=null;
     addFeedEvent("── Game Ended ──");
   }
 
@@ -5886,6 +5777,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
+    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6075,29 +5967,23 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         );
       })()}
 
-      {/* Intent picker when existing game found */}
       {showIntentPicker&&(()=>{
-        const existing=games.find(g=>
-          g.status==="completed"&&form.opponent&&g.opponent&&
-          g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
-        );
-        const hasPS=existing&&(existing.stats||[]).some(s=>s.goals>0||s.assists>0||s.shots>0||s.minutesPlayed>0);
+        const existing=games.find(g=>g.status==="completed"&&form.opponent&&g.opponent&&g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date);
+        const hasPS=existing&&(existing.stats||[]).some(s=>s.goals>0||s.assists>0||s.shots>0);
         const hasTS=existing&&existing.teamStats&&(existing.teamStats.us||existing.teamStats.them);
         const hasPo=existing&&existing.possession&&(existing.possession.home||existing.possession.away);
         return(
           <div style={{background:C.surface,border:`1px solid ${C.warning}44`,borderRadius:14,padding:"16px",marginBottom:16}}>
             <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>⚠ EXISTING GAME FOUND</div>
             <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:2}}>vs {existing&&existing.opponent} · {fmtDate(existing&&existing.date)}</div>
-            <div style={{color:C.muted,fontSize:12,marginBottom:14}}>
-              Already has: {[hasPS&&"player stats",hasTS&&"team stats",hasPo&&"possession"].filter(Boolean).join(", ")||"no data yet"}
-            </div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:14}}>Already has: {[hasPS&&"player stats",hasTS&&"team stats",hasPo&&"possession"].filter(Boolean).join(", ")||"no data yet"}</div>
             <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>WHAT ARE YOU TRACKING THIS SESSION?</div>
             <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
               {[
-                {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",      done:hasPo},
-                {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",    done:hasTS},
-                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings",done:hasPS},
-                {k:"all",         l:"Everything",         d:"Full session — overwrites all data",     done:false},
+                {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",       done:hasPo},
+                {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",     done:hasTS},
+                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings", done:hasPS},
+                {k:"all",         l:"Everything",         d:"Full session — overwrites all data",      done:false},
               ].map(function(opt){return(
                 <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
                   style={{textAlign:"left",padding:"10px 12px",borderRadius:9,cursor:"pointer",
@@ -6106,7 +5992,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                   <div style={{display:"flex",alignItems:"center"}}>
                     <span style={{color:sessionIntent===opt.k?C.accent:C.text,fontWeight:700,fontSize:13,flex:1}}>{opt.l}</span>
                     {opt.done&&<span style={{color:C.warning,fontSize:10,marginRight:6}}>⚠ tracked</span>}
-                    {sessionIntent===opt.k&&<span style={{color:C.accent,fontSize:14}}>✓</span>}
+                    {sessionIntent===opt.k&&<span style={{color:C.accent}}>✓</span>}
                   </div>
                   <div style={{color:C.muted,fontSize:11,marginTop:1}}>{opt.d}</div>
                 </button>
@@ -6114,29 +6000,21 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>{setShowIntentPicker(false);setSessionIntent(null);setMergeTarget(null);setMergeMode(null);}}
-                style={{flex:1,padding:"9px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:13}}>
-                Cancel
-              </button>
+                style={{flex:1,padding:"9px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
               <button onClick={()=>{if(sessionIntent){setShowIntentPicker(false);startGame();}}}
                 disabled={!sessionIntent}
-                style={{flex:2,padding:"9px",background:sessionIntent?C.accent:"#333",border:"none",
-                  borderRadius:8,color:sessionIntent?"#000":"#666",fontWeight:900,fontSize:14,
-                  cursor:sessionIntent?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
+                style={{flex:2,padding:"9px",background:sessionIntent?C.accent:"#333",border:"none",borderRadius:8,
+                  color:sessionIntent?"#000":"#666",fontWeight:900,fontSize:14,cursor:sessionIntent?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
                 {sessionIntent?"🔴 KICK OFF →":"Select what to track"}
               </button>
             </div>
           </div>
         );
       })()}
-
       {!showIntentPicker&&(
         <button onClick={()=>{
-            const existing=games.find(g=>
-              g.status==="completed"&&form.opponent&&g.opponent&&
-              g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
-            );
-            if(existing){setShowIntentPicker(true);}
-            else{setSessionIntent("all");startGame();}
+            const existing=games.find(g=>g.status==="completed"&&form.opponent&&g.opponent&&g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date);
+            if(existing){setShowIntentPicker(true);}else{setSessionIntent("all");startGame();}
           }}
           disabled={!form.opponent}
           style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",
@@ -6535,8 +6413,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               )}
             </div>
             <button onClick={()=>setEndConfirm(false)}
-              style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,
-                borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
               Cancel
             </button>
           </div>
@@ -6558,8 +6435,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
       )}
 
       {sessionIntent&&sessionIntent!=="all"&&(
-        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,
-          borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
           <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,flexShrink:0}}/>
           <span style={{color:C.muted,fontSize:10}}>
             Tracking: <span style={{color:C.accent,fontWeight:700}}>
