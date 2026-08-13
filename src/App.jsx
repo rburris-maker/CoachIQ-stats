@@ -6773,7 +6773,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                       if(goalPopup.assister) broadcastEvent("stat",{pid:goalPopup.assister,stat:"assists",delta:1,min});
                       goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
                       setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
-                      addFeedEvent("⚽ GOAL — "+scorerName+(assistName?" (assist: "+assistName:")":"")+" ("+min+"')");
+                      addFeedEvent("⚽ GOAL — "+scorerName+(assistName?" (assist: "+assistName+")":"")+" ("+min+"')");
                       setGoalPopup(null);
                     }}
                     disabled={!goalPopup.assister}
