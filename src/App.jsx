@@ -5491,11 +5491,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Possession state ───────────────────────────────────────────────────────
   const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null});
 
-  const timerRef    = useRef(null);
+  const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
-  const preloadRef   = useRef(null);
-  const statsRef     = useRef({});
-  const liveRef      = useRef(null);
+  const preloadRef    = useRef(null);
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5602,19 +5600,17 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          const next={...prev,[payload.pid]:s};
-          statsRef.current=next;
-          return next;
+          return {...prev,[payload.pid]:s};
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g;liveRef.current=n;return n;});
+          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g;liveRef.current=n;return n;});
+        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5890,8 +5886,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
-    liveRef.current=gameData; statsRef.current=init;
-    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
