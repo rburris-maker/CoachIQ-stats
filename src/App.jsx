@@ -737,17 +737,17 @@ function calcRating(s, position, cleanSheet = false) {
   const label  = rating>=9?"Dominant":rating>=8?"Excellent":rating>=7?"Strong":rating>=6?"Solid":rating>=5?"Below Par":"Poor";
 
   const strengths=[], concerns=[];
-  if(defensive>=1.0) strengths.push("strong defensive performance");
+  if (defensive>=1.0)  strengths.push("strong defensive performance");
   else if(defensive>=0.5) strengths.push("decent defensive contribution");
-  if(possession>=1.0) strengths.push("excellent passing security");
+  if (possession>=1.0) strengths.push("excellent passing security");
   else if(possession>=0.5) strengths.push("solid ball retention");
   else if(possession<0.1&&pa>10) concerns.push("passing security needs work");
-  if(attack>=1.5) strengths.push("excellent attacking contribution");
+  if (attack>=1.5)     strengths.push("excellent attacking contribution");
   else if(attack>=0.8) strengths.push("positive attacking presence");
   else if(attack<0.2&&(POS==="FWD"||POS==="MID")) concerns.push("limited attacking impact this match");
-  if(cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
-  if(dt>=2) concerns.push("reduce dangerous giveaways under pressure");
-  if(errors<=-0.5) concerns.push("cut out costly mistakes");
+  if (cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
+  if (dt>=2)           concerns.push("reduce dangerous giveaways under pressure");
+  if (errors<=-0.5)    concerns.push("cut out costly mistakes");
   if(!strengths.length&&!concerns.length) strengths.push("met positional requirements at an acceptable level");
 
   const coachNote=[
@@ -3563,8 +3563,6 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
               {l:"On Target",   v:seasonTeamStats.onTarget,  c:C.warning},
               ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
               ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
-              ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
-              ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
               {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
               {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
               {l:"Tackles",     v:seasonTeamStats.tackles,    c:C.accent},
@@ -5778,7 +5776,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
     liveRef.current=gameData; statsRef.current=init;
-    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6443,13 +6440,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
             </span>
           </span>
-        </div>
-      )}
-
-      {sessionIntent&&sessionIntent!=="all"&&(
-        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,flexShrink:0}}/>
-          <span style={{color:C.muted,fontSize:10}}>Tracking: <span style={{color:C.accent,fontWeight:700}}>{sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}</span></span>
         </div>
       )}
 
@@ -17402,15 +17392,18 @@ function PlayerPortalPage(){
   });
   var tots = allStats.reduce(function(acc,s){
     return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
-      shots:acc.shots+(s.shots||0),tackles:acc.tackles+(s.tackles||0),
+      shots:acc.shots+(s.shots||0),shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
+      tackles:acc.tackles+(s.tackles||0),
       saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
-      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||0)),
+      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
       interceptions:acc.interceptions+(s.interceptions||0),
-      minutes:acc.minutes+(s.minutesPlayed||0),
     };
-  },{goals:0,assists:0,shots:0,tackles:0,saves:0,goalsConceded:0,
-    passesCompleted:0,passesAttempted:0,interceptions:0,minutes:0});
+  },{goals:0,assists:0,shots:0,shotsOnTarget:0,tackles:0,saves:0,goalsConceded:0,
+    passesCompleted:0,passesAttempted:0,interceptions:0});
+  var seasonPassAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):null;
+  var seasonShotAcc=tots.shots>0&&tots.shotsOnTarget>0?Math.round(tots.shotsOnTarget/tots.shots*100):null;
+  var seasonShotConv=tots.shots>0&&tots.goals>0?Math.round(tots.goals/tots.shots*100):null;
 
   var ratingList = playerGames.filter(function(g){return !g.excludeFromRating;}).map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
@@ -18294,7 +18287,7 @@ function PlayerPortalPage(){
 
             {/* Season summary */}
             <PortalCard title="Season Summary">
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
                   :isCB
@@ -18307,6 +18300,38 @@ function PlayerPortalPage(){
                   </div>
                 );})}
               </div>
+              {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
+                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                  {seasonPassAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#f0f9f4",borderRadius:9,padding:"10px 8px",border:"1px solid #d0ead9"}}>
+                      <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonPassAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>PASS ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff8f0",borderRadius:9,padding:"10px 8px",border:"1px solid #fde8c8"}}>
+                      <div style={{color:"#f59e0b",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>SHOT ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotConv!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff5f5",borderRadius:9,padding:"10px 8px",border:"1px solid #fecaca"}}>
+                      <div style={{color:"#e53935",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotConv}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>CONVERSION</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {playerGames.length>0&&(
+                <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
+                  {[{l:"Shots",v:tots.shots},{l:"On Target",v:tots.shotsOnTarget},{l:"Passes",v:tots.passesCompleted},{l:"Tackles",v:tots.tackles},{l:"Interceptions",v:tots.interceptions}].map(function(item){return(
+                    <div key={item.l} style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:48}}>
+                      <span style={{color:"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
+                      <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
+                    </div>
+                  );})}
+                </div>
+              )}
               {playerGames.length===0&&(
                 <div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>
                   Stats will appear after games are logged by your coach
@@ -18341,9 +18366,9 @@ function PlayerPortalPage(){
                         <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>
                           {g.ourScore}–{g.theirScore}
                         </div>
-                        <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
-                          fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
-                          {g.excludeFromRating?"—":rat.rating.toFixed(1)}
+                        <div style={{textAlign:"right"}}>
+                          {(function(){var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);var pct=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;return pct!==null?(<div style={{color:"#27a560",fontSize:10,fontWeight:600}}>{pct}% pass</div>):null;})()}
+                          <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{g.excludeFromRating?"—":rat.rating.toFixed(1)}</div>
                         </div>
                         <div style={{color:"#ccc",fontSize:14,transform:isExp?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
                       </div>
@@ -18351,11 +18376,20 @@ function PlayerPortalPage(){
                         <div style={{padding:"12px 20px",background:"#fafafa",
                           borderTop:"1px solid #f5f5f5"}}>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                            {[
-                              {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                              {l:"Shots",v:s.shots||0},{l:"Tackles",v:s.tackles||0},
-                              {l:"Key Passes",v:s.keyPasses||0},{l:"Minutes",v:s.minutesPlayed||90},
-                            ].map(function(stat){return(
+                            {(function(){
+                              var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);
+                              var pAcc=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;
+                              var sAcc=(s.shots||0)>0&&(s.shotsOnTarget||0)>0?Math.round((s.shotsOnTarget||0)/(s.shots||0)*100):null;
+                              var items=[
+                                {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
+                                {l:"Shots",v:s.shots||0},{l:"On Target",v:s.shotsOnTarget||0},
+                                {l:"Tackles",v:s.tackles||0},{l:"Interceptions",v:s.interceptions||0},
+                                {l:"Passes",v:s.passesCompleted||0}
+                              ];
+                              if(sAcc!==null) items.push({l:"Shot Acc.",v:sAcc+"%"});
+                              if(pAcc!==null) items.push({l:"Pass Acc.",v:pAcc+"%"});
+                              return items;
+                            })().map(function(stat){return(
                               <div key={stat.l} style={{display:"flex",justifyContent:"space-between",
                                 padding:"6px 10px",background:"#fff",borderRadius:7,
                                 border:"1px solid #f0f0f0"}}>
