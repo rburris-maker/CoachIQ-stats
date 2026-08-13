@@ -5467,7 +5467,11 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [excluded,   setExcluded]   = useState(new Set());
   const [playerMins, setPlayerMins] = useState({});
   const [halfTime,   setHalfTime]   = useState(false);
-  const [endConfirm, setEndConfirm] = useState(false);
+  const [endConfirm,       setEndConfirm]       = useState(false);
+  const [mergeTarget,      setMergeTarget]      = useState(null);
+  const [mergeMode,        setMergeMode]        = useState(null);
+  const [sessionIntent,    setSessionIntent]    = useState(null);
+  const [showIntentPicker, setShowIntentPicker] = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
 
@@ -5487,11 +5491,9 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Possession state ───────────────────────────────────────────────────────
   const [possession, setPossession] = useState({home:0, away:0, current:null, lastTs:null});
 
-  const timerRef    = useRef(null);
+  const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
-  const preloadRef   = useRef(null);
-  const statsRef     = useRef({});   // always-current stats — avoids stale closure in endGame
-  const liveRef      = useRef(null); // always-current live game
+  const preloadRef    = useRef(null);
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5598,19 +5600,17 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          const next={...prev,[payload.pid]:s};
-          statsRef.current=next;
-          return next;
+          return {...prev,[payload.pid]:s};
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g; liveRef.current=n; return n;});
+          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g; liveRef.current=n; return n;});
+        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5780,9 +5780,8 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
 
   function endGame(){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
-    // Use refs to avoid stale closure — always captures the latest state
-    const currentStats = Object.keys(statsRef.current).length>0 ? statsRef.current : stats;
-    const currentLive  = liveRef.current || live;
+    const currentStats=Object.keys(statsRef.current).length>0?statsRef.current:stats;
+    const currentLive=liveRef.current||live;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
@@ -5791,7 +5790,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     const sa=PLAYERS.map(p=>({playerId:p.id,...(currentStats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    setGames(prev=>[{...currentLive,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    if(mergeTarget&&mergeMode){
+      setGames(prev=>prev.map(g=>{
+        if(g.id!==mergeTarget.id) return g;
+        const merged={...g};
+        if(mergeMode==="possession"||mergeMode==="all"){merged.possession=finalPoss;}
+        if(mergeMode==="teamStats"||mergeMode==="all"){merged.teamStats=teamStats;}
+        if(mergeMode==="playerStats"||mergeMode==="all"){merged.stats=sa;}
+        if(mergeMode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
+        return merged;
+      }));
+    } else {
+      setGames(prev=>[{...currentLive,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
+    }
     if(live.opponent&&setOpponents){
       const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
       if(anyThemStats){
@@ -5815,6 +5826,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
+    setMergeTarget(null);setMergeMode(null);setSessionIntent(null);setShowIntentPicker(false);
     addFeedEvent("── Game Ended ──");
   }
 
@@ -5872,7 +5884,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
-    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6062,10 +6073,76 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         );
       })()}
 
-      <button onClick={startGame} disabled={!form.opponent}
-        style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-        🔴 KICK OFF →
-      </button>
+      {/* Intent picker when existing game found */}
+      {showIntentPicker&&(()=>{
+        const existing=games.find(g=>
+          g.status==="completed"&&form.opponent&&g.opponent&&
+          g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
+        );
+        const hasPS=existing&&(existing.stats||[]).some(s=>s.goals>0||s.assists>0||s.shots>0||s.minutesPlayed>0);
+        const hasTS=existing&&existing.teamStats&&(existing.teamStats.us||existing.teamStats.them);
+        const hasPo=existing&&existing.possession&&(existing.possession.home||existing.possession.away);
+        return(
+          <div style={{background:C.surface,border:`1px solid ${C.warning}44`,borderRadius:14,padding:"16px",marginBottom:16}}>
+            <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>⚠ EXISTING GAME FOUND</div>
+            <div style={{color:C.text,fontWeight:700,fontSize:15,marginBottom:2}}>vs {existing&&existing.opponent} · {fmtDate(existing&&existing.date)}</div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:14}}>
+              Already has: {[hasPS&&"player stats",hasTS&&"team stats",hasPo&&"possession"].filter(Boolean).join(", ")||"no data yet"}
+            </div>
+            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>WHAT ARE YOU TRACKING THIS SESSION?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+              {[
+                {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",      done:hasPo},
+                {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",    done:hasTS},
+                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings",done:hasPS},
+                {k:"all",         l:"Everything",         d:"Full session — overwrites all data",     done:false},
+              ].map(function(opt){return(
+                <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
+                  style={{textAlign:"left",padding:"10px 12px",borderRadius:9,cursor:"pointer",
+                    background:sessionIntent===opt.k?C.accent+"22":C.card,
+                    border:`1px solid ${sessionIntent===opt.k?C.accent:C.border}`,transition:"all .1s"}}>
+                  <div style={{display:"flex",alignItems:"center"}}>
+                    <span style={{color:sessionIntent===opt.k?C.accent:C.text,fontWeight:700,fontSize:13,flex:1}}>{opt.l}</span>
+                    {opt.done&&<span style={{color:C.warning,fontSize:10,marginRight:6}}>⚠ tracked</span>}
+                    {sessionIntent===opt.k&&<span style={{color:C.accent,fontSize:14}}>✓</span>}
+                  </div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:1}}>{opt.d}</div>
+                </button>
+              );})}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setShowIntentPicker(false);setSessionIntent(null);setMergeTarget(null);setMergeMode(null);}}
+                style={{flex:1,padding:"9px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,cursor:"pointer",fontSize:13}}>
+                Cancel
+              </button>
+              <button onClick={()=>{if(sessionIntent){setShowIntentPicker(false);startGame();}}}
+                disabled={!sessionIntent}
+                style={{flex:2,padding:"9px",background:sessionIntent?C.accent:"#333",border:"none",
+                  borderRadius:8,color:sessionIntent?"#000":"#666",fontWeight:900,fontSize:14,
+                  cursor:sessionIntent?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
+                {sessionIntent?"🔴 KICK OFF →":"Select what to track"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {!showIntentPicker&&(
+        <button onClick={()=>{
+            const existing=games.find(g=>
+              g.status==="completed"&&form.opponent&&g.opponent&&
+              g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
+            );
+            if(existing){setShowIntentPicker(true);}
+            else{setSessionIntent("all");startGame();}
+          }}
+          disabled={!form.opponent}
+          style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",
+            borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,
+            cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+          🔴 KICK OFF →
+        </button>
+      )}
 
       {/* Rejoin active session */}
       <div style={{marginTop:24}}>
@@ -6445,12 +6522,48 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       )}
       {endConfirm&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexShrink:0}}>
-          <span style={{color:C.text,fontSize:13}}>Save and end game?</span>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={endGame} style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>Save & End</button>
-            <button onClick={()=>setEndConfirm(false)} style={{padding:"6px 12px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>Cancel</button>
+        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:6}}>
+            <div>
+              <div style={{color:C.text,fontSize:13,fontWeight:700}}>Save and end game?</div>
+              {mergeTarget&&mergeMode&&(
+                <div style={{color:C.warning,fontSize:11,marginTop:1}}>
+                  Merging <strong>{mergeMode==="all"?"all data":mergeMode}</strong> into existing record
+                </div>
+              )}
+            </div>
+            <button onClick={()=>setEndConfirm(false)}
+              style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,
+                borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              Cancel
+            </button>
           </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={endGame}
+              style={{flex:2,padding:"8px 14px",background:C.accent,border:"none",borderRadius:7,
+                color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
+              {mergeTarget?"Merge & End →":"Save & End →"}
+            </button>
+            {mergeTarget&&(
+              <button onClick={()=>{setMergeTarget(null);setMergeMode(null);endGame();}}
+                style={{flex:1,padding:"8px",background:C.surface,border:`1px solid ${C.border}`,
+                  borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                Save as new
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {sessionIntent&&sessionIntent!=="all"&&(
+        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,
+          borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,flexShrink:0}}/>
+          <span style={{color:C.muted,fontSize:10}}>
+            Tracking: <span style={{color:C.accent,fontWeight:700}}>
+              {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
+            </span>
+          </span>
         </div>
       )}
 
