@@ -6550,7 +6550,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {mergeTarget?"Merge & End →":"Save & End →"}
             </button>
             {mergeTarget&&(
-              <button onClick={()=>endGame(null,"new")}
+              <button onClick={()=>endGame(null,null)}
                 style={{flex:1,padding:"8px",background:C.surface,border:`1px solid ${C.border}`,
                   borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
                 Save as new
@@ -6607,10 +6607,21 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         {(()=>{
           const ROW1=[{k:"passes",l:"PASS"},{k:"passesInc",l:"INC"},{k:"shots",l:"SHOT"},{k:"onTarget",l:"ON TGT"},{k:"goals",l:"GOAL"}];
           const ROW2=[{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
-          const StatBtn=({btn,stateObj,setFn,ac})=>{
+          const StatBtn=({btn,stateObj,setFn,ac,isUs})=>{
             const val=stateObj[btn.k]||0;
             const active=val>0;
-            const bump=d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+            const bump=d=>{
+              setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
+              // Hook goals into the live scoreboard
+              if(btn.k==="goals"&&d>0){
+                if(isUs) setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
+                else     setLive(g=>g?{...g,theirScore:(g.theirScore||0)+1}:g);
+              }
+              if(btn.k==="goals"&&d<0){
+                if(isUs) setLive(g=>g?{...g,ourScore:Math.max(0,(g.ourScore||0)-1)}:g);
+                else     setLive(g=>g?{...g,theirScore:Math.max(0,(g.theirScore||0)-1)}:g);
+              }
+            };
             return(
               <button onClick={()=>bump(1)}
                 onContextMenu={e=>{e.preventDefault();bump(-1);}}
@@ -6634,19 +6645,19 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                 <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US (HOME)</span>
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent} isUs={true}/>)}
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent} isUs={true}/>)}
               </div>
               <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px",marginTop:2}}>
                 <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM (AWAY)</span>
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"} isUs={false}/>)}
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"} isUs={false}/>)}
               </div>
             </>
           );
