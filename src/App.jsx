@@ -5467,13 +5467,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const [excluded,   setExcluded]   = useState(new Set());
   const [playerMins, setPlayerMins] = useState({});
   const [halfTime,   setHalfTime]   = useState(false);
-  const [endConfirm,       setEndConfirm]       = useState(false);
-  const [mergeTarget,      setMergeTarget]      = useState(null);
-  const [mergeMode,        setMergeMode]        = useState(null);
-  const [showMerge,        setShowMerge]        = useState(false);
-  const [sessionIntent,    setSessionIntent]    = useState(null);
-  const [showIntentPicker, setShowIntentPicker] = useState(false);
-  const [goalPopup,        setGoalPopup]        = useState(null); // {scorer:null, assister:null, step:"scorer"|"assister"}
+  const [endConfirm, setEndConfirm] = useState(false);
   const [flash,      setFlash]      = useState(null);
   const [subLog,     setSubLog]     = useState([]);
 
@@ -5496,8 +5490,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   const timerRef = useRef(null);
   const sessionIdRef = useRef(null);
   const preloadRef    = useRef(null);
-  const statsRef      = useRef({});   // always current stats, safe to read in endGame
-  const liveRef       = useRef(null); // always current live game, safe to read in endGame
 
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
@@ -5604,19 +5596,17 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
           if(payload.stat==="passesCompleted"||payload.stat==="passesIncomplete"){
             s.passesAttempted=(s.passesCompleted||0)+(s.passesIncomplete||0);
           }
-          const next={...prev,[payload.pid]:s};
-          statsRef.current=next; // keep ref in sync
-          return next;
+          return {...prev,[payload.pid]:s};
         });
         if(payload.stat==="goals"){
           addFeedEvent("⚽ GOAL — "+(PLAYERS.find(p=>p.id===payload.pid)?.name||"Player")+" ("+payload.min+"')");
-          setLive(g=>{const n=g?{...g,ourScore:g.ourScore+1}:g; liveRef.current=n; return n;});
+          setLive(g=>g?{...g,ourScore:g.ourScore+1}:g);
         }
         setFlash({pid:payload.pid,key:payload.stat});
         setTimeout(()=>setFlash(null),400);
         break;
       case "opp_goal":
-        setLive(g=>{const n=g?{...g,theirScore:g.theirScore+1}:g; liveRef.current=n; return n;});
+        setLive(g=>g?{...g,theirScore:g.theirScore+1}:g);
         addFeedEvent("🔵 OPP GOAL"+(payload.scorer?" — "+payload.scorer:"")+" ("+payload.min+"')");
         break;
       case "sub_on":
@@ -5784,34 +5774,17 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     setHalfTime(false);
   }
 
-  function endGame(mergeWith, mode){
+  function endGame(){
     if(!isHost){addFeedEvent("Only the head coach can end the game.");return;}
-    // Use refs for always-current values (avoids stale closure bugs)
-    const currentStats = statsRef.current||stats;
-    const currentLive  = liveRef.current||live;
     const finalMins={};
     PLAYERS.forEach(p=>{
       const pm=playerMins[p.id]||{};
       finalMins[p.id]=benched.has(p.id)?pm.totalMins||0:(pm.totalMins||0)+(min-(pm.startMin??0));
     });
-    const sa=PLAYERS.map(p=>({playerId:p.id,...(currentStats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
+    const sa=PLAYERS.map(p=>({playerId:p.id,...(stats[p.id]||{}),minutesPlayed:finalMins[p.id]||0}));
     const finalPoss={home:possession.home,away:possession.away};
     const teamStats={us:{...teamStatsUs},them:{...teamStatsThem}};
-    const _mergeWith = mergeWith||mergeTarget;
-    const _mode = mode||mergeMode;
-    if(_mergeWith&&_mode){
-      setGames(prev=>prev.map(g=>{
-        if(g.id!==_mergeWith.id) return g;
-        const merged={...g};
-        if(_mode==="possession"||_mode==="all"){merged.possession=finalPoss;}
-        if(_mode==="teamStats"||_mode==="all"){merged.teamStats=teamStats;}
-        if(_mode==="playerStats"||_mode==="all"){merged.stats=sa;}
-        if(_mode==="all"){merged.ourScore=currentLive.ourScore;merged.theirScore=currentLive.theirScore;}
-        return merged;
-      }));
-    } else {
-      setGames(prev=>[{...currentLive,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
-    }
+    setGames(prev=>[{...live,status:"completed",stats:sa,possession:finalPoss,teamStats},...prev]);
     if(live.opponent&&setOpponents){
       const anyThemStats=Object.values(teamStatsThem).some(v=>v>0);
       if(anyThemStats){
@@ -5832,9 +5805,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     supabase.from("live_sessions").update({status:"ended"}).eq("id",sessionIdRef.current);
     realtimeManager.broadcast("game_ended",{sessionId:sessionIdRef.current});
     realtimeManager.disconnect();
-    setLive(null);setEndConfirm(false);setShowMerge(false);setMergeTarget(null);setMergeMode(null);
-    setSessionIntent(null);setShowIntentPicker(false);setGoalPopup(null);
-    setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
+    setLive(null);setEndConfirm(false);setAutoMin(false);setSessionId(null);setRole(null);setIsHost(false);
     setPossession({home:0,away:0,current:null,lastTs:null});
     setTeamStatsUs({...INIT_TS});setTeamStatsThem({...INIT_TS});setTsSide("us");
     addFeedEvent("── Game Ended ──");
@@ -5894,8 +5865,6 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
-    liveRef.current=gameData; statsRef.current=init;
-    liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
     setHalfTime(false); setActiveStat(null); setSessionId(sid); setIsHost(true);
@@ -6085,78 +6054,10 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         );
       })()}
 
-      {/* Intent picker — shown when existing game data found */}
-      {showIntentPicker&&(()=>{
-        const existing=games.find(g=>
-          g.status==="completed"&&form.opponent&&g.opponent&&
-          g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
-        );
-        const hasPS=existing&&(existing.stats||[]).some(s=>s.goals>0||s.assists>0||s.shots>0||s.minutesPlayed>0);
-        const hasTS=existing&&existing.teamStats&&(existing.teamStats.us||existing.teamStats.them);
-        const hasPo=existing&&existing.possession&&(existing.possession.home||existing.possession.away);
-        return(
-          <div style={{background:C.surface,border:`1px solid ${C.warning}44`,borderRadius:14,
-            padding:"16px",marginBottom:16}}>
-            <div style={{color:C.warning,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:4}}>⚠ EXISTING GAME FOUND</div>
-            <div style={{color:C.text,fontWeight:700,fontSize:14,marginBottom:2}}>
-              vs {existing&&existing.opponent} · {fmtDate(existing&&existing.date)}
-            </div>
-            <div style={{color:C.muted,fontSize:11,marginBottom:14}}>
-              Already has: {[hasPS&&"player stats",hasTS&&"team stats",hasPo&&"possession"].filter(Boolean).join(", ")||"no data yet"}
-            </div>
-            <div style={{color:C.muted,fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8}}>WHAT ARE YOU TRACKING THIS SESSION?</div>
-            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
-              {[
-                {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",     done:hasPo},
-                {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",   done:hasTS},
-                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings",done:hasPS},
-                {k:"all",         l:"Everything",         d:"Full session — overwrites all data",    done:false},
-              ].map(function(opt){return(
-                <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
-                  style={{textAlign:"left",padding:"10px 12px",borderRadius:9,cursor:"pointer",
-                    background:sessionIntent===opt.k?C.accent+"22":C.card,
-                    border:`1px solid ${sessionIntent===opt.k?C.accent:C.border}`,transition:"all .1s"}}>
-                  <div style={{display:"flex",alignItems:"center"}}>
-                    <span style={{color:sessionIntent===opt.k?C.accent:C.text,fontWeight:700,fontSize:13,flex:1}}>{opt.l}</span>
-                    {opt.done&&<span style={{color:C.warning,fontSize:10,marginRight:6}}>⚠ tracked</span>}
-                    {sessionIntent===opt.k&&<span style={{color:C.accent}}>✓</span>}
-                  </div>
-                  <div style={{color:C.muted,fontSize:11,marginTop:1}}>{opt.d}</div>
-                </button>
-              );})}
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{setShowIntentPicker(false);setSessionIntent(null);setMergeTarget(null);setMergeMode(null);}}
-                style={{flex:1,padding:"9px",background:C.surface,border:`1px solid ${C.border}`,
-                  borderRadius:8,color:C.muted,cursor:"pointer",fontSize:13}}>Cancel</button>
-              <button onClick={()=>{if(sessionIntent){setShowIntentPicker(false);startGame();}}}
-                disabled={!sessionIntent}
-                style={{flex:2,padding:"9px",background:sessionIntent?C.accent:"#333",border:"none",
-                  borderRadius:8,color:sessionIntent?"#000":"#666",fontWeight:900,fontSize:14,
-                  cursor:sessionIntent?"pointer":"not-allowed",fontFamily:"'Oswald',sans-serif"}}>
-                {sessionIntent?"🔴 KICK OFF →":"Select what to track"}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {!showIntentPicker&&(
-        <button onClick={()=>{
-            const existing=games.find(g=>
-              g.status==="completed"&&form.opponent&&g.opponent&&
-              g.opponent.toLowerCase()===form.opponent.toLowerCase()&&g.date===form.date
-            );
-            if(existing){setShowIntentPicker(true);}
-            else{setSessionIntent("all");startGame();}
-          }}
-          disabled={!form.opponent}
-          style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",
-            borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,
-            cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
-          🔴 KICK OFF →
-        </button>
-      )}
+      <button onClick={startGame} disabled={!form.opponent}
+        style={{width:"100%",padding:"15px",background:form.opponent?C.accent:"#2a1000",border:"none",borderRadius:11,color:form.opponent?"#000":C.muted,fontWeight:900,fontSize:16,cursor:form.opponent?"pointer":"default",fontFamily:"'Oswald',sans-serif",letterSpacing:1}}>
+        🔴 KICK OFF →
+      </button>
 
       {/* Rejoin active session */}
       <div style={{marginTop:24}}>
@@ -6536,49 +6437,12 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         </div>
       )}
       {endConfirm&&(
-        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,
-          padding:"8px 12px",flexShrink:0}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:6}}>
-            <div>
-              <div style={{color:C.text,fontSize:13,fontWeight:700}}>Save and end game?</div>
-              {mergeTarget&&mergeMode&&(
-                <div style={{color:C.warning,fontSize:11,marginTop:1}}>
-                  Merging <strong>{mergeMode==="all"?"all data":mergeMode}</strong> into existing record
-                </div>
-              )}
-            </div>
-            <button onClick={()=>setEndConfirm(false)}
-              style={{padding:"5px 10px",background:C.card,border:`1px solid ${C.border}`,
-                borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
-              Cancel
-            </button>
-          </div>
+        <div style={{background:C.surface,borderBottom:`1px solid ${C.danger}44`,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexShrink:0}}>
+          <span style={{color:C.text,fontSize:13}}>Save and end game?</span>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>endGame()}
-              style={{flex:2,padding:"8px 14px",background:C.accent,border:"none",borderRadius:7,
-                color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Oswald',sans-serif"}}>
-              {mergeTarget?"Merge & End →":"Save & End →"}
-            </button>
-            {mergeTarget&&(
-              <button onClick={()=>endGame(null,null)}
-                style={{flex:1,padding:"8px",background:C.surface,border:`1px solid ${C.border}`,
-                  borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                Save as new
-              </button>
-            )}
+            <button onClick={endGame} style={{padding:"6px 14px",background:C.accent,border:"none",borderRadius:7,color:"#000",fontWeight:800,fontSize:13,cursor:"pointer"}}>Save & End</button>
+            <button onClick={()=>setEndConfirm(false)} style={{padding:"6px 12px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>Cancel</button>
           </div>
-        </div>
-      )}
-
-      {sessionIntent&&sessionIntent!=="all"&&(
-        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,
-          borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,animation:"pulse 1.5s infinite",flexShrink:0}}/>
-          <span style={{color:C.muted,fontSize:10}}>
-            Tracking: <span style={{color:C.accent,fontWeight:700}}>
-              {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
-            </span>
-          </span>
         </div>
       )}
 
@@ -6617,26 +6481,10 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         {(()=>{
           const ROW1=[{k:"passes",l:"PASS"},{k:"passesInc",l:"INC"},{k:"shots",l:"SHOT"},{k:"onTarget",l:"ON TGT"},{k:"goals",l:"GOAL"}];
           const ROW2=[{k:"corners",l:"CORNER"},{k:"fouls",l:"FOUL"},{k:"tackles",l:"TACKLE"},{k:"turnovers",l:"T/O"},{k:"fifty50",l:"50/50"}];
-          const StatBtn=({btn,stateObj,setFn,ac,isUs})=>{
+          const StatBtn=({btn,stateObj,setFn,ac})=>{
             const val=stateObj[btn.k]||0;
             const active=val>0;
-            const bump=d=>{
-              // US Goals: show popup to assign scorer/assister
-              if(btn.k==="goals"&&d>0&&isUs){
-                setGoalPopup({scorer:null,assister:null,step:"scorer",setFn,stateObj});
-                return; // popup handles the rest
-              }
-              setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
-              // Hook goals into the live scoreboard
-              if(btn.k==="goals"&&d>0){
-                if(isUs){setLive(g=>{const n=g?{...g,ourScore:(g.ourScore||0)+1}:g;liveRef.current=n;return n;});}
-                else{setLive(g=>{const n=g?{...g,theirScore:(g.theirScore||0)+1}:g;liveRef.current=n;return n;});}
-              }
-              if(btn.k==="goals"&&d<0){
-                if(isUs){setLive(g=>{const n=g?{...g,ourScore:Math.max(0,(g.ourScore||0)-1)}:g;liveRef.current=n;return n;});}
-                else{setLive(g=>{const n=g?{...g,theirScore:Math.max(0,(g.theirScore||0)-1)}:g;liveRef.current=n;return n;});}
-              }
-            };
+            const bump=d=>setFn(prev=>({...prev,[btn.k]:Math.max(0,(prev[btn.k]||0)+d)}));
             return(
               <button onClick={()=>bump(1)}
                 onContextMenu={e=>{e.preventDefault();bump(-1);}}
@@ -6660,149 +6508,24 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
                 <span style={{color:C.accent,fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>US (HOME)</span>
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent} isUs={true}/>)}
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent} isUs={true}/>)}
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsUs} setFn={setTeamStatsUs} ac={C.accent}/>)}
               </div>
               <div style={{borderTop:"1px solid #1a1a1a",padding:"3px 8px 1px",marginTop:2}}>
                 <span style={{color:"#3b82f6",fontSize:8,fontWeight:700,letterSpacing:1,opacity:.7}}>THEM (AWAY)</span>
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"} isUs={false}/>)}
+                {ROW1.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
               </div>
               <div style={{display:"flex",borderTop:"1px solid #111"}}>
-                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"} isUs={false}/>)}
+                {ROW2.map(btn=><StatBtn key={btn.k} btn={btn} stateObj={teamStatsThem} setFn={setTeamStatsThem} ac={"#3b82f6"}/>)}
               </div>
             </>
           );
         })()}
       </div>
-
-      {/* ── GOAL POPUP ── */}
-      {goalPopup&&(
-        <div style={{position:"fixed",inset:0,background:"#000000ee",zIndex:3000,
-          display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
-          <div style={{background:C.card,borderRadius:"20px 20px 0 0",padding:"20px 16px",
-            maxHeight:"70vh",display:"flex",flexDirection:"column"}}>
-
-            {/* Header */}
-            <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
-              <div style={{flex:1}}>
-                <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2}}>
-                  ⚽ GOAL! — {min}'
-                </div>
-                <div style={{color:C.text,fontWeight:700,fontSize:16,marginTop:2}}>
-                  {goalPopup.step==="scorer"?"Who scored?":"Who assisted?"}
-                </div>
-              </div>
-              {goalPopup.step==="assister"&&(
-                <div style={{color:C.muted,fontSize:12,textAlign:"right"}}>
-                  <div style={{color:C.accent,fontWeight:700}}>{goalPopup.scorer?PLAYERS.find(p=>p.id===goalPopup.scorer)?.name:"Unknown"}</div>
-                  <div>scored</div>
-                </div>
-              )}
-            </div>
-
-            {/* Player grid */}
-            <div style={{overflowY:"auto",flex:1,marginBottom:12}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
-                {PLAYERS.filter(p=>!benched.has(p.id)&&!excluded.has(p.id)).map(p=>{
-                  const isSelected=(goalPopup.step==="scorer"&&goalPopup.scorer===p.id)||
-                                   (goalPopup.step==="assister"&&goalPopup.assister===p.id);
-                  const pc=posColor(primaryPos(p));
-                  return(
-                    <button key={p.id}
-                      onClick={()=>{
-                        if(goalPopup.step==="scorer"){
-                          setGoalPopup(prev=>({...prev,scorer:p.id,step:"assister"}));
-                        } else {
-                          setGoalPopup(prev=>({...prev,assister:p.id}));
-                        }
-                      }}
-                      style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-                        padding:"10px 8px",borderRadius:10,cursor:"pointer",border:"none",
-                        background:isSelected?C.accent+"22":C.surface,
-                        outline:isSelected?`2px solid ${C.accent}`:"none",
-                        transition:"all .1s"}}>
-                      <div style={{width:36,height:36,borderRadius:8,background:pc,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontWeight:900,fontSize:12,color:"#fff",fontFamily:"'Oswald',sans-serif"}}>
-                        {primaryPos(p)}
-                      </div>
-                      <div style={{color:isSelected?C.accent:C.text,fontWeight:700,fontSize:12,
-                        textAlign:"center",lineHeight:1.2}}>
-                        {p.name.split(" ").pop()}
-                      </div>
-                      {isSelected&&<div style={{color:C.accent,fontSize:10,fontWeight:700}}>
-                        {goalPopup.step==="scorer"?"SCORER":"ASSIST"}
-                      </div>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{display:"flex",gap:8}}>
-              {goalPopup.step==="scorer"&&(
-                <button onClick={()=>{
-                    // Skip scorer — log goal without player assignment
-                    goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
-                    setLive(g=>{const n=g?{...g,ourScore:(g.ourScore||0)+1}:g;liveRef.current=n;return n;});
-                    addFeedEvent("⚽ GOAL ("+min+"')");
-                    setGoalPopup(null);
-                  }}
-                  style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
-                    borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
-                  Skip / Unknown
-                </button>
-              )}
-              {goalPopup.step==="assister"&&(
-                <>
-                  <button onClick={()=>{
-                      // Confirm with no assister
-                      const scorerName=PLAYERS.find(p=>p.id===goalPopup.scorer)?.name||"Unknown";
-                      if(goalPopup.scorer) broadcastEvent("stat",{pid:goalPopup.scorer,stat:"goals",delta:1,min});
-                      else{
-                        goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
-                        setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
-                        addFeedEvent("⚽ GOAL — "+scorerName+" ("+min+"')");
-                      }
-                      setGoalPopup(null);
-                    }}
-                    style={{flex:1,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
-                      borderRadius:10,color:C.muted,cursor:"pointer",fontSize:13}}>
-                    No Assist
-                  </button>
-                  <button onClick={()=>{
-                      const scorerName=PLAYERS.find(p=>p.id===goalPopup.scorer)?.name||"Unknown";
-                      const assistName=PLAYERS.find(p=>p.id===goalPopup.assister)?.name;
-                      if(goalPopup.scorer) broadcastEvent("stat",{pid:goalPopup.scorer,stat:"goals",delta:1,min});
-                      if(goalPopup.assister) broadcastEvent("stat",{pid:goalPopup.assister,stat:"assists",delta:1,min});
-                      goalPopup.setFn(prev=>({...prev,goals:(prev.goals||0)+1}));
-                      setLive(g=>g?{...g,ourScore:(g.ourScore||0)+1}:g);
-                      addFeedEvent("⚽ GOAL — "+scorerName+(assistName?" (assist: "+assistName+")":"")+" ("+min+"')");
-                      setGoalPopup(null);
-                    }}
-                    disabled={!goalPopup.assister}
-                    style={{flex:2,padding:"11px",background:goalPopup.assister?C.accent:"#333",
-                      border:"none",borderRadius:10,color:goalPopup.assister?"#000":"#666",
-                      fontWeight:900,fontSize:14,cursor:goalPopup.assister?"pointer":"not-allowed",
-                      fontFamily:"'Oswald',sans-serif"}}>
-                    Confirm →
-                  </button>
-                </>
-              )}
-              <button onClick={()=>setGoalPopup(null)}
-                style={{width:44,padding:"11px",background:C.surface,border:`1px solid ${C.border}`,
-                  borderRadius:10,color:C.muted,cursor:"pointer",fontSize:16,flexShrink:0}}>
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── STAT SELECTOR ── */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"7px 10px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,alignItems:"flex-start",WebkitOverflowScrolling:"touch"}}>
@@ -17672,15 +17395,18 @@ function PlayerPortalPage(){
   });
   var tots = allStats.reduce(function(acc,s){
     return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
-      shots:acc.shots+(s.shots||0),tackles:acc.tackles+(s.tackles||0),
+      shots:acc.shots+(s.shots||0),shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
+      tackles:acc.tackles+(s.tackles||0),
       saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
-      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||0)),
+      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
       interceptions:acc.interceptions+(s.interceptions||0),
-      minutes:acc.minutes+(s.minutesPlayed||0),
     };
-  },{goals:0,assists:0,shots:0,tackles:0,saves:0,goalsConceded:0,
-    passesCompleted:0,passesAttempted:0,interceptions:0,minutes:0});
+  },{goals:0,assists:0,shots:0,shotsOnTarget:0,tackles:0,saves:0,goalsConceded:0,
+    passesCompleted:0,passesAttempted:0,interceptions:0});
+  var seasonPassAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):null;
+  var seasonShotAcc=tots.shots>0&&tots.shotsOnTarget>0?Math.round(tots.shotsOnTarget/tots.shots*100):null;
+  var seasonShotConv=tots.shots>0&&tots.goals>0?Math.round(tots.goals/tots.shots*100):null;
 
   var ratingList = playerGames.filter(function(g){return !g.excludeFromRating;}).map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
@@ -18564,7 +18290,7 @@ function PlayerPortalPage(){
 
             {/* Season summary */}
             <PortalCard title="Season Summary">
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
                   :isCB
@@ -18577,6 +18303,38 @@ function PlayerPortalPage(){
                   </div>
                 );})}
               </div>
+              {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
+                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                  {seasonPassAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#f0f9f4",borderRadius:9,padding:"10px 8px",border:"1px solid #d0ead9"}}>
+                      <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonPassAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>PASS ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff8f0",borderRadius:9,padding:"10px 8px",border:"1px solid #fde8c8"}}>
+                      <div style={{color:"#f59e0b",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>SHOT ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotConv!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff5f5",borderRadius:9,padding:"10px 8px",border:"1px solid #fecaca"}}>
+                      <div style={{color:"#e53935",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotConv}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>CONVERSION</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {playerGames.length>0&&(
+                <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
+                  {[{l:"Shots",v:tots.shots},{l:"On Target",v:tots.shotsOnTarget},{l:"Passes",v:tots.passesCompleted},{l:"Tackles",v:tots.tackles},{l:"Interceptions",v:tots.interceptions}].map(function(item){return(
+                    <div key={item.l} style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:48}}>
+                      <span style={{color:"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
+                      <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
+                    </div>
+                  );})}
+                </div>
+              )}
               {playerGames.length===0&&(
                 <div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>
                   Stats will appear after games are logged by your coach
@@ -18611,9 +18369,9 @@ function PlayerPortalPage(){
                         <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>
                           {g.ourScore}–{g.theirScore}
                         </div>
-                        <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
-                          fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
-                          {g.excludeFromRating?"—":rat.rating.toFixed(1)}
+                        <div style={{textAlign:"right"}}>
+                          {(function(){var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);var pct=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;return pct!==null?(<div style={{color:"#27a560",fontSize:10,fontWeight:600}}>{pct}% pass</div>):null;})()}
+                          <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{g.excludeFromRating?"—":rat.rating.toFixed(1)}</div>
                         </div>
                         <div style={{color:"#ccc",fontSize:14,transform:isExp?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
                       </div>
@@ -18621,11 +18379,20 @@ function PlayerPortalPage(){
                         <div style={{padding:"12px 20px",background:"#fafafa",
                           borderTop:"1px solid #f5f5f5"}}>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                            {[
-                              {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                              {l:"Shots",v:s.shots||0},{l:"Tackles",v:s.tackles||0},
-                              {l:"Key Passes",v:s.keyPasses||0},{l:"Minutes",v:s.minutesPlayed||90},
-                            ].map(function(stat){return(
+                            {(function(){
+                              var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);
+                              var pAcc=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;
+                              var sAcc=(s.shots||0)>0&&(s.shotsOnTarget||0)>0?Math.round(s.shotsOnTarget/s.shots*100):null;
+                              var items=[
+                                {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
+                                {l:"Shots",v:s.shots||0},{l:"On Target",v:s.shotsOnTarget||0},
+                                {l:"Tackles",v:s.tackles||0},{l:"Interceptions",v:s.interceptions||0},
+                                {l:"Passes",v:s.passesCompleted||0}
+                              ];
+                              if(sAcc!==null) items.push({l:"Shot Acc.",v:sAcc+"%"});
+                              if(pAcc!==null) items.push({l:"Pass Acc.",v:pAcc+"%"});
+                              return items;
+                            })().map(function(stat){return(
                               <div key={stat.l} style={{display:"flex",justifyContent:"space-between",
                                 padding:"6px 10px",background:"#fff",borderRadius:7,
                                 border:"1px solid #f0f0f0"}}>
