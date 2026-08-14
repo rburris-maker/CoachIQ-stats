@@ -3543,7 +3543,24 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
   }));
 
   const seasonTeamStats = done.reduce(function(acc,g){
-    const us=(g.teamStats&&g.teamStats.us)||{};
+    // Use live team stats if tracked, otherwise derive from individual player stats
+    const hasLiveTs = g.teamStats&&g.teamStats.us&&Object.values(g.teamStats.us).some(function(v){return v>0;});
+    var us = hasLiveTs ? g.teamStats.us : {};
+    if(!hasLiveTs && (g.stats||[]).length){
+      const ps=g.stats;
+      us={
+        passes:    ps.reduce(function(a,s){return a+(s.passesCompleted||0);},0),
+        passesInc: ps.reduce(function(a,s){return a+(s.passesIncomplete||0);},0),
+        shots:     ps.reduce(function(a,s){return a+(s.shots||0);},0),
+        onTarget:  ps.reduce(function(a,s){return a+(s.shotsOnTarget||0);},0),
+        goals:     ps.reduce(function(a,s){return a+(s.goals||0);},0),
+        tackles:   ps.reduce(function(a,s){return a+(s.tackles||0);},0),
+        fouls:     ps.reduce(function(a,s){return a+(s.fouls||0);},0),
+        fifty50:   ps.reduce(function(a,s){return a+(s.fiftyFifty||0);},0),
+        turnovers: ps.reduce(function(a,s){return a+(s.dangerousTurnovers||0);},0),
+        corners:0,
+      };
+    }
     return {
       passes:    (acc.passes||0)+(us.passes||0),
       passesInc: (acc.passesInc||0)+(us.passesInc||0),
@@ -4484,7 +4501,25 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const tPA=game.stats.reduce((a,s)=>a+s.passesAttempted,0);
     const pacc=tPA>0?Math.round((tPC/tPA)*100):0;
     const gts=game.teamStats||null;
-    const gtsUs=(gts&&gts.us)||null;
+    // If no live team stats tracked, derive US totals from individual player stats
+    const derivedUs = (function(){
+      if(gts&&gts.us&&Object.values(gts.us).some(function(v){return v>0;})) return null; // real data exists
+      const s=game.stats||[];
+      if(!s.length) return null;
+      return {
+        passes:   s.reduce(function(a,p){return a+(p.passesCompleted||0);},0),
+        passesInc:s.reduce(function(a,p){return a+(p.passesIncomplete||p.passesAttempted||0)-(p.passesCompleted||0);},0),
+        shots:    s.reduce(function(a,p){return a+(p.shots||0);},0),
+        onTarget: s.reduce(function(a,p){return a+(p.shotsOnTarget||0);},0),
+        goals:    s.reduce(function(a,p){return a+(p.goals||0);},0),
+        tackles:  s.reduce(function(a,p){return a+(p.tackles||0);},0),
+        corners:  0,
+        fouls:    s.reduce(function(a,p){return a+(p.fouls||0);},0),
+        fifty50:  s.reduce(function(a,p){return a+(p.fiftyFifty||0);},0),
+        turnovers:s.reduce(function(a,p){return a+(p.dangerousTurnovers||0);},0),
+      };
+    })();
+    const gtsUs=(gts&&gts.us)||derivedUs||null;
     const gtsThem=(gts&&gts.them)||null;
     const squadAvg=game.excludeFromRating?null:Math.round((rows.reduce((a,r)=>a+(r.rating||0),0)/rows.length)*10)/10;
 
