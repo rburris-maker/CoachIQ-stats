@@ -655,6 +655,7 @@ function fmtDate(d){
 function calcRating(s, position, cleanSheet = false) {
   if (!s) return { rating:6.0, label:"Solid", coachNote:"No data.", breakdown:{attack:0,possession:0,defensive:0,bonus:0,errors:0} };
 
+  // Normalise to 4 positions used in CoachIQ
   const POS = (function(p){
     if(!p) return "MID";
     if(p==="GK") return "GK";
@@ -663,91 +664,139 @@ function calcRating(s, position, cleanSheet = false) {
     return "MID";
   })(position);
 
-  const pc   = s.passesCompleted  || 0;
-  const inc  = s.passesIncomplete || s.passesAttempted || 0;
-  const pa   = pc + inc;
-  const pct  = pa > 0 ? pc / pa : 0;
-  const goals= s.goals         || 0;
-  const ast  = s.assists       || 0;
-  const sot  = s.shotsOnTarget || 0;
-  const tack = s.tackles       || 0;
-  const inter= s.interceptions || 0;
-  const saves= s.saves         || 0;
-  const gc   = s.goalsConceded || 0;
-  const fouls= s.fouls         || 0;
-  const dt   = s.dangerousTurnovers || 0;
+  // Stat aliases — support both old and new key names
+  const pc      = s.passesCompleted    || 0;
+  const inc     = s.passesIncomplete   || s.passesAttempted || 0;
+  const pa      = pc + inc;
+  const pct     = pa > 0 ? pc / pa : 0;
+  const goals   = s.goals              || 0;
+  const ast     = s.assists            || 0;
+  const sot     = s.shotsOnTarget      || 0;
+  const cc      = s.chancesCreated     || s.keyPasses || 0;   // chancesCreated replaces keyPasses
+  const tack    = s.tackles            || 0;
+  const inter   = s.interceptions      || 0;
+  const blocks  = s.blocks             || 0;
+  const clears  = s.clearances         || 0;
+  const recov   = s.recoveries         || 0;
+  const fifty   = s.fiftyFifty         || s.aerialDuelsWon || 0; // fiftyFifty replaces aerialDuelsWon
+  const drib    = s.dribbles           || 0;
+  const press   = s.pressingActions    || 0;
+  const saves   = s.saves              || 0;
+  const gc      = s.goalsConceded      || 0;
+  const fouls   = s.fouls              || 0;
+  const yellow  = s.yellowCards        || 0;
+  const dt      = s.dangerousTurnovers || 0;
 
   let attack = 0, possession = 0, defensive = 0, bonus = 0, errors = 0;
 
+  // ── GOALKEEPER ────────────────────────────────────────────────────
   if (POS === "GK") {
-    attack     += saves * 0.40;
-    attack     -= gc    * 0.45;
-    possession += pc    * 0.02;
+    attack     += saves  * 0.40;
+    attack     -= gc     * 0.45;
+    possession += pc     * 0.02;
     if      (pct > 0.75) possession += 0.25;
     else if (pct > 0.60) possession += 0.10;
-    defensive  += inter * 0.20;
+    defensive  += inter  * 0.20;
+    defensive  += clears * 0.15;
     if (cleanSheet) bonus += 1.00;
-    errors     -= fouls * 0.40;
-  } else if (POS === "DEF") {
-    defensive  += tack  * 0.30;
-    defensive  += inter * 0.25;
-    possession += pc    * 0.015;
-    if      (pct > 0.75) possession += 0.30;
-    else if (pct > 0.60) possession += 0.15;
-    possession -= dt    * 0.20;
-    attack     += ast   * 0.40;
-    attack     += goals * 0.60;
-    if (cleanSheet) bonus += 0.60;
-    errors     -= fouls * 0.20;
-    errors     -= dt    * 0.15;
-  } else if (POS === "MID") {
-    attack     += goals * 0.80;
-    attack     += ast   * 0.50;
-    attack     += sot   * 0.15;
-    possession += pc    * 0.020;
-    if      (pct > 0.75) possession += 0.35;
-    else if (pct > 0.60) possession += 0.20;
-    possession -= dt    * 0.25;
-    defensive  += tack  * 0.20;
-    defensive  += inter * 0.15;
-    if (cleanSheet) bonus += 0.20;
-    errors     -= fouls * 0.10;
-    errors     -= dt    * 0.20;
-  } else if (POS === "FWD") {
-    attack     += goals * 1.00;
-    attack     += sot   * 0.20;
-    attack     += ast   * 0.35;
-    possession += pc    * 0.010;
-    if      (pct > 0.75) possession += 0.20;
-    else if (pct > 0.60) possession += 0.10;
-    possession -= dt    * 0.15;
-    defensive  += tack  * 0.10;
-    errors     -= fouls * 0.10;
-    errors     -= dt    * 0.10;
+    errors     -= fouls  * 0.40;
+    errors     -= yellow * 0.75;
   }
 
-  attack     = Math.min(attack,     3.0);
+  // ── DEFENDER ──────────────────────────────────────────────────────
+  else if (POS === "DEF") {
+    defensive  += tack   * 0.30;
+    defensive  += inter  * 0.25;
+    defensive  += blocks * 0.25;
+    defensive  += clears * 0.20;
+    defensive  += recov  * 0.20;
+    defensive  += fifty  * 0.20;
+    possession += pc     * 0.015;
+    if      (pct > 0.75) possession += 0.30;
+    else if (pct > 0.60) possession += 0.15;
+    possession -= dt     * 0.20;
+    attack     += ast    * 0.40;
+    attack     += goals  * 0.60;
+    attack     += cc     * 0.20;
+    attack     += drib   * 0.10;
+    if (cleanSheet) bonus += 0.60;
+    errors     -= fouls  * 0.15;
+    errors     -= yellow * 0.50;
+    errors     -= dt     * 0.15;
+  }
+
+  // ── MIDFIELDER ────────────────────────────────────────────────────
+  else if (POS === "MID") {
+    attack     += goals  * 0.70;
+    attack     += ast    * 0.65;
+    attack     += cc     * 0.35;
+    attack     += sot    * 0.15;
+    attack     += drib   * 0.25;
+    possession += pc     * 0.020;
+    if      (pct > 0.75) possession += 0.40;
+    else if (pct > 0.60) possession += 0.25;
+    possession -= dt     * 0.25;
+    defensive  += tack   * 0.25;
+    defensive  += inter  * 0.20;
+    defensive  += recov  * 0.20;
+    defensive  += blocks * 0.15;
+    defensive  += fifty  * 0.20;
+    defensive  += press  * 0.15;
+    if (cleanSheet) bonus += 0.25;
+    errors     -= fouls  * 0.10;
+    errors     -= yellow * 0.50;
+    errors     -= dt     * 0.20;
+  }
+
+  // ── FORWARD ───────────────────────────────────────────────────────
+  else if (POS === "FWD") {
+    attack     += goals  * 1.00;
+    attack     += sot    * 0.20;
+    attack     += ast    * 0.50;
+    attack     += cc     * 0.30;
+    attack     += drib   * 0.30;
+    possession += pc     * 0.010;
+    if      (pct > 0.75) possession += 0.20;
+    else if (pct > 0.60) possession += 0.10;
+    possession -= dt     * 0.15;
+    defensive  += tack   * 0.10;
+    defensive  += recov  * 0.10;
+    defensive  += fifty  * 0.15;
+    defensive  += press  * 0.10;
+    errors     -= fouls  * 0.10;
+    errors     -= yellow * 0.50;
+    errors     -= dt     * 0.10;
+  }
+
+  // Caps
+  attack     = Math.min(attack,     3.5);
   possession = Math.min(possession, 1.5);
-  defensive  = Math.min(defensive,  2.0);
+  defensive  = Math.min(defensive,  2.5);
   bonus      = Math.min(bonus,      1.0);
-  errors     = Math.max(errors,    -2.0);
+  errors     = Math.max(errors,    -2.5);
 
   const raw    = 6.0 + attack + possession + defensive + bonus + errors;
   const rating = Math.min(10.0, Math.max(1.0, Math.round(raw * 10) / 10));
   const label  = rating>=9?"Dominant":rating>=8?"Excellent":rating>=7?"Strong":rating>=6?"Solid":rating>=5?"Below Par":"Poor";
 
   const strengths=[], concerns=[];
-  if (defensive>=1.0)  strengths.push("strong defensive performance");
-  else if(defensive>=0.5) strengths.push("decent defensive contribution");
-  if (possession>=1.0) strengths.push("excellent passing security");
+  if(defensive>=1.2) strengths.push("outstanding defensive contribution");
+  else if(defensive>=0.6) strengths.push("strong defensive presence");
+  else if(defensive>=0.3) strengths.push("decent defensive contribution");
+  if(possession>=1.0) strengths.push("excellent passing security");
   else if(possession>=0.5) strengths.push("solid ball retention");
-  else if(possession<0.1&&pa>10) concerns.push("passing security needs work");
-  if (attack>=1.5)     strengths.push("excellent attacking contribution");
-  else if(attack>=0.8) strengths.push("positive attacking presence");
+  else if(possession<0.1&&pa>8) concerns.push("passing security needs work");
+  if(attack>=2.0) strengths.push("outstanding attacking contribution");
+  else if(attack>=1.2) strengths.push("excellent attacking contribution");
+  else if(attack>=0.6) strengths.push("positive attacking presence");
   else if(attack<0.2&&(POS==="FWD"||POS==="MID")) concerns.push("limited attacking impact this match");
-  if (cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
-  if (dt>=2)           concerns.push("reduce dangerous giveaways under pressure");
-  if (errors<=-0.5)    concerns.push("cut out costly mistakes");
+  if(drib>=2) strengths.push("effective with the ball under pressure");
+  if(press>=3) strengths.push("high pressing intensity");
+  if(cc>=2) strengths.push("creative in the final third");
+  if(cleanSheet&&(POS==="GK"||POS==="DEF")) strengths.push("clean sheet kept");
+  if(yellow>0) concerns.push("yellow card — avoid unnecessary fouls");
+  if(dt>=2) concerns.push("reduce dangerous turnovers under pressure");
+  if(errors<=-0.5) concerns.push("cut out costly mistakes");
   if(!strengths.length&&!concerns.length) strengths.push("met positional requirements at an acceptable level");
 
   const coachNote=[
@@ -976,9 +1025,10 @@ function DashboardView({games,setView,teamName}){
 
 // ─── SPREADSHEET PARSER ───────────────────────────────────────────────────────
 const SHEET_STAT_MAP = [
-  "goals","assists","shots","shotsOnTarget","keyPasses",
-  "passesCompleted","passesAttempted","tackles","interceptions",
-  "aerialDuelsWon","fouls","dangerousTurnovers","bigChancesMissed",
+  "goals","assists","shots","shotsOnTarget","chancesCreated",
+  "passesCompleted","passesAttempted","passesIncomplete","dribbles",
+  "tackles","interceptions","blocks","clearances","recoveries",
+  "fiftyFifty","pressingActions","fouls","yellowCards","dangerousTurnovers",
   "minutesPlayed","saves","goalsConceded",
 ];
 
@@ -3563,6 +3613,8 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
               {l:"On Target",   v:seasonTeamStats.onTarget,  c:C.warning},
               ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
               ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
+              ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
+              ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
               {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
               {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
               {l:"Tackles",     v:seasonTeamStats.tackles,    c:C.accent},
@@ -4464,7 +4516,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             <Pencil size={13}/> Edit
           </button>
           {(()=>{
-            const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
+            const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,chancesCreated:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,dribbles:0,tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
             const statsToEdit=(game.stats||[]).length>0?game.stats:blank;
             return(
             <button onClick={()=>setEditStats({gameId:game.id,stats:JSON.parse(JSON.stringify(statsToEdit))})}
@@ -5384,23 +5436,23 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
   // ── Stat groups ────────────────────────────────────────────────────────────
   const ROLES = [
     {k:"head",      label:"Head Coach",  desc:"Full access — all stats, score, subs, end game",
-     color:C.accent, stats:["goals","assists","shots","shotsOnTarget","keyPasses","passesCompleted","passesIncomplete","tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"]},
-    {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots and key passes",
-     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","keyPasses"]},
-    {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions and fouls",
-     color:"#3b82f6", stats:["tackles","interceptions","aerialDuelsWon","fouls","dangerousTurnovers"]},
-    {k:"passing",   label:"Passing",     desc:"Track completed passes, incomplete passes and key passes",
-     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","keyPasses"]},
+     color:C.accent, stats:["goals","assists","shots","shotsOnTarget","chancesCreated","passesCompleted","passesIncomplete","dribbles","tackles","interceptions","blocks","clearances","recoveries","fiftyFifty","pressingActions","fouls","yellowCards","dangerousTurnovers","saves","goalsConceded"]},
+    {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots, chances and dribbles",
+     color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","chancesCreated","dribbles"]},
+    {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions, blocks, clearances and recoveries",
+     color:"#3b82f6", stats:["tackles","interceptions","blocks","clearances","recoveries","fiftyFifty","fouls"]},
+    {k:"passing",   label:"Passing",     desc:"Track passes, dribbles and pressing actions",
+     color:"#f59e0b", stats:["passesCompleted","passesIncomplete","dribbles","pressingActions"]},
     {k:"possession",label:"Possession",  desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
      color:"#27a560", stats:[]},
   ];
 
   const STAT_GROUPS_LIVE = [
-    {group:"Attack",    color:"#ff6b00", stats:[{k:"goals",label:"Goal"},{k:"assists",label:"Assist"},{k:"shots",label:"Shot"},{k:"shotsOnTarget",label:"On Target"},{k:"keyPasses",label:"Key Pass"}]},
-    {group:"Passing",   color:"#66bb6a", stats:[{k:"passesCompleted",label:"Pass ✓"},{k:"passesIncomplete",label:"Pass ✗"},{k:"keyPasses",label:"Key Pass"}]},
-    {group:"Defence",   color:"#42a5f5", stats:[{k:"tackles",label:"Tackle"},{k:"interceptions",label:"Int"},{k:"aerialDuelsWon",label:"Aerial"}]},
-    {group:"Discipline",color:"#ffa502", stats:[{k:"fouls",label:"Foul"},{k:"dangerousTurnovers",label:"Bad Turn"}]},
-    {group:"GK",        color:"#ffb300", stats:[{k:"saves",label:"Save",gkOnly:true},{k:"goalsConceded",label:"Conceded",gkOnly:true}]},
+    {group:"Attack",   color:"#ff6b00", stats:[{k:"goals",label:"Goal"},{k:"assists",label:"Assist"},{k:"shots",label:"Shot"},{k:"shotsOnTarget",label:"On Target"},{k:"chancesCreated",label:"Chance"}]},
+    {group:"Passing",  color:"#66bb6a", stats:[{k:"passesCompleted",label:"Pass ✓"},{k:"passesIncomplete",label:"Pass ✗"},{k:"dribbles",label:"Dribble"}]},
+    {group:"Defence",  color:"#42a5f5", stats:[{k:"tackles",label:"Tackle"},{k:"interceptions",label:"Int"},{k:"blocks",label:"Block"},{k:"clearances",label:"Clear"},{k:"recoveries",label:"Recover"}]},
+    {group:"Physical", color:"#ffa502", stats:[{k:"fiftyFifty",label:"50/50"},{k:"pressingActions",label:"Press"},{k:"fouls",label:"Foul"},{k:"yellowCards",label:"Yellow"}]},
+    {group:"GK",       color:"#ffb300", stats:[{k:"saves",label:"Save",gkOnly:true},{k:"goalsConceded",label:"Conceded",gkOnly:true}]},
   ];
 
   const STAT_BTNS = STAT_GROUPS_LIVE.flatMap(g=>g.stats.map(s=>({...s,color:g.color})));
@@ -5687,18 +5739,15 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         if(_mm==="possession"||_mm==="all"){m.possession=finalPoss;}
         if(_mm==="teamStats"||_mm==="all"){m.teamStats=teamStats;}
         if(_mm==="playerStats"||_mm==="all"){
-          // Accumulate stats rather than overwrite — handles partial sessions (e.g. half-time stops)
-          const ADDITIVE_KEYS=["goals","assists","shots","shotsOnTarget","keyPasses",
-            "passesCompleted","passesIncomplete","passesAttempted","tackles","interceptions",
-            "aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"];
+          const ADDITIVE_KEYS=["goals","assists","shots","shotsOnTarget","chancesCreated",
+            "passesCompleted","passesIncomplete","passesAttempted","dribbles",
+            "tackles","interceptions","blocks","clearances","recoveries",
+            "fiftyFifty","pressingActions","fouls","yellowCards","dangerousTurnovers","saves","goalsConceded"];
           const existing=g.stats||[];
           m.stats=sa.map(function(newS){
             const prev=existing.find(function(e){return e.playerId===newS.playerId;})||{};
             const merged=Object.assign({},prev,{playerId:newS.playerId});
-            ADDITIVE_KEYS.forEach(function(k){
-              const nv=newS[k]||0;
-              if(nv>0) merged[k]=(prev[k]||0)+nv; // only add if this session tracked something
-            });
+            ADDITIVE_KEYS.forEach(function(k){const nv=newS[k]||0;if(nv>0) merged[k]=(prev[k]||0)+nv;});
             return merged;
           });
         }
@@ -5790,6 +5839,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     // Connect to game channel
     realtimeManager.connect("game_"+sid, applyRemoteEvent, setRtStatus);
 
+    liveRef.current=gameData; statsRef.current=init;
     liveRef.current=gameData; statsRef.current=init;
     setLive(gameData); setStats(init); setMin(0); setAutoMin(false); setEvents([]);
     setBenched(_benched); setExcluded(_excluded); setSubLog([]); setPlayerMins(initMins);
@@ -5995,7 +6045,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {[
                 {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",       done:hasPo},
                 {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",     done:hasTS},
-                {k:"playerStats", l:"Player stats only", d:"Adds to existing player stats — safe to use for second half or partial sessions", done:hasPS},
+                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings", done:hasPS},
                 {k:"all",         l:"Everything",         d:"Full session — overwrites all data",      done:false},
               ].map(function(opt){return(
                 <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
@@ -6455,6 +6505,13 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}
             </span>
           </span>
+        </div>
+      )}
+
+      {sessionIntent&&sessionIntent!=="all"&&(
+        <div style={{background:"#1a0d00",padding:"3px 12px",flexShrink:0,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:5,height:5,borderRadius:"50%",background:C.accent,flexShrink:0}}/>
+          <span style={{color:C.muted,fontSize:10}}>Tracking: <span style={{color:C.accent,fontWeight:700}}>{sessionIntent==="possession"?"Possession only":sessionIntent==="teamStats"?"Team stats only":"Player stats only"}</span></span>
         </div>
       )}
 
@@ -17406,16 +17463,25 @@ function PlayerPortalPage(){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
   });
   var tots = allStats.reduce(function(acc,s){
-    return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
+    return {
+      goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
       shots:acc.shots+(s.shots||0),shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
-      tackles:acc.tackles+(s.tackles||0),
+      chancesCreated:acc.chancesCreated+(s.chancesCreated||s.keyPasses||0),
+      dribbles:acc.dribbles+(s.dribbles||0),
+      tackles:acc.tackles+(s.tackles||0),interceptions:acc.interceptions+(s.interceptions||0),
+      blocks:acc.blocks+(s.blocks||0),clearances:acc.clearances+(s.clearances||0),
+      recoveries:acc.recoveries+(s.recoveries||0),
+      fiftyFifty:acc.fiftyFifty+(s.fiftyFifty||s.aerialDuelsWon||0),
+      pressingActions:acc.pressingActions+(s.pressingActions||0),
+      fouls:acc.fouls+(s.fouls||0),yellowCards:acc.yellowCards+(s.yellowCards||0),
       saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
       passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
-      interceptions:acc.interceptions+(s.interceptions||0),
     };
-  },{goals:0,assists:0,shots:0,shotsOnTarget:0,tackles:0,saves:0,goalsConceded:0,
-    passesCompleted:0,passesAttempted:0,interceptions:0});
+  },{goals:0,assists:0,shots:0,shotsOnTarget:0,chancesCreated:0,dribbles:0,
+    tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,
+    fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,
+    saves:0,goalsConceded:0,passesCompleted:0,passesAttempted:0});
   var seasonPassAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):null;
   var seasonShotAcc=tots.shots>0&&tots.shotsOnTarget>0?Math.round(tots.shotsOnTarget/tots.shots*100):null;
   var seasonShotConv=tots.shots>0&&tots.goals>0?Math.round(tots.goals/tots.shots*100):null;
@@ -18302,7 +18368,7 @@ function PlayerPortalPage(){
 
             {/* Season summary */}
             <PortalCard title="Season Summary">
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
                   :isCB
@@ -18315,38 +18381,6 @@ function PlayerPortalPage(){
                   </div>
                 );})}
               </div>
-              {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
-                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-                  {seasonPassAcc!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#f0f9f4",borderRadius:9,padding:"10px 8px",border:"1px solid #d0ead9"}}>
-                      <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonPassAcc}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>PASS ACC.</div>
-                    </div>
-                  )}
-                  {seasonShotAcc!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff8f0",borderRadius:9,padding:"10px 8px",border:"1px solid #fde8c8"}}>
-                      <div style={{color:"#f59e0b",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotAcc}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>SHOT ACC.</div>
-                    </div>
-                  )}
-                  {seasonShotConv!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff5f5",borderRadius:9,padding:"10px 8px",border:"1px solid #fecaca"}}>
-                      <div style={{color:"#e53935",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotConv}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>CONVERSION</div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {playerGames.length>0&&(
-                <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
-                  {[{l:"Shots",v:tots.shots},{l:"On Target",v:tots.shotsOnTarget},{l:"Passes",v:tots.passesCompleted},{l:"Tackles",v:tots.tackles},{l:"Interceptions",v:tots.interceptions}].map(function(item){return(
-                    <div key={item.l} style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:48}}>
-                      <span style={{color:"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
-                      <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
-                    </div>
-                  );})}
-                </div>
-              )}
               {playerGames.length===0&&(
                 <div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>
                   Stats will appear after games are logged by your coach
@@ -18381,9 +18415,9 @@ function PlayerPortalPage(){
                         <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>
                           {g.ourScore}–{g.theirScore}
                         </div>
-                        <div style={{textAlign:"right"}}>
-                          {(function(){var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);var pct=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;return pct!==null?(<div style={{color:"#27a560",fontSize:10,fontWeight:600}}>{pct}% pass</div>):null;})()}
-                          <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{g.excludeFromRating?"—":rat.rating.toFixed(1)}</div>
+                        <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
+                          fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
+                          {g.excludeFromRating?"—":rat.rating.toFixed(1)}
                         </div>
                         <div style={{color:"#ccc",fontSize:14,transform:isExp?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
                       </div>
@@ -18391,20 +18425,14 @@ function PlayerPortalPage(){
                         <div style={{padding:"12px 20px",background:"#fafafa",
                           borderTop:"1px solid #f5f5f5"}}>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                            {(function(){
-                              var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);
-                              var pAcc=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;
-                              var sAcc=(s.shots||0)>0&&(s.shotsOnTarget||0)>0?Math.round((s.shotsOnTarget||0)/(s.shots||0)*100):null;
-                              var items=[
-                                {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                                {l:"Shots",v:s.shots||0},{l:"On Target",v:s.shotsOnTarget||0},
-                                {l:"Tackles",v:s.tackles||0},{l:"Interceptions",v:s.interceptions||0},
-                                {l:"Passes",v:s.passesCompleted||0}
-                              ];
-                              if(sAcc!==null) items.push({l:"Shot Acc.",v:sAcc+"%"});
-                              if(pAcc!==null) items.push({l:"Pass Acc.",v:pAcc+"%"});
-                              return items;
-                            })().map(function(stat){return(
+                            {[
+                              {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
+                              {l:"Shots",v:s.shots||0},{l:"On Target",v:s.shotsOnTarget||0},
+                              {l:"Chances",v:s.chancesCreated||0},{l:"Dribbles",v:s.dribbles||0},
+                              {l:"Tackles",v:s.tackles||0},{l:"Int",v:s.interceptions||0},
+                              {l:"Blocks",v:s.blocks||0},{l:"Clearances",v:s.clearances||0},
+                              {l:"50/50s",v:s.fiftyFifty||0},{l:"Presses",v:s.pressingActions||0},
+                            ].map(function(stat){return(
                               <div key={stat.l} style={{display:"flex",justifyContent:"space-between",
                                 padding:"6px 10px",background:"#fff",borderRadius:7,
                                 border:"1px solid #f0f0f0"}}>
@@ -19224,27 +19252,33 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
     ? editStats.stats
     : (roster||[]).map(function(p){
         return {playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,
-          keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,
-          interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,
-          saves:0,goalsConceded:0,minutesPlayed:0};
+          chancesCreated:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,dribbles:0,
+          tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,
+          fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,
+          dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0};
       });
 
   var STAT_FIELDS = [
-    {k:"goals",        label:"Goals"},
-    {k:"assists",      label:"Assists"},
-    {k:"shots",        label:"Shots"},
-    {k:"shotsOnTarget",label:"Shots on Target"},
-    {k:"keyPasses",    label:"Key Passes"},
-    {k:"passesCompleted",label:"Passes Completed"},
-    {k:"passesAttempted",label:"Passes Attempted"},
-    {k:"tackles",      label:"Tackles"},
-    {k:"interceptions",label:"Interceptions"},
-    {k:"aerialDuelsWon",label:"Aerial Duels Won"},
-    {k:"fouls",        label:"Fouls"},
-    {k:"dangerousTurnovers",label:"Turnovers"},
-    {k:"saves",        label:"Saves (GK)"},
-    {k:"goalsConceded",label:"Conceded (GK)"},
-    {k:"minutesPlayed",label:"Minutes Played"},
+    {k:"goals",           label:"Goals"},
+    {k:"assists",         label:"Assists"},
+    {k:"shots",           label:"Shots"},
+    {k:"shotsOnTarget",   label:"Shots on Target"},
+    {k:"chancesCreated",  label:"Chances Created"},
+    {k:"passesCompleted", label:"Passes Completed"},
+    {k:"passesIncomplete",label:"Passes Incomplete"},
+    {k:"dribbles",        label:"Successful Dribbles"},
+    {k:"tackles",         label:"Tackles"},
+    {k:"interceptions",   label:"Interceptions"},
+    {k:"blocks",          label:"Blocks"},
+    {k:"clearances",      label:"Clearances"},
+    {k:"recoveries",      label:"Recoveries"},
+    {k:"fiftyFifty",      label:"50/50s Won"},
+    {k:"pressingActions", label:"Pressing Actions"},
+    {k:"fouls",           label:"Fouls"},
+    {k:"yellowCards",     label:"Yellow Cards"},
+    {k:"dangerousTurnovers",label:"Dangerous Turnovers"},
+    {k:"saves",           label:"Saves (GK)"},
+    {k:"goalsConceded",   label:"Conceded (GK)"},
   ];
 
   function updateStat(playerId, key, val){
@@ -19831,7 +19865,8 @@ function LiveJoinPage(){
   var STAT_BTNS = [
     {k:"goals",label:"Goal",color:"#ef4444"},{k:"assists",label:"Assist",color:"#ef4444"},
     {k:"shots",label:"Shot",color:"#f59e0b"},{k:"shotsOnTarget",label:"On Target",color:"#f59e0b"},
-    {k:"keyPasses",label:"Key Pass",color:"#8b5cf6"},
+    {k:"chancesCreated",label:"Chance",color:"#8b5cf6"},
+    {k:"dribbles",label:"Dribble",color:"#ec4899"},{k:"fiftyFifty",label:"50/50",color:"#f97316"},
     {k:"passesCompleted",label:"Pass ✓",color:"#27a560"},{k:"passesIncomplete",label:"Pass ✗",color:"#ef4444"},
     {k:"tackles",label:"Tackle",color:"#3b82f6"},{k:"interceptions",label:"Int",color:"#3b82f6"},
     {k:"aerialDuelsWon",label:"Aerial",color:"#3b82f6"},
