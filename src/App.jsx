@@ -3557,19 +3557,21 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
           <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:14}}>SEASON TEAM STATS — LIVE TRACKED</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:10}}>
             {[
-              {l:"Passes",     v:seasonTeamStats.passes||0,    c:C.accent},
-              {l:"Inc Passes", v:seasonTeamStats.passesInc||0, c:C.danger},
-              {l:"Shots",      v:seasonTeamStats.shots||0,     c:C.warning},
-              {l:"On Target",  v:seasonTeamStats.onTarget||0,  c:C.warning},
-              {l:"Goals",      v:seasonTeamStats.goals||0,     c:C.accent},
-              {l:"Corners",    v:seasonTeamStats.corners||0,   c:C.muted},
-              {l:"Tackles",    v:seasonTeamStats.tackles||0,   c:C.accent},
-              {l:"50/50s",     v:seasonTeamStats.fifty50||0,   c:C.warning},
-              {l:"T/O Won",    v:seasonTeamStats.turnovers||0, c:C.accent},
-              {l:"Fouls",      v:seasonTeamStats.fouls||0,     c:C.muted},
+              {l:"Passes",      v:seasonTeamStats.passes,    c:C.accent},
+              {l:"Inc Passes",  v:seasonTeamStats.passesInc, c:C.danger},
+              {l:"Shots",       v:seasonTeamStats.shots,      c:C.warning},
+              {l:"On Target",   v:seasonTeamStats.onTarget,  c:C.warning},
               ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
               ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
-            ].filter(function(x){return (typeof x.v==="number"?x.v>0:true);}).map(function(item){return(
+              ...(seasonShotAcc!==null?[{l:"Shot Acc.",v:seasonShotAcc+"%",c:C.warning}]:[]),
+              ...(seasonPassAcc!==null?[{l:"Pass Acc.",v:seasonPassAcc+"%",c:C.accent}]:[]),
+              {l:"Goals",       v:seasonTeamStats.goals,      c:C.accent},
+              {l:"Corners",     v:seasonTeamStats.corners,    c:C.muted},
+              {l:"Tackles",     v:seasonTeamStats.tackles,    c:C.accent},
+              {l:"50/50s",      v:seasonTeamStats.fifty50,    c:C.warning},
+              {l:"T/O Won",     v:seasonTeamStats.turnovers,  c:C.accent},
+              {l:"Fouls",       v:seasonTeamStats.fouls,      c:C.muted},
+            ].filter(function(x){return x.v>0;}).map(function(item){return(
               <div key={item.l} style={{background:C.surface,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
                 <div style={{color:item.c,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{item.v}</div>
                 <div style={{color:C.muted,fontSize:10,marginTop:4,fontWeight:600}}>{item.l}</div>
@@ -4233,7 +4235,6 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [showQuick,setShowQuick]=useState(false);
   const [editGame,setEditGame]=useState(null); // game object being edited
   const [editTeamStats,setEditTeamStats]=useState(null);
-  const [showExcludePlayers,setShowExcludePlayers]=useState(false); // player exclusion modal
   const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
   const [addStatsFor,setAddStatsFor]=useState(null);
   const [editStats,setEditStats]=useState(null); // {game, stat} being edited
@@ -4313,23 +4314,30 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           defensive:     fmt(breakdown.defensive),
           bonus:         fmt(breakdown.bonus),
           errors:        fmt(breakdown.errors),
-          stat_goals:       String(st.goals||0),
-          stat_assists:     String(st.assists||0),
-          stat_shots:       String(st.shots||0),
-          stat_shots_ot:    String(st.shotsOnTarget||0),
-          stat_key_passes:  String(st.keyPasses||0),
-          stat_pass_comp:   String(st.passesCompleted||0),
-          stat_pass_att:    String(passAtt),
-          stat_pass_acc:    passAccStr,
-          stat_tackles:     String(st.tackles||0),
-          stat_ints:        String(st.interceptions||0),
-          stat_aerials:     String(st.aerialDuelsWon||0),
-          stat_fouls:       String(st.fouls||0),
-          stat_turns:       String(st.dangerousTurnovers||0),
-          stat_saves:       String(st.saves||0),
-          stat_conceded:    String(st.goalsConceded||0),
-          stat_minutes:     String(st.minutesPlayed||90),
-          stat_is_gk:       isGK ? "true" : "false",
+          stat_goals:          String(st.goals||0),
+          stat_assists:        String(st.assists||0),
+          stat_shots:          String(st.shots||0),
+          stat_shots_ot:       String(st.shotsOnTarget||0),
+          stat_chances:        String(st.chancesCreated||0),
+          stat_dribbles:       String(st.dribbles||0),
+          stat_pass_comp:      String(st.passesCompleted||0),
+          stat_pass_inc:       String(st.passesIncomplete||0),
+          stat_pass_att:       String(passAtt),
+          stat_pass_acc:       passAccStr,
+          stat_shot_acc:       (st.shots>0&&st.shotsOnTarget>0)?Math.round(st.shotsOnTarget/st.shots*100)+"%":"N/A",
+          stat_tackles:        String(st.tackles||0),
+          stat_ints:           String(st.interceptions||0),
+          stat_blocks:         String(st.blocks||0),
+          stat_clearances:     String(st.clearances||0),
+          stat_recoveries:     String(st.recoveries||0),
+          stat_fifty_fifty:    String(st.fiftyFifty||0),
+          stat_pressing:       String(st.pressingActions||0),
+          stat_fouls:          String(st.fouls||0),
+          stat_yellows:        String(st.yellowCards||0),
+          stat_turns:          String(st.dangerousTurnovers||0),
+          stat_saves:          String(st.saves||0),
+          stat_conceded:       String(st.goalsConceded||0),
+          stat_is_gk:          isGK ? "true" : "false",
           team_possession:  game.possession&&(game.possession.home+game.possession.away)>0
             ? Math.round(game.possession.home/(game.possession.home+game.possession.away)*100)+"%"
             : "N/A",
@@ -4421,13 +4429,12 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const game=games.find(g=>g.id===sel); if(!game)return null;
     const res=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
     const rc=res==="W"?C.accent:res==="L"?C.danger:C.warning;
-    const excludedIds=new Set(game.excludedPlayerIds||[]);
-    const rows=game.stats.filter(s=>!excludedIds.has(s.playerId)).map(s=>{
+    const rows=game.stats.map(s=>{
       const p=PLAYERS.find(x=>x.id===s.playerId);
       const cs=isCS(game,s.playerId);
       const ratingData=game.excludeFromRating?{rating:null,label:"",breakdown:{}}:calcRating(s,primaryPos(p),cs);
       return {...s,player:p,...ratingData};
-    }).filter(r=>r.player).sort((a,b)=>(b.rating||0)-(a.rating||0));
+    }).sort((a,b)=>(b.rating||0)-(a.rating||0));
     const tSh=game.stats.reduce((a,s)=>a+s.shots,0);
     const tSoT=game.stats.reduce((a,s)=>a+s.shotsOnTarget,0);
     const tPC=game.stats.reduce((a,s)=>a+s.passesCompleted,0);
@@ -4464,11 +4471,6 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
-          </button>
-          <button onClick={()=>setShowExcludePlayers(true)}
-            style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
-              padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
-            Manage Players
           </button>
           {(()=>{
             const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,keyPasses:0,passesCompleted:0,passesAttempted:0,tackles:0,interceptions:0,aerialDuelsWon:0,fouls:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
@@ -4663,15 +4665,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                           <span style={{color:C.text,fontWeight:700,fontSize:14}}>{row.player?.name}</span>
                           {allPos(row.player).map(pos=><Tag key={pos} color={posColor(pos)}>{pos}</Tag>)}
-                          <span style={{color:C.muted,fontSize:11}}>
-                            {row.goals>0&&<span style={{marginRight:4}}>{row.goals}G</span>}
-                            {row.assists>0&&<span style={{marginRight:4}}>{row.assists}A</span>}
-                            {row.shots>0&&<span style={{marginRight:4}}>{row.shots}Sh</span>}
-                            {row.tackles>0&&<span style={{marginRight:4}}>{row.tackles}T</span>}
-                            {row.interceptions>0&&<span style={{marginRight:4}}>{row.interceptions}Int</span>}
-                            {(row.chancesCreated||0)>0&&<span style={{marginRight:4}}>{row.chancesCreated}CC</span>}
-                            {(row.dribbles||0)>0&&<span style={{marginRight:4}}>{row.dribbles}Drb</span>}
-                          </span>
+                          <span style={{color:C.muted,fontSize:11}}>{row.goals}G {row.assists}A {row.tackles}T {row.keyPasses||0}KP</span>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                           {row.rating!=null&&<><span style={{color:rColor(row.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:22}}>{row.rating.toFixed(1)}</span>
@@ -4706,63 +4700,6 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         </div>
       </div>
-
-      {/* ── EXCLUDE PLAYERS MODAL ── */}
-      {showExcludePlayers&&(
-        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
-          display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
-            width:"100%",maxWidth:420,padding:24,maxHeight:"80vh",overflowY:"auto"}}>
-            <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>MANAGE PLAYERS</div>
-            <div style={{color:C.muted,fontSize:12,marginBottom:16}}>
-              Toggle players off to exclude them from this game's ratings and team averages.
-              Their stats are kept but not counted.
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
-              {PLAYERS.map(function(p){
-                const isExcluded=(game.excludedPlayerIds||[]).includes(p.id);
-                const hasStat=(game.stats||[]).some(function(s){return s.playerId===p.id;});
-                return(
-                  <button key={p.id} onClick={()=>{
-                      setGames(function(prev){return prev.map(function(g){
-                        if(g.id!==game.id) return g;
-                        const cur=g.excludedPlayerIds||[];
-                        const next=isExcluded?cur.filter(function(id){return id!==p.id;}):[...cur,p.id];
-                        return {...g,excludedPlayerIds:next};
-                      });});
-                    }}
-                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
-                      borderRadius:9,cursor:"pointer",textAlign:"left",
-                      background:isExcluded?C.surface:C.card,
-                      border:`1px solid ${isExcluded?C.border:C.accent}`,
-                      opacity:isExcluded?0.5:1,transition:"all .1s"}}>
-                    <div style={{width:32,height:32,borderRadius:8,flexShrink:0,
-                      background:posColor(primaryPos(p))+"33",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      color:posColor(primaryPos(p)),fontFamily:"'Oswald',sans-serif",
-                      fontWeight:700,fontSize:12}}>{primaryPos(p)}</div>
-                    <div style={{flex:1}}>
-                      <div style={{color:isExcluded?C.muted:C.text,fontWeight:700,fontSize:13}}>
-                        {p.name}
-                        {!hasStat&&<span style={{color:C.muted,fontSize:10,fontWeight:400,marginLeft:6}}>no stats</span>}
-                      </div>
-                    </div>
-                    <div style={{color:isExcluded?C.muted:C.accent,fontSize:12,fontWeight:700}}>
-                      {isExcluded?"excluded":"included"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <button onClick={()=>setShowExcludePlayers(false)}
-              style={{width:"100%",padding:"11px",background:C.accent,border:"none",
-                borderRadius:10,color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",
-                fontFamily:"'Oswald',sans-serif"}}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── EDIT GAME MODAL (detail view) ── */}
       {editGame&&(
@@ -16150,59 +16087,41 @@ function MatchReportPage(){
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
                   PLAYER RATINGS
                 </div>
-                <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:700,tableLayout:"fixed"}}>
-                  <colgroup>
-                    <col style={{width:24}}/><col style={{width:120}}/><col style={{width:36}}/><col style={{width:48}}/>
-                    <col style={{width:28}}/><col style={{width:28}}/><col style={{width:28}}/><col style={{width:32}}/><col style={{width:28}}/><col style={{width:28}}/>
-                    <col style={{width:28}}/><col style={{width:28}}/><col style={{width:28}}/><col style={{width:28}}/>
-                    <col style={{width:44}}/><col style={{width:44}}/><col style={{width:36}}/><col style={{width:36}}/><col style={{width:36}}/><col style={{width:36}}/><col style={{width:36}}/><col style={{width:36}}/><col style={{width:44}}/><col style={{width:44}}/><col style={{width:48}}/>
-                  </colgroup>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
                   <thead>
-                    <tr style={{borderBottom:"1.5px solid #e5e0d8",background:"#faf9f7"}}>
-                      {["#","Player","Pos","Rtg","G","A","Sh","SOT","Tck","Int","Blk","Clr","Rec","Drb","CC","50/50","Press","Foul","Yel","DT","Sv","GC","Pass✓","Pass✗","Pass%"].map(function(h,hi){
-                        return <th key={h} style={{textAlign:hi<4?"left":"center",padding:"5px 4px",fontSize:9,
-                          letterSpacing:.5,color:"#aaa",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>;
+                    <tr style={{borderBottom:"2px solid #e5e0d8"}}>
+                      {["#","Player","Pos","Rating","G","A","Shots","Tackles","Passes"].map(function(h){
+                        return <th key={h} style={{textAlign:"left",padding:"5px 8px",fontSize:9,
+                          letterSpacing:1,color:"#aaa",fontWeight:700}}>{h}</th>;
                       })}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map(function(r,i){
-                      var rc=r.rating>=8?"#2e7d32":r.rating>=7?"#b45a00":r.rating>=6?"#666":"#c62828";
-                      var pc=(r.s.passesCompleted||0)+(r.s.passesIncomplete||0);
-                      var pct=pc>0?Math.round((r.s.passesCompleted||0)/pc*100):null;
-                      function C(v,hi){ return <td style={{padding:"5px 4px",textAlign:"center",color:v>0?"#333":"#ddd",fontSize:hi?11:11}}>{v>0?v:"—"}</td>; }
+                      var rc=r.rating>=8?"#2e7d32":r.rating>=6.5?"#b45a00":"#c62828";
                       return(
                         <tr key={i} style={{borderBottom:"1px solid #f0ede8",
-                          background:i===0?"#fff8f5":i%2===0?"#fdfcfb":"transparent"}}>
-                          <td style={{padding:"5px 4px",color:"#ccc",fontSize:10,textAlign:"left"}}>{i+1}</td>
-                          <td style={{padding:"5px 4px",fontWeight:i===0?700:500,fontSize:12,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                            {i===0&&<span style={{color:accent,marginRight:3,fontSize:10}}>★</span>}
-                            {r.p.name.split(" ").slice(-1)[0]}
+                          background:i===0?"#fff8f5":"transparent"}}>
+                          <td style={{padding:"7px 8px",color:"#ccc",fontSize:11}}>{i+1}</td>
+                          <td style={{padding:"7px 8px",fontWeight:i===0?700:500}}>
+                            {i===0&&<span style={{color:accent,marginRight:4,fontSize:11}}>★</span>}
+                            {r.p.name}
                           </td>
-                          <td style={{padding:"5px 4px",color:"#999",fontSize:10}}>{primaryPos(r.p)}</td>
-                          <td style={{padding:"5px 4px"}}>
+                          <td style={{padding:"7px 8px",color:"#999",fontSize:11}}>{primaryPos(r.p)}</td>
+                          <td style={{padding:"7px 8px"}}>
                             <span style={{background:rc+"18",color:rc,fontFamily:FH,fontWeight:900,
-                              fontSize:13,padding:"1px 5px",borderRadius:5}}>{r.rating.toFixed(1)}</span>
+                              fontSize:14,padding:"2px 8px",borderRadius:6}}>{r.rating.toFixed(1)}</span>
                           </td>
-                          {C(r.s.goals||0)}{C(r.s.assists||0)}{C(r.s.shots||0)}{C(r.s.shotsOnTarget||0)}
-                          {C(r.s.tackles||0)}{C(r.s.interceptions||0)}{C(r.s.blocks||0)}{C(r.s.clearances||0)}
-                          {C(r.s.recoveries||0)}{C(r.s.dribbles||0)}{C(r.s.chancesCreated||0)}{C(r.s.fiftyFifty||0)}
-                          {C(r.s.pressingActions||0)}{C(r.s.fouls||0)}{C(r.s.yellowCards||0)}{C(r.s.dangerousTurnovers||0)}
-                          {C(r.s.saves||0)}{C(r.s.goalsConceded||0)}
-                          <td style={{padding:"5px 4px",textAlign:"center",color:r.s.passesCompleted>0?"#333":"#ddd",fontSize:11}}>{r.s.passesCompleted||0}</td>
-                          <td style={{padding:"5px 4px",textAlign:"center",color:r.s.passesIncomplete>0?"#c62828":"#ddd",fontSize:11}}>{r.s.passesIncomplete||0}</td>
-                          <td style={{padding:"5px 4px",textAlign:"center",
-                            color:pct===null?"#ddd":pct>=75?"#2e7d32":pct>=60?"#b45a00":"#c62828",
-                            fontWeight:pct!==null?700:400,fontSize:11}}>
-                            {pct!==null?pct+"%":"—"}
-                          </td>
+                          <td style={{padding:"7px 8px",fontWeight:r.s.goals>0?700:400,color:r.s.goals>0?accent:"#666"}}>{r.s.goals||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.assists||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.shots||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.tackles||0}</td>
+                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.passesCompleted||0}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                </div>
               </div>
             )}
 
@@ -17481,28 +17400,16 @@ function PlayerPortalPage(){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
   });
   var tots = allStats.reduce(function(acc,s){
-    return {
-      goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
-      shots:acc.shots+(s.shots||0),shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
-      chancesCreated:acc.chancesCreated+(s.chancesCreated||s.keyPasses||0),
-      dribbles:acc.dribbles+(s.dribbles||0),
-      tackles:acc.tackles+(s.tackles||0),interceptions:acc.interceptions+(s.interceptions||0),
-      blocks:acc.blocks+(s.blocks||0),clearances:acc.clearances+(s.clearances||0),
-      recoveries:acc.recoveries+(s.recoveries||0),
-      fiftyFifty:acc.fiftyFifty+(s.fiftyFifty||s.aerialDuelsWon||0),
-      pressingActions:acc.pressingActions+(s.pressingActions||0),
-      fouls:acc.fouls+(s.fouls||0),yellowCards:acc.yellowCards+(s.yellowCards||0),
+    return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
+      shots:acc.shots+(s.shots||0),tackles:acc.tackles+(s.tackles||0),
       saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
-      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
+      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||0)),
+      interceptions:acc.interceptions+(s.interceptions||0),
+      minutes:acc.minutes+(s.minutesPlayed||0),
     };
-  },{goals:0,assists:0,shots:0,shotsOnTarget:0,chancesCreated:0,dribbles:0,
-    tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,
-    fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,
-    saves:0,goalsConceded:0,passesCompleted:0,passesAttempted:0});
-  var seasonPassAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):null;
-  var seasonShotAcc=tots.shots>0&&tots.shotsOnTarget>0?Math.round(tots.shotsOnTarget/tots.shots*100):null;
-  var seasonShotConv=tots.shots>0&&tots.goals>0?Math.round(tots.goals/tots.shots*100):null;
+  },{goals:0,assists:0,shots:0,tackles:0,saves:0,goalsConceded:0,
+    passesCompleted:0,passesAttempted:0,interceptions:0,minutes:0});
 
   var ratingList = playerGames.filter(function(g){return !g.excludeFromRating;}).map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
@@ -18386,7 +18293,7 @@ function PlayerPortalPage(){
 
             {/* Season summary */}
             <PortalCard title="Season Summary">
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
                   :isCB
@@ -18399,44 +18306,6 @@ function PlayerPortalPage(){
                   </div>
                 );})}
               </div>
-              {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
-                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-                  {seasonPassAcc!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#f0f9f4",borderRadius:9,padding:"10px 8px",border:"1px solid #d0ead9"}}>
-                      <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonPassAcc}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>PASS ACC.</div>
-                    </div>
-                  )}
-                  {seasonShotAcc!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff8f0",borderRadius:9,padding:"10px 8px",border:"1px solid #fde8c8"}}>
-                      <div style={{color:"#f59e0b",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotAcc}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>SHOT ACC.</div>
-                    </div>
-                  )}
-                  {seasonShotConv!==null&&(
-                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff5f5",borderRadius:9,padding:"10px 8px",border:"1px solid #fecaca"}}>
-                      <div style={{color:"#e53935",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotConv}%</div>
-                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>CONVERSION</div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {playerGames.length>0&&(
-                <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
-                  {[
-                    {l:"Shots",v:tots.shots},{l:"On Target",v:tots.shotsOnTarget},
-                    {l:"Passes",v:tots.passesCompleted},{l:"Dribbles",v:tots.dribbles},
-                    {l:"Chances",v:tots.chancesCreated},{l:"Tackles",v:tots.tackles},
-                    {l:"Int",v:tots.interceptions},{l:"Blocks",v:tots.blocks},
-                    {l:"50/50s",v:tots.fiftyFifty},{l:"Presses",v:tots.pressingActions},
-                  ].filter(function(x){return x.v>0;}).map(function(item){return(
-                    <div key={item.l} style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:48}}>
-                      <span style={{color:"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
-                      <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
-                    </div>
-                  );})}
-                </div>
-              )}
               {playerGames.length===0&&(
                 <div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>
                   Stats will appear after games are logged by your coach
@@ -18471,9 +18340,9 @@ function PlayerPortalPage(){
                         <div style={{color:rc,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:15}}>
                           {g.ourScore}–{g.theirScore}
                         </div>
-                        <div style={{textAlign:"right"}}>
-                          {(function(){var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);var pct=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;return pct!==null?(<div style={{color:"#27a560",fontSize:10,fontWeight:600}}>{pct}% pass</div>):null;})()}
-                          <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:14}}>{g.excludeFromRating?"—":rat.rating.toFixed(1)}</div>
+                        <div style={{color:rColor(rat.rating),fontFamily:"'Oswald',sans-serif",
+                          fontWeight:900,fontSize:14,minWidth:28,textAlign:"right"}}>
+                          {g.excludeFromRating?"—":rat.rating.toFixed(1)}
                         </div>
                         <div style={{color:"#ccc",fontSize:14,transform:isExp?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
                       </div>
@@ -18481,23 +18350,11 @@ function PlayerPortalPage(){
                         <div style={{padding:"12px 20px",background:"#fafafa",
                           borderTop:"1px solid #f5f5f5"}}>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                            {(function(){
-                              var pa=(s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0);
-                              var pAcc=pa>0?Math.round((s.passesCompleted||0)/pa*100):null;
-                              var sAcc=(s.shots||0)>0&&(s.shotsOnTarget||0)>0?Math.round((s.shotsOnTarget||0)/(s.shots||0)*100):null;
-                              var items=[
-                                {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
-                                {l:"Shots",v:s.shots||0},{l:"On Target",v:s.shotsOnTarget||0},
-                                {l:"Chances Created",v:s.chancesCreated||0},{l:"Dribbles",v:s.dribbles||0},
-                                {l:"Tackles",v:s.tackles||0},{l:"Interceptions",v:s.interceptions||0},
-                                {l:"Blocks",v:s.blocks||0},{l:"Clearances",v:s.clearances||0},
-                                {l:"Recoveries",v:s.recoveries||0},{l:"50/50s",v:s.fiftyFifty||0},
-                                {l:"Presses",v:s.pressingActions||0},{l:"Fouls",v:s.fouls||0},
-                              ].filter(function(x){return x.v>0;});
-                              if(sAcc!==null) items.push({l:"Shot Acc.",v:sAcc+"%"});
-                              if(pAcc!==null) items.push({l:"Pass Acc.",v:pAcc+"%"});
-                              return items.length?items:[{l:"No stats tracked",v:""}];
-                            })().map(function(stat){return(
+                            {[
+                              {l:"Goals",v:s.goals||0},{l:"Assists",v:s.assists||0},
+                              {l:"Shots",v:s.shots||0},{l:"Tackles",v:s.tackles||0},
+                              {l:"Key Passes",v:s.keyPasses||0},{l:"Minutes",v:s.minutesPlayed||90},
+                            ].map(function(stat){return(
                               <div key={stat.l} style={{display:"flex",justifyContent:"space-between",
                                 padding:"6px 10px",background:"#fff",borderRadius:7,
                                 border:"1px solid #f0f0f0"}}>
