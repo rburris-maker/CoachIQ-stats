@@ -5686,7 +5686,22 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
         const m={...g};
         if(_mm==="possession"||_mm==="all"){m.possession=finalPoss;}
         if(_mm==="teamStats"||_mm==="all"){m.teamStats=teamStats;}
-        if(_mm==="playerStats"||_mm==="all"){m.stats=sa;}
+        if(_mm==="playerStats"||_mm==="all"){
+          // Accumulate stats rather than overwrite — handles partial sessions (e.g. half-time stops)
+          const ADDITIVE_KEYS=["goals","assists","shots","shotsOnTarget","keyPasses",
+            "passesCompleted","passesIncomplete","passesAttempted","tackles","interceptions",
+            "aerialDuelsWon","fouls","dangerousTurnovers","saves","goalsConceded"];
+          const existing=g.stats||[];
+          m.stats=sa.map(function(newS){
+            const prev=existing.find(function(e){return e.playerId===newS.playerId;})||{};
+            const merged=Object.assign({},prev,{playerId:newS.playerId});
+            ADDITIVE_KEYS.forEach(function(k){
+              const nv=newS[k]||0;
+              if(nv>0) merged[k]=(prev[k]||0)+nv; // only add if this session tracked something
+            });
+            return merged;
+          });
+        }
         if(_mm==="all"){m.ourScore=currentLive.ourScore;m.theirScore=currentLive.theirScore;}
         return m;
       }));
@@ -5980,7 +5995,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
               {[
                 {k:"possession",  l:"Possession only",   d:"Track HOME/AWAY possession timing",       done:hasPo},
                 {k:"teamStats",   l:"Team stats only",   d:"Track passes, shots, corners, fouls",     done:hasTS},
-                {k:"playerStats", l:"Player stats only", d:"Track individual goals, assists, ratings", done:hasPS},
+                {k:"playerStats", l:"Player stats only", d:"Adds to existing player stats — safe to use for second half or partial sessions", done:hasPS},
                 {k:"all",         l:"Everything",         d:"Full session — overwrites all data",      done:false},
               ].map(function(opt){return(
                 <button key={opt.k} onClick={()=>{setSessionIntent(opt.k);setMergeTarget(existing||null);setMergeMode(opt.k);}}
