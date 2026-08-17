@@ -4272,6 +4272,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
   const [showQuick,setShowQuick]=useState(false);
   const [editGame,setEditGame]=useState(null); // game object being edited
   const [editTeamStats,setEditTeamStats]=useState(null);
+  const [showExcludePlayers,setShowExcludePlayers]=useState(false);
   const [quickForm,setQuickForm]=useState({opponent:"",date:new Date().toISOString().split("T")[0],location:"Home",ourScore:"",theirScore:"",coachNotes:""});
   const [addStatsFor,setAddStatsFor]=useState(null);
   const [editStats,setEditStats]=useState(null); // {game, stat} being edited
@@ -4459,12 +4460,14 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
     const game=games.find(g=>g.id===sel); if(!game)return null;
     const res=game.ourScore>game.theirScore?"W":game.ourScore<game.theirScore?"L":"D";
     const rc=res==="W"?C.accent:res==="L"?C.danger:C.warning;
-    const rows=game.stats.map(s=>{
+    const excludedIds=new Set(game.excludedPlayerIds||[]);
+    const rows=game.stats.filter(s=>!excludedIds.has(s.playerId)).map(s=>{
       const p=PLAYERS.find(x=>x.id===s.playerId);
+      if(!p) return null;
       const cs=isCS(game,s.playerId);
       const ratingData=game.excludeFromRating?{rating:null,label:"",breakdown:{}}:calcRating(s,primaryPos(p),cs);
       return {...s,player:p,...ratingData};
-    }).sort((a,b)=>(b.rating||0)-(a.rating||0));
+    }).filter(Boolean).sort((a,b)=>(b.rating||0)-(a.rating||0));
     const tSh =game.stats.reduce((a,s)=>a+(s.shots||0),0);
     const tSoT=game.stats.reduce((a,s)=>a+(s.shotsOnTarget||0),0);
     const tPC =game.stats.reduce((a,s)=>a+(s.passesCompleted||0),0);
@@ -4513,6 +4516,11 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
             style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
               padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
             <Pencil size={13}/> Edit
+          </button>
+          <button onClick={()=>setShowExcludePlayers(true)}
+            style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+              padding:"8px 14px",color:C.muted,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            👥 Manage Players
           </button>
           {(()=>{
             const blank=(activeRoster||[]).map(p=>({playerId:p.id,goals:0,assists:0,shots:0,shotsOnTarget:0,chancesCreated:0,passesCompleted:0,passesAttempted:0,passesIncomplete:0,dribbles:0,tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,dangerousTurnovers:0,saves:0,goalsConceded:0,minutesPlayed:0}));
@@ -4750,6 +4758,72 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
           </div>
         </div>
       </div>
+
+      {/* ── MANAGE PLAYERS MODAL ── */}
+      {showExcludePlayers&&sel&&(function(){
+        const game=games.find(g=>g.id===sel); if(!game) return null;
+        return(
+          <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,
+            display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,
+              width:"100%",maxWidth:420,padding:24,maxHeight:"80vh",overflowY:"auto"}}>
+              <div style={{color:C.accent,fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:4}}>MANAGE PLAYERS</div>
+              <div style={{color:C.muted,fontSize:12,marginBottom:16}}>
+                Toggle off players who did not play. Their stats are kept but excluded from ratings and team averages.
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
+                {PLAYERS.map(function(p){
+                  const isExcluded=(game.excludedPlayerIds||[]).includes(p.id);
+                  const hasStat=(game.stats||[]).some(function(s){return s.playerId===p.id&&(s.goals>0||s.assists>0||s.shots>0||s.tackles>0||s.saves>0);});
+                  return(
+                    <button key={p.id} onClick={()=>{
+                        setGames(function(prev){return prev.map(function(g){
+                          if(g.id!==game.id) return g;
+                          const cur=g.excludedPlayerIds||[];
+                          const next=isExcluded
+                            ?cur.filter(function(id){return id!==p.id;})
+                            :[...cur,p.id];
+                          return {...g,excludedPlayerIds:next};
+                        });});
+                      }}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+                        borderRadius:9,cursor:"pointer",textAlign:"left",
+                        background:isExcluded?C.surface:C.card,
+                        border:`1px solid ${isExcluded?"#444":C.accent}`,
+                        opacity:isExcluded?0.5:1,transition:"all .15s"}}>
+                      <div style={{width:34,height:34,borderRadius:8,flexShrink:0,
+                        background:C.surface,border:`1px solid ${C.border}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:12}}>
+                        {primaryPos(p)}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{color:isExcluded?C.muted:C.text,fontWeight:700,fontSize:13}}>
+                          {p.name}
+                          {hasStat&&!isExcluded&&<span style={{color:C.accent,fontSize:10,marginLeft:6}}>has stats</span>}
+                          {!hasStat&&<span style={{color:"#555",fontSize:10,marginLeft:6}}>no stats</span>}
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,
+                        color:isExcluded?"#555":C.accent,
+                        background:isExcluded?C.surface:C.accent+"22",
+                        padding:"3px 8px",borderRadius:6}}>
+                        {isExcluded?"excluded":"playing"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={()=>setShowExcludePlayers(false)}
+                style={{width:"100%",padding:"12px",background:C.accent,border:"none",
+                  borderRadius:10,color:"#000",fontWeight:900,fontSize:15,cursor:"pointer",
+                  fontFamily:"'Oswald',sans-serif"}}>
+                Done
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── EDIT GAME MODAL (detail view) ── */}
       {editGame&&(
