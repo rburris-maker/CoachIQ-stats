@@ -4730,15 +4730,20 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
               <div style={{color:C.muted,fontSize:12,marginBottom:16}}>Toggle off players who did not play. Their stats are kept but excluded from ratings and team averages.</div>
               <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
                 {PLAYERS.map(function(p){
-                  const isExcluded=(game.excludedPlayerIds||[]).includes(p.id);
+                  const currentGame=games.find(function(g){return g.id===sel;});
+                  const isExcluded=currentGame?(currentGame.excludedPlayerIds||[]).includes(p.id):false;
                   const hasStat=(game.stats||[]).some(function(s){return s.playerId===p.id&&(s.goals>0||s.assists>0||s.shots>0||s.tackles>0||s.saves>0);});
                   return(
-                    <button key={p.id} onClick={()=>{setGames(function(prev){return prev.map(function(g){
-                      if(g.id!==game.id) return g;
-                      const cur=g.excludedPlayerIds||[];
-                      const next=isExcluded?cur.filter(function(id){return id!==p.id;}): [...cur,p.id];
-                      return {...g,excludedPlayerIds:next};
-                    });});}}
+                    <button key={p.id} onClick={()=>{
+                        var gid=game.id; var pid=p.id;
+                        setGames(function(prev){return prev.map(function(g){
+                          if(g.id!==gid) return g;
+                          const cur=g.excludedPlayerIds||[];
+                          const already=cur.includes(pid);
+                          const next=already?cur.filter(function(id){return id!==pid;}):[...cur,pid];
+                          return {...g,excludedPlayerIds:next};
+                        });});
+                      }}
                       style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:9,cursor:"pointer",textAlign:"left",
                         background:isExcluded?C.surface:C.card,border:`1px solid ${isExcluded?"#444":C.accent}`,opacity:isExcluded?0.5:1,transition:"all .15s"}}>
                       <div style={{width:34,height:34,borderRadius:8,flexShrink:0,background:C.surface,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",color:C.accent,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:12}}>{primaryPos(p)}</div>
@@ -15995,11 +16000,12 @@ function MatchReportPage(){
 
   var rows=[];
   if(isCompleted&&game.stats){
-    rows = game.stats.map(function(s){
+    var excludedIds=new Set(game.excludedPlayerIds||[]);
+    rows = game.stats.filter(function(s){return !excludedIds.has(s.playerId);}).map(function(s){
       var p=roster.find(function(r){return r.id===s.playerId;});
       var cs=game.ourScore>0&&game.theirScore===0;
-      var r=calcRating(s,p?primaryPos(p):"CM",cs);
-      return {p:p,s:s,rating:r.rating,label:r.label};
+      var r=calcRating(s,p?primaryPos(p):"MID",cs);
+      return {p:p,s:s,rating:r.rating,label:r.label,breakdown:r.breakdown};
     }).filter(function(r){return r.p;})
       .sort(function(a,b){return b.rating-a.rating;});
   }
@@ -16112,6 +16118,35 @@ function MatchReportPage(){
               );})}
             </div>
 
+            {/* Rating breakdown per player */}
+            {rows.length>0&&(
+              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",marginBottom:16,border:"1px solid #e5e0d8"}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>RATING BREAKDOWN</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+                  {rows.map(function(r,i){
+                    var bd=r.breakdown||{};
+                    var rc=r.rating>=8?"#2e7d32":r.rating>=7?"#b45a00":r.rating>=6?"#555":"#c62828";
+                    return(
+                      <div key={i} style={{background:"#faf9f7",borderRadius:10,padding:"10px 12px",border:i===0?"1px solid "+accent+"44":"1px solid #f0ede8"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                          <span style={{fontWeight:700,fontSize:12,color:"#111"}}>{r.p.name.split(" ").pop()}</span>
+                          <span style={{color:rc,fontFamily:FH,fontWeight:900,fontSize:15}}>{r.rating.toFixed(1)}</span>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                          {[{l:"ATK",v:bd.attack||0,c:"#ff6b00"},{l:"PAS",v:bd.possession||0,c:"#27a560"},{l:"DEF",v:bd.defensive||0,c:"#3b82f6"},{l:"BON",v:bd.bonus||0,c:"#f59e0b"},{l:"ERR",v:bd.errors||0,c:"#c62828"}].map(function(b){return(
+                            <div key={b.l} style={{flex:1,minWidth:36,textAlign:"center",background:b.c+"11",borderRadius:5,padding:"3px 2px"}}>
+                              <div style={{color:b.c,fontSize:10,fontWeight:700}}>{b.v>0?"+":""}{b.v.toFixed(1)}</div>
+                              <div style={{color:"#aaa",fontSize:8}}>{b.l}</div>
+                            </div>
+                          );})})
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Team live stats comparison */}
             {ts&&(ts.us||ts.them)&&(()=>{
               var uv=ts.us||{}; var tv=ts.them||{};
@@ -16159,41 +16194,45 @@ function MatchReportPage(){
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
                   PLAYER RATINGS
                 </div>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
+                <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:720}}>
                   <thead>
-                    <tr style={{borderBottom:"2px solid #e5e0d8"}}>
-                      {["#","Player","Pos","Rating","G","A","Shots","Tackles","Passes"].map(function(h){
-                        return <th key={h} style={{textAlign:"left",padding:"5px 8px",fontSize:9,
-                          letterSpacing:1,color:"#aaa",fontWeight:700}}>{h}</th>;
+                    <tr style={{background:"#faf9f7",borderBottom:"1.5px solid #e5e0d8"}}>
+                      {["#","Player","Pos","Rtg","G","A","Sh","SOT","Tck","Int","Blk","Clr","Rec","Drb","CC","50/50","Press","Foul","Yel","TO","Sv","GC","Pass✓","Pass✗","Pass%"].map(function(h,hi){
+                        return <th key={h} style={{textAlign:hi<4?"left":"center",padding:"5px 4px",fontSize:9,letterSpacing:.5,color:"#aaa",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>;
                       })}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map(function(r,i){
-                      var rc=r.rating>=8?"#2e7d32":r.rating>=6.5?"#b45a00":"#c62828";
+                      var rc=r.rating>=8?"#2e7d32":r.rating>=7?"#b45a00":r.rating>=6?"#555":"#c62828";
+                      var pa=(r.s.passesCompleted||0)+(r.s.passesIncomplete||0);
+                      var pct=pa>0?Math.round((r.s.passesCompleted||0)/pa*100):null;
+                      var pctCol=pct===null?"#ccc":pct>=75?"#2e7d32":pct>=60?"#b45a00":"#c62828";
+                      function C(v){return <td style={{padding:"5px 4px",textAlign:"center",color:v>0?"#333":"#ddd",fontSize:11}}>{v>0?v:"—"}</td>;}
                       return(
-                        <tr key={i} style={{borderBottom:"1px solid #f0ede8",
-                          background:i===0?"#fff8f5":"transparent"}}>
-                          <td style={{padding:"7px 8px",color:"#ccc",fontSize:11}}>{i+1}</td>
-                          <td style={{padding:"7px 8px",fontWeight:i===0?700:500}}>
-                            {i===0&&<span style={{color:accent,marginRight:4,fontSize:11}}>★</span>}
+                        <tr key={i} style={{borderBottom:"1px solid #f0ede8",background:i===0?"#fff8f5":i%2===0?"#fdfcfb":"transparent"}}>
+                          <td style={{padding:"5px 4px",color:"#ccc",fontSize:10}}>{i+1}</td>
+                          <td style={{padding:"5px 6px",fontWeight:i===0?700:500,fontSize:12,whiteSpace:"nowrap"}}>
+                            {i===0&&<span style={{color:accent,marginRight:3,fontSize:10}}>★</span>}
                             {r.p.name}
                           </td>
-                          <td style={{padding:"7px 8px",color:"#999",fontSize:11}}>{primaryPos(r.p)}</td>
-                          <td style={{padding:"7px 8px"}}>
-                            <span style={{background:rc+"18",color:rc,fontFamily:FH,fontWeight:900,
-                              fontSize:14,padding:"2px 8px",borderRadius:6}}>{r.rating.toFixed(1)}</span>
-                          </td>
-                          <td style={{padding:"7px 8px",fontWeight:r.s.goals>0?700:400,color:r.s.goals>0?accent:"#666"}}>{r.s.goals||0}</td>
-                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.assists||0}</td>
-                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.shots||0}</td>
-                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.tackles||0}</td>
-                          <td style={{padding:"7px 8px",color:"#666"}}>{r.s.passesCompleted||0}</td>
+                          <td style={{padding:"5px 4px",color:"#999",fontSize:10}}>{primaryPos(r.p)}</td>
+                          <td style={{padding:"5px 4px"}}><span style={{background:rc+"18",color:rc,fontFamily:FH,fontWeight:900,fontSize:13,padding:"1px 5px",borderRadius:5}}>{r.rating.toFixed(1)}</span></td>
+                          {C(r.s.goals||0)}{C(r.s.assists||0)}{C(r.s.shots||0)}{C(r.s.shotsOnTarget||0)}
+                          {C(r.s.tackles||0)}{C(r.s.interceptions||0)}{C(r.s.blocks||0)}{C(r.s.clearances||0)}
+                          {C(r.s.recoveries||0)}{C(r.s.dribbles||0)}{C(r.s.chancesCreated||r.s.keyPasses||0)}{C(r.s.fiftyFifty||r.s.aerialDuelsWon||0)}
+                          {C(r.s.pressingActions||0)}{C(r.s.fouls||0)}{C(r.s.yellowCards||0)}{C(r.s.dangerousTurnovers||0)}
+                          {C(r.s.saves||0)}{C(r.s.goalsConceded||0)}
+                          <td style={{padding:"5px 4px",textAlign:"center",color:r.s.passesCompleted>0?"#333":"#ddd",fontSize:11}}>{r.s.passesCompleted||0}</td>
+                          <td style={{padding:"5px 4px",textAlign:"center",color:(r.s.passesIncomplete||0)>0?"#c62828":"#ddd",fontSize:11}}>{r.s.passesIncomplete||0}</td>
+                          <td style={{padding:"5px 4px",textAlign:"center",color:pctCol,fontWeight:pct!==null?700:400,fontSize:11}}>{pct!==null?pct+"%":"—"}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
 
