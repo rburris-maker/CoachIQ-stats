@@ -4723,6 +4723,7 @@ function GamesView({games,setGames,teamName:activeTeamName,roster:activeRoster,t
                             {row.interceptions>0&&<span style={{marginRight:4}}>{row.interceptions}Int</span>}
                             {(row.chancesCreated||0)>0&&<span style={{marginRight:4}}>{row.chancesCreated}CC</span>}
                             {(row.dribbles||0)>0&&<span style={{marginRight:4}}>{row.dribbles}Drb</span>}
+                            {(row.dangerousTurnovers||0)>0&&<span style={{marginRight:4,color:"#e53935"}}>{row.dangerousTurnovers}TO</span>}
                           </span>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
@@ -5521,7 +5522,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     {k:"attack",    label:"Attacking",   desc:"Track goals, assists, shots, chances and dribbles",
      color:"#ef4444", stats:["goals","assists","shots","shotsOnTarget","chancesCreated","dribbles"]},
     {k:"defence",   label:"Defense",     desc:"Track tackles, interceptions, blocks, clearances and recoveries",
-     color:"#3b82f6", stats:["tackles","interceptions","blocks","clearances","recoveries","fiftyFifty","fouls"]},
+     color:"#3b82f6", stats:["tackles","interceptions","blocks","clearances","recoveries","fiftyFifty","fouls","dangerousTurnovers"]},
     {k:"passing",   label:"Passing",     desc:"Track passes, dribbles and pressing actions",
      color:"#f59e0b", stats:["passesCompleted","passesIncomplete","dribbles","pressingActions"]},
     {k:"possession",label:"Possession",  desc:"Dedicated possession tracker — full screen HOME / AWAY buttons",
@@ -5532,7 +5533,7 @@ function LiveTrackView({games,setGames,isPro,onUpgrade,roster,userId,teamId,user
     {group:"Attack",   color:"#ff6b00", stats:[{k:"goals",label:"Goal"},{k:"assists",label:"Assist"},{k:"shots",label:"Shot"},{k:"shotsOnTarget",label:"On Target"},{k:"chancesCreated",label:"Chance"}]},
     {group:"Passing",  color:"#66bb6a", stats:[{k:"passesCompleted",label:"Pass ✓"},{k:"passesIncomplete",label:"Pass ✗"},{k:"dribbles",label:"Dribble"}]},
     {group:"Defence",  color:"#42a5f5", stats:[{k:"tackles",label:"Tackle"},{k:"interceptions",label:"Int"},{k:"blocks",label:"Block"},{k:"clearances",label:"Clear"},{k:"recoveries",label:"Recover"}]},
-    {group:"Physical", color:"#ffa502", stats:[{k:"fiftyFifty",label:"50/50"},{k:"pressingActions",label:"Press"},{k:"fouls",label:"Foul"},{k:"yellowCards",label:"Yellow"}]},
+    {group:"Physical", color:"#ffa502", stats:[{k:"fiftyFifty",label:"50/50"},{k:"pressingActions",label:"Press"},{k:"fouls",label:"Foul"},{k:"yellowCards",label:"Yellow"},{k:"dangerousTurnovers",label:"Turnover"}]},
     {group:"GK",       color:"#ffb300", stats:[{k:"saves",label:"Save",gkOnly:true},{k:"goalsConceded",label:"Conceded",gkOnly:true}]},
   ];
 
@@ -17524,16 +17525,29 @@ function PlayerPortalPage(){
     return (g.stats||[]).filter(function(s){return s.playerId===playerId;});
   });
   var tots = allStats.reduce(function(acc,s){
-    return {goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
-      shots:acc.shots+(s.shots||0),tackles:acc.tackles+(s.tackles||0),
+    return {
+      goals:acc.goals+(s.goals||0),assists:acc.assists+(s.assists||0),
+      shots:acc.shots+(s.shots||0),shotsOnTarget:acc.shotsOnTarget+(s.shotsOnTarget||0),
+      chancesCreated:acc.chancesCreated+(s.chancesCreated||s.keyPasses||0),
+      dribbles:acc.dribbles+(s.dribbles||0),
+      tackles:acc.tackles+(s.tackles||0),interceptions:acc.interceptions+(s.interceptions||0),
+      blocks:acc.blocks+(s.blocks||0),clearances:acc.clearances+(s.clearances||0),
+      recoveries:acc.recoveries+(s.recoveries||0),
+      fiftyFifty:acc.fiftyFifty+(s.fiftyFifty||s.aerialDuelsWon||0),
+      pressingActions:acc.pressingActions+(s.pressingActions||0),
+      fouls:acc.fouls+(s.fouls||0),yellowCards:acc.yellowCards+(s.yellowCards||0),
+      dangerousTurnovers:acc.dangerousTurnovers+(s.dangerousTurnovers||0),
       saves:acc.saves+(s.saves||0),goalsConceded:acc.goalsConceded+(s.goalsConceded||0),
       passesCompleted:acc.passesCompleted+(s.passesCompleted||0),
-      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||0)),
-      interceptions:acc.interceptions+(s.interceptions||0),
-      minutes:acc.minutes+(s.minutesPlayed||0),
+      passesAttempted:acc.passesAttempted+((s.passesCompleted||0)+(s.passesIncomplete||s.passesAttempted||0)),
     };
-  },{goals:0,assists:0,shots:0,tackles:0,saves:0,goalsConceded:0,
-    passesCompleted:0,passesAttempted:0,interceptions:0,minutes:0});
+  },{goals:0,assists:0,shots:0,shotsOnTarget:0,chancesCreated:0,dribbles:0,
+    tackles:0,interceptions:0,blocks:0,clearances:0,recoveries:0,
+    fiftyFifty:0,pressingActions:0,fouls:0,yellowCards:0,dangerousTurnovers:0,
+    saves:0,goalsConceded:0,passesCompleted:0,passesAttempted:0});
+  var seasonPassAcc=tots.passesAttempted>0?Math.round(tots.passesCompleted/tots.passesAttempted*100):null;
+  var seasonShotAcc=tots.shots>0&&tots.shotsOnTarget>0?Math.round(tots.shotsOnTarget/tots.shots*100):null;
+  var seasonShotConv=tots.shots>0&&tots.goals>0?Math.round(tots.goals/tots.shots*100):null;
 
   var ratingList = playerGames.filter(function(g){return !g.excludeFromRating;}).map(function(g){
     var s=(g.stats||[]).find(function(x){return x.playerId===playerId;});
@@ -18417,7 +18431,7 @@ function PlayerPortalPage(){
 
             {/* Season summary */}
             <PortalCard title="Season Summary">
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
                 {(isGK
                   ?[{l:"Saves",v:tots.saves},{l:"Conceded",v:tots.goalsConceded},{l:"Games",v:playerGames.length},{l:"Avg Rtg",v:avgRating>0?avgRating.toFixed(1):"—"}]
                   :isCB
@@ -18430,6 +18444,45 @@ function PlayerPortalPage(){
                   </div>
                 );})}
               </div>
+              {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
+                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                  {seasonPassAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#f0f9f4",borderRadius:9,padding:"10px 8px",border:"1px solid #d0ead9"}}>
+                      <div style={{color:"#27a560",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonPassAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>PASS ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotAcc!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff8f0",borderRadius:9,padding:"10px 8px",border:"1px solid #fde8c8"}}>
+                      <div style={{color:"#f59e0b",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotAcc}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>SHOT ACC.</div>
+                    </div>
+                  )}
+                  {seasonShotConv!==null&&(
+                    <div style={{flex:1,minWidth:80,textAlign:"center",background:"#fff5f5",borderRadius:9,padding:"10px 8px",border:"1px solid #fecaca"}}>
+                      <div style={{color:"#e53935",fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:20}}>{seasonShotConv}%</div>
+                      <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:3}}>CONVERSION</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {playerGames.length>0&&(
+                <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
+                  {[
+                    {l:"Shots",v:tots.shots},{l:"On Target",v:tots.shotsOnTarget},
+                    {l:"Passes",v:tots.passesCompleted},{l:"Dribbles",v:tots.dribbles},
+                    {l:"Chances",v:tots.chancesCreated},{l:"Tackles",v:tots.tackles},
+                    {l:"Int",v:tots.interceptions},{l:"Blocks",v:tots.blocks},
+                    {l:"50/50s",v:tots.fiftyFifty},{l:"Presses",v:tots.pressingActions},
+                    {l:"Turnovers",v:tots.dangerousTurnovers||0},
+                  ].filter(function(x){return x.v>0;}).map(function(item){return(
+                    <div key={item.l} style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:48}}>
+                      <span style={{color:item.l==="Turnovers"?"#e53935":"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
+                      <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
+                    </div>
+                  );})}
+                </div>
+              )}
               {playerGames.length===0&&(
                 <div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>
                   Stats will appear after games are logged by your coach
@@ -18485,6 +18538,7 @@ function PlayerPortalPage(){
                                 {l:"Tackles",v:s.tackles||0},{l:"Interceptions",v:s.interceptions||0},
                                 {l:"Blocks",v:s.blocks||0},{l:"Clearances",v:s.clearances||0},
                                 {l:"50/50s",v:s.fiftyFifty||0},{l:"Presses",v:s.pressingActions||0},
+                                {l:"Turnovers",v:s.dangerousTurnovers||0},
                               ].filter(function(x){return x.v>0;});
                               if(sAcc!==null) items.push({l:"Shot Acc.",v:sAcc+"%"});
                               if(pAcc!==null) items.push({l:"Pass Acc.",v:pAcc+"%"});
@@ -19332,7 +19386,7 @@ function EditStatsModal({editStats, setEditStats, games, setGames, roster}){
     {k:"pressingActions", label:"Pressing Actions"},
     {k:"fouls",           label:"Fouls"},
     {k:"yellowCards",     label:"Yellow Cards"},
-    {k:"dangerousTurnovers",label:"Dangerous Turnovers"},
+    {k:"dangerousTurnovers",label:"Turnovers"},
     {k:"saves",           label:"Saves (GK)"},
     {k:"goalsConceded",   label:"Conceded (GK)"},
   ];
@@ -19927,7 +19981,7 @@ function LiveJoinPage(){
     {k:"tackles",label:"Tackle",color:"#3b82f6"},{k:"interceptions",label:"Int",color:"#3b82f6"},
     {k:"blocks",label:"Block",color:"#3b82f6"},{k:"clearances",label:"Clear",color:"#3b82f6"},{k:"recoveries",label:"Recover",color:"#3b82f6"},
     {k:"pressingActions",label:"Press",color:"#ffa502"},
-    {k:"fouls",label:"Foul",color:"#f59e0b"},{k:"yellowCards",label:"Yellow",color:"#f59e0b"},{k:"dangerousTurnovers",label:"D.Turn",color:"#f59e0b"},
+    {k:"fouls",label:"Foul",color:"#f59e0b"},{k:"yellowCards",label:"Yellow",color:"#f59e0b"},{k:"dangerousTurnovers",label:"Turnover",color:"#f59e0b"},
     {k:"saves",label:"Save",color:"#a855f7"},{k:"goalsConceded",label:"Conceded",color:"#ef4444"},
   ];
 
