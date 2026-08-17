@@ -3421,31 +3421,9 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
     var us=hasLiveTs?g.teamStats.us:{};
     if(!hasLiveTs&&(g.stats||[]).length){
       const ps=g.stats;
-      us={
-        passes:   ps.reduce(function(a,s){return a+(s.passesCompleted||0);},0),
-        passesInc:ps.reduce(function(a,s){return a+(s.passesIncomplete||0);},0),
-        shots:    ps.reduce(function(a,s){return a+(s.shots||0);},0),
-        onTarget: ps.reduce(function(a,s){return a+(s.shotsOnTarget||0);},0),
-        goals:    ps.reduce(function(a,s){return a+(s.goals||0);},0),
-        tackles:  ps.reduce(function(a,s){return a+(s.tackles||0);},0),
-        fouls:    ps.reduce(function(a,s){return a+(s.fouls||0);},0),
-        fifty50:  ps.reduce(function(a,s){return a+(s.fiftyFifty||0);},0),
-        turnovers:ps.reduce(function(a,s){return a+(s.dangerousTurnovers||0);},0),
-        corners:0,
-      };
+      us={passes:ps.reduce(function(a,s){return a+(s.passesCompleted||0);},0),passesInc:ps.reduce(function(a,s){return a+(s.passesIncomplete||0);},0),shots:ps.reduce(function(a,s){return a+(s.shots||0);},0),onTarget:ps.reduce(function(a,s){return a+(s.shotsOnTarget||0);},0),goals:ps.reduce(function(a,s){return a+(s.goals||0);},0),tackles:ps.reduce(function(a,s){return a+(s.tackles||0);},0),fouls:ps.reduce(function(a,s){return a+(s.fouls||0);},0),fifty50:ps.reduce(function(a,s){return a+(s.fiftyFifty||0);},0),turnovers:ps.reduce(function(a,s){return a+(s.dangerousTurnovers||0);},0),corners:0};
     }
-    return {
-      passes:    (acc.passes||0)+(us.passes||0),
-      passesInc: (acc.passesInc||0)+(us.passesInc||0),
-      shots:     (acc.shots||0)+(us.shots||0),
-      onTarget:  (acc.onTarget||0)+(us.onTarget||0),
-      goals:     (acc.goals||0)+(us.goals||0),
-      corners:   (acc.corners||0)+(us.corners||0),
-      tackles:   (acc.tackles||0)+(us.tackles||0),
-      fifty50:   (acc.fifty50||0)+(us.fifty50||0),
-      turnovers: (acc.turnovers||0)+(us.turnovers||0),
-      fouls:     (acc.fouls||0)+(us.fouls||0),
-    };
+    return {passes:(acc.passes||0)+(us.passes||0),passesInc:(acc.passesInc||0)+(us.passesInc||0),shots:(acc.shots||0)+(us.shots||0),onTarget:(acc.onTarget||0)+(us.onTarget||0),goals:(acc.goals||0)+(us.goals||0),corners:(acc.corners||0)+(us.corners||0),tackles:(acc.tackles||0)+(us.tackles||0),fifty50:(acc.fifty50||0)+(us.fifty50||0),turnovers:(acc.turnovers||0)+(us.turnovers||0),fouls:(acc.fouls||0)+(us.fouls||0)};
   },{});
   const hasTeamStats = Object.values(seasonTeamStats).some(function(v){return v>0;});
   const seasonPassAcc = (seasonTeamStats.passes+seasonTeamStats.passesInc)>0
@@ -3692,7 +3670,7 @@ function AnalyticsView({games, roster, practices, isPro, onUpgrade, safeTeamId})
             </div>
             {topDef.length>0&&(
               <>
-                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>TOP DEFENDERS (tackles + int + blocks + clearances + recoveries)</div>
+                <div style={{color:C.muted,fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:8}}>TOP DEFENDERS (tackles + int + blocks + clears + recoveries)</div>
                 {topDef.map((p,i)=>(
                   <div key={p.name} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<topDef.length-1?`1px solid ${C.border}`:"none"}}>
                     <div style={{color:C.muted,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:13,width:18,textAlign:"right"}}>{i+1}</div>
@@ -15669,6 +15647,8 @@ function GamePlanSharePage(){
   const [roster,  setRoster]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
+  const [sections, setSections] = useState({header:true,keyStats:true,ratingTable:true,breakdown:true,teamStats:true,coachNote:true});
+  function toggleSection(key){ setSections(function(prev){return {...prev,[key]:!prev[key]};}); }
 
   useEffect(()=>{
     async function load(){
@@ -16045,27 +16025,30 @@ function MatchReportPage(){
       `}</style>
 
       {/* Toolbar */}
-      <div className="no-print" style={{background:"#fff",borderBottom:"1px solid #e5e0d8",
-        padding:"10px 20px",display:"flex",alignItems:"center",gap:12,
-        position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 4px #0001"}}>
-        <button onClick={function(){window.history.back();}}
-          style={{padding:"7px 14px",border:"1px solid #ddd",borderRadius:7,
-            background:"transparent",cursor:"pointer",fontSize:13,color:"#555"}}>← Back</button>
-        <div style={{flex:1,fontWeight:700,fontSize:14,color:"#111"}}>
-          vs {game.opponent} · {fmtDate(game.date)}
+      <div className="no-print" style={{background:"#fff",borderBottom:"1px solid #e5e0d8",padding:"10px 20px",position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 4px #0001"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+          <button onClick={function(){window.history.back();}} style={{padding:"7px 14px",border:"1px solid #ddd",borderRadius:7,background:"transparent",cursor:"pointer",fontSize:13,color:"#555"}}>← Back</button>
+          <div style={{flex:1,fontWeight:700,fontSize:14,color:"#111"}}>vs {game.opponent} · {fmtDate(game.date)}</div>
+          <button onClick={function(){window.print();}} style={{padding:"8px 20px",background:accent,border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>🖨 Print / Save PDF</button>
         </div>
-        <button onClick={function(){window.print();}}
-          style={{padding:"8px 20px",background:accent,border:"none",borderRadius:8,
-            color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-          Print / Save PDF
-        </button>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:10,fontWeight:700,color:"#aaa",letterSpacing:1,marginRight:2}}>SHOW:</span>
+          {[{k:"header",l:"Header"},{k:"keyStats",l:"Key Stats"},{k:"ratingTable",l:"Player Ratings"},{k:"breakdown",l:"Breakdown"},{k:"teamStats",l:"Team Stats"},{k:"coachNote",l:"Coach Note"}].map(function(s){
+            var on=sections[s.k];
+            return(
+              <button key={s.k} onClick={function(){toggleSection(s.k);}}
+                style={{padding:"4px 10px",borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,border:"1px solid "+(on?accent:"#ddd"),background:on?accent+"18":"transparent",color:on?accent:"#aaa",transition:"all .15s"}}>
+                {on?"✓ ":""}{s.l}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div style={{maxWidth:800,margin:"0 auto",padding:"24px 20px 48px"}}>
 
         {/* ── HEADER ── */}
-        <div style={{background:"#fff",borderRadius:16,padding:"20px 24px",
-          marginBottom:16,border:"1px solid #e5e0d8",boxShadow:"0 1px 4px #0001"}}>
+        {sections.header&&<div style={{background:"#fff",borderRadius:16,padding:"20px 24px",marginBottom:16,border:"1px solid #e5e0d8",boxShadow:"0 1px 4px #0001"}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
             <div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:accent,marginBottom:4}}>
@@ -16082,24 +16065,19 @@ function MatchReportPage(){
               </div>
             </div>
             {isCompleted&&(
-              <div style={{textAlign:"right",background:resBg,borderRadius:12,
-                padding:"14px 20px",border:`2px solid ${resCol}33`}}>
-                <div style={{fontFamily:FH,fontSize:48,fontWeight:900,color:"#111",lineHeight:1}}>
-                  {game.ourScore}<span style={{color:"#ccc",fontSize:32,margin:"0 6px"}}>—</span>{game.theirScore}
-                </div>
-                <div style={{fontFamily:FH,fontSize:13,fontWeight:900,color:resCol,
-                  letterSpacing:2,marginTop:4}}>{resLabel}</div>
+              <div style={{textAlign:"right",background:resBg,borderRadius:12,padding:"14px 20px",border:`2px solid ${resCol}33`}}>
+                <div style={{fontFamily:FH,fontSize:48,fontWeight:900,color:"#111",lineHeight:1}}>{game.ourScore}<span style={{color:"#ccc",fontSize:32,margin:"0 6px"}}>—</span>{game.theirScore}</div>
+                <div style={{fontFamily:FH,fontSize:13,fontWeight:900,color:resCol,letterSpacing:2,marginTop:4}}>{resLabel}</div>
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* ── COMPLETED GAME ── */}
         {isCompleted&&(
           <>
             {/* Key stats */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",
-              gap:10,marginBottom:16}}>
+            {sections.keyStats&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:16}}>
               {[
                 {l:"Squad Rating", v:squadAvg?squadAvg+"/10":"—", c:squadAvg?rColor(squadAvg):"#888"},
                 {l:"Top Performer", v:topPlayer?topPlayer.p.name.split(" ").pop()+" ("+topPlayer.rating.toFixed(1)+")":"—", c:accent},
@@ -16110,16 +16088,15 @@ function MatchReportPage(){
                 {l:"Tackles", v:tsTacklesUs, c:"#111"},
                 {l:"Passes", v:tsPassesUs, c:"#111"},
               ].map(function(item){return(
-                <div key={item.l} style={{background:"#fff",borderRadius:12,padding:"12px 14px",
-                  border:"1px solid #e5e0d8",textAlign:"center"}}>
+                <div key={item.l} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #e5e0d8",textAlign:"center"}}>
                   <div style={{fontFamily:FH,fontWeight:900,fontSize:22,color:item.c,lineHeight:1}}>{item.v}</div>
                   <div style={{fontSize:10,fontWeight:700,color:"#888",marginTop:4,letterSpacing:.5}}>{item.l.toUpperCase()}</div>
                 </div>
-              );})}
-            </div>
+              );})})
+            </div>}
 
             {/* Rating breakdown per player */}
-            {rows.length>0&&(
+            {sections.breakdown&&rows.length>0&&(
               <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",marginBottom:16,border:"1px solid #e5e0d8"}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>RATING BREAKDOWN</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
@@ -16148,7 +16125,7 @@ function MatchReportPage(){
             )}
 
             {/* Team live stats comparison */}
-            {ts&&(ts.us||ts.them)&&(()=>{
+            {sections.teamStats&&ts&&(ts.us||ts.them)&&(()=>{
               var uv=ts.us||{}; var tv=ts.them||{};
               var items=[
                 {k:"passes",l:"Passes"},{k:"shots",l:"Shots"},{k:"goals",l:"Goals"},
@@ -16188,12 +16165,9 @@ function MatchReportPage(){
             })()}
 
             {/* Player ratings table */}
-            {rows.length>0&&(
-              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
-                marginBottom:16,border:"1px solid #e5e0d8",overflowX:"auto"}}>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>
-                  PLAYER RATINGS
-                </div>
+            {sections.ratingTable&&rows.length>0&&(
+              <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",marginBottom:16,border:"1px solid #e5e0d8",overflowX:"auto"}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:12}}>PLAYER RATINGS</div>
                 <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:720}}>
                   <thead>
@@ -16213,10 +16187,7 @@ function MatchReportPage(){
                       return(
                         <tr key={i} style={{borderBottom:"1px solid #f0ede8",background:i===0?"#fff8f5":i%2===0?"#fdfcfb":"transparent"}}>
                           <td style={{padding:"5px 4px",color:"#ccc",fontSize:10}}>{i+1}</td>
-                          <td style={{padding:"5px 6px",fontWeight:i===0?700:500,fontSize:12,whiteSpace:"nowrap"}}>
-                            {i===0&&<span style={{color:accent,marginRight:3,fontSize:10}}>★</span>}
-                            {r.p.name}
-                          </td>
+                          <td style={{padding:"5px 6px",fontWeight:i===0?700:500,fontSize:12,whiteSpace:"nowrap"}}>{i===0&&<span style={{color:accent,marginRight:3,fontSize:10}}>★</span>}{r.p.name}</td>
                           <td style={{padding:"5px 4px",color:"#999",fontSize:10}}>{primaryPos(r.p)}</td>
                           <td style={{padding:"5px 4px"}}><span style={{background:rc+"18",color:rc,fontFamily:FH,fontWeight:900,fontSize:13,padding:"1px 5px",borderRadius:5}}>{r.rating.toFixed(1)}</span></td>
                           {C(r.s.goals||0)}{C(r.s.assists||0)}{C(r.s.shots||0)}{C(r.s.shotsOnTarget||0)}
@@ -16237,7 +16208,7 @@ function MatchReportPage(){
             )}
 
             {/* Coach notes */}
-            {game.coachNotes&&(
+            {sections.coachNote&&game.coachNotes&&(
               <div style={{background:"#fff",borderRadius:14,padding:"16px 18px",
                 marginBottom:16,border:"1px solid #e5e0d8"}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:"#888",marginBottom:8}}>
@@ -18423,7 +18394,7 @@ function PlayerPortalPage(){
                     <div style={{color:A,fontFamily:"'Oswald',sans-serif",fontWeight:900,fontSize:24,lineHeight:1}}>{item.v}</div>
                     <div style={{color:"#888",fontSize:10,fontWeight:700,marginTop:4}}>{item.l.toUpperCase()}</div>
                   </div>
-                );})}
+                );})})
               </div>
               {(seasonPassAcc!==null||seasonShotAcc!==null)&&(
                 <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
@@ -18439,7 +18410,7 @@ function PlayerPortalPage(){
                       <span style={{color:item.l==="Turnovers"?"#e53935":"#111",fontWeight:700,fontSize:14}}>{item.v}</span>
                       <span style={{color:"#aaa",fontSize:10}}>{item.l}</span>
                     </div>
-                  );})}
+                  );})})
                 </div>
               )}
               {playerGames.length===0&&<div style={{textAlign:"center",padding:"16px 0",color:"#bbb",fontSize:13}}>Stats will appear after games are logged by your coach</div>}
