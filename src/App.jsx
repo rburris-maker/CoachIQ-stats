@@ -15647,9 +15647,6 @@ function GamePlanSharePage(){
   const [roster,  setRoster]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [sections, setSections] = useState({header:true,keyStats:true,ratingTable:true,breakdown:true,teamStats:true,coachNote:true});
-  function toggleSection(key){ setSections(function(prev){return {...prev,[key]:!prev[key]};}); }
-
   useEffect(()=>{
     async function load(){
       try{
@@ -15918,6 +15915,8 @@ function MatchReportPage(){
   const [gplan,   setGplan]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
+  const [sections, setSections] = useState({header:true,keyStats:true,ratingTable:true,breakdown:true,teamStats:true,coachNote:true});
+  function toggleSection(key){ setSections(function(prev){return {...prev,[key]:!prev[key]};}); }
 
   useEffect(()=>{
     async function load(){
